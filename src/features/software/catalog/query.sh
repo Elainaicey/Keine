@@ -83,6 +83,7 @@ catalog_primary_package() {
 }
 
 catalog_package_installed() {
+  [[ -n "${1:-}" ]] || return 1
   if (( CATALOG_CACHE_READY == 1 )); then
     catalog_cache_package_installed "$1"
   else
@@ -91,6 +92,7 @@ catalog_package_installed() {
 }
 
 catalog_package_installed_version() {
+  [[ -n "${1:-}" ]] || return 0
   if (( CATALOG_CACHE_READY == 1 )); then
     catalog_cache_installed_version "$1"
   else
@@ -99,6 +101,7 @@ catalog_package_installed_version() {
 }
 
 catalog_package_candidate_version() {
+  [[ -n "${1:-}" ]] || return 0
   if (( CATALOG_CACHE_READY == 1 )); then
     catalog_cache_candidate_version "$1"
   else
@@ -107,6 +110,7 @@ catalog_package_candidate_version() {
 }
 
 catalog_package_has_update() {
+  [[ -n "${1:-}" ]] || return 1
   if (( CATALOG_CACHE_READY == 1 )); then
     catalog_cache_package_has_update "$1"
   else

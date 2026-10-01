@@ -24,9 +24,9 @@ changes_path_safe() {
 changes_storage_ready() {
   local root
   root="$(changes_root)"
-  safe_toolkit_path "$root" && [[ "$(readlink -m -- "$root")" == "$root" ]] || {
-    warn "变更记录路径不安全：$root"; return 1;
-  }
+  if ! safe_toolkit_path "$root" || [[ "$(readlink -m -- "$root")" != "$root" ]]; then
+    warn "变更记录路径不安全：$root"; return 1
+  fi
   mkdir -p "$root/files" "$root/packages" "$root/settings" || return 1
   chmod 0700 "$root" "$root/files" "$root/packages" "$root/settings"
 }
@@ -117,7 +117,9 @@ changes_file_status() {
   done
   [[ -f "$entry/path" && -f "$entry/last" && -f "$entry/before" ]] || { printf 'invalid'; return; }
   path="$(<"$entry/path")"
-  changes_path_safe "$path" && [[ "$entry" == "$(changes_file_entry "$path")" ]] || { printf 'invalid'; return; }
+  if ! changes_path_safe "$path" || [[ "$entry" != "$(changes_file_entry "$path")" ]]; then
+    printf 'invalid'; return
+  fi
   current="$(changes_fingerprint "$path")" || { printf 'conflict'; return; }
   if [[ "$current" == "$(<"$entry/before")" ]]; then printf 'unchanged'
   elif [[ "$current" == "$(<"$entry/last")" ]]; then printf 'ready'

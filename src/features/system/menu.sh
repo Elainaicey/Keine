@@ -10,13 +10,15 @@ system_menu() {
     ui_item 2 "资源压力分析" "负载、内存、空间、inode 与 OOM"
     ui_item 3 "进程与资源" "高占用排行、详情、优先级与终止信号"
     ui_item 4 "重启与内核状态" "运行内核、重启提示与启动历史"
-    ui_item 5 "软件包健康中心" "更新、安全补丁、hold、来源、修复与缓存"
+    ui_item 5 "系统更新" "预览并更新当前发行版；不跨版本、不自动重启"
     ui_item 6 "存储中心" "分类占用、最大文件、挂载、fstab 与已删除占用"
     ui_section "基础设置" "accent"
     ui_item 7 "Swap 管理" "状态、创建、即时启停与托管文件删除"
     ui_item 8 "修改主机名"
     ui_item 9 "修改时区"
     ui_item 10 "时间同步" "NTP 状态与同步服务控制"
+    ui_section "软件包维护" "warning"
+    ui_item 11 "软件包健康中心" "安全更新、hold、来源、修复与缓存"
     ui_item 0 "返回"
     choice="$(read_input "请选择" "0")"
     case "$choice" in
@@ -24,12 +26,13 @@ system_menu() {
       2) system_pressure ;;
       3) system_processes; continue ;;
       4) system_reboot_status ;;
-      5) system_package_health; continue ;;
+      5) system_update_menu; continue ;;
       6) system_disk_usage; continue ;;
       7) system_swap_manage; continue ;;
       8) system_set_hostname || true ;;
       9) system_set_timezone || true ;;
       10) system_time_sync || true ;;
+      11) system_package_health; continue ;;
       0) return 0 ;;
       *) warn "未知选项：$choice"; continue ;;
     esac

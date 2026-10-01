@@ -31,7 +31,7 @@ catalog_cache_packages() {
 }
 
 catalog_cache_build() {
-  local package version line current=""
+  local package status version line current="" native_arch="${ARCH:-}"
   local packages=()
   (( CATALOG_CACHE_READY == 0 )) || return 0
   # 精简测试环境或受损系统缺少 dpkg-query 时保留逐项后备路径。
@@ -39,10 +39,15 @@ catalog_cache_build() {
   CATALOG_INSTALLED_VERSION_CACHE=()
   CATALOG_CANDIDATE_VERSION_CACHE=()
   CATALOG_UPGRADABLE_CACHE=()
+  [[ -n "$native_arch" ]] || native_arch="$(dpkg --print-architecture 2>/dev/null || true)"
 
-  while IFS='|' read -r package version; do
-    [[ -n "$package" ]] && CATALOG_INSTALLED_VERSION_CACHE["$package"]="$version"
-  done < <(dpkg-query -W -f='${Package}|${Version}\n' 2>/dev/null || true)
+  while IFS='|' read -r package status version; do
+    [[ -n "$package" && "$status" == installed && -n "$version" ]] || continue
+    CATALOG_INSTALLED_VERSION_CACHE["$package"]="$version"
+    if [[ -n "$native_arch" && "$package" == *":$native_arch" ]]; then
+      CATALOG_INSTALLED_VERSION_CACHE["${package%:*}"]="$version"
+    fi
+  done < <(dpkg-query -W -f='${binary:Package}|${db:Status-Status}|${Version}\n' 2>/dev/null || true)
   if command_exists apt; then
     while IFS= read -r line; do
       package="${line%%/*}"
@@ -63,19 +68,23 @@ catalog_cache_build() {
 }
 
 catalog_cache_package_installed() {
+  [[ -n "${1:-}" ]] || return 1
   [[ -n "${CATALOG_INSTALLED_VERSION_CACHE[$1]:-}" ]]
 }
 
 catalog_cache_installed_version() {
+  [[ -n "${1:-}" ]] || return 0
   printf '%s' "${CATALOG_INSTALLED_VERSION_CACHE[$1]:-}"
 }
 
 catalog_cache_candidate_version() {
+  [[ -n "${1:-}" ]] || return 0
   printf '%s' "${CATALOG_CANDIDATE_VERSION_CACHE[$1]:-}"
 }
 
 catalog_cache_package_has_update() {
-  local package="$1" installed candidate
+  local package="${1:-}" installed candidate
+  [[ -n "$package" ]] || return 1
   [[ -n "${CATALOG_UPGRADABLE_CACHE[$package]:-}" ]] && return 0
   installed="${CATALOG_INSTALLED_VERSION_CACHE[$package]:-}"
   candidate="${CATALOG_CANDIDATE_VERSION_CACHE[$package]:-}"

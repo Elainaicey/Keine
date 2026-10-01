@@ -1,178 +1,297 @@
 # id|category|name|description|apt packages|handler
-ca-certificates|基础|CA 证书|HTTPS 连接所需的根证书|ca-certificates|
-curl|基础|curl|HTTP 下载和 API 请求工具|curl|
-wget|基础|wget|文件下载工具|wget|
-git|基础|Git|版本控制工具|git|
-jq|基础|jq|JSON 命令行处理器|jq|
-vim|基础|Vim|终端文本编辑器|vim|
-nano|基础|Nano|简单的终端文本编辑器|nano|
-tmux|基础|tmux|终端会话复用工具|tmux|
-htop|基础|htop|交互式进程查看器|htop|
-lsof|基础|lsof|查看文件和端口占用|lsof|
-unzip|基础|unzip|ZIP 解压工具|unzip|
-zip|基础|zip|ZIP 压缩工具|zip|
-rsync|基础|rsync|增量文件同步工具|rsync|
-gnupg|基础|GnuPG|密钥、签名与加密工具|gnupg|
-acl|基础|ACL 工具|管理文件系统访问控制列表|acl|
-psmisc|基础|psmisc|提供 pstree、killall 和 fuser|psmisc|
-pv|基础|pv|显示管道数据传输进度|pv|
-screen|基础|GNU Screen|终端会话复用工具|screen|
-mc|基础|Midnight Commander|终端双栏文件管理器|mc|
-zstd|基础|Zstandard|高性能压缩工具|zstd|
-xz-utils|基础|XZ Utils|XZ 与 LZMA 压缩工具|xz-utils|
-bc|基础|bc|命令行高精度计算器|bc|
-bzip2|基础|bzip2|bzip2 压缩与解压工具|bzip2|
-file|基础|file|识别文件类型与内容格式|file|
-less|基础|less|分页浏览文本与命令输出|less|
-man-db|基础|man-db|系统手册页查询工具|man-db|
-locales|基础|Locales|系统语言与区域设置数据|locales|
-bash-completion|基础|Bash Completion|为 Bash 提供可扩展的命令补全|bash-completion|
-dos2unix|基础|dos2unix|转换 Unix 与 Windows 文本换行格式|dos2unix|
-moreutils|基础|moreutils|补充 sponge、ts、chronic 等 Unix 实用工具|moreutils|
-ripgrep|命令行|ripgrep|高速文本搜索工具，优先使用官方稳定版|ripgrep|official_release
-fd|命令行|fd|现代文件查找工具，优先使用官方稳定版|fd-find|official_release
-bat|命令行|bat|带语法高亮的文件查看器，优先使用官方稳定版|bat|official_release
-fzf|命令行|fzf|通用模糊查找器，优先使用官方稳定版|fzf|official_release
-eza|命令行|eza|现代化 ls 替代工具，来自项目官方 Release||official_release
-zoxide|命令行|zoxide|学习使用习惯的智能目录跳转工具||official_release
-fastfetch|命令行|Fastfetch|快速展示系统和硬件信息的现代工具||official_release
-tree|命令行|tree|以树形显示目录|tree|
-neovim|命令行|Neovim|现代 Vim 编辑器|neovim|
-shellcheck|命令行|ShellCheck|Shell 脚本静态分析工具，来自官方稳定版|shellcheck|official_release
-git-lfs|命令行|Git LFS|Git 大文件存储扩展|git-lfs|
-ag|命令行|The Silver Searcher|面向代码的高速文本搜索工具|silversearcher-ag|
-parallel|命令行|GNU Parallel|并行执行批量命令|parallel|
-entr|命令行|entr|文件变化时自动运行命令|entr|
-direnv|命令行|direnv|按目录加载开发环境变量|direnv|
-aria2|命令行|aria2|多协议并行下载工具|aria2|
-httpie|命令行|HTTPie|面向人类的 HTTP 命令行客户端|httpie|
-lazygit|命令行|Lazygit|交互式 Git 终端界面，来自项目官方 Release||official_release
-git-delta|命令行|Delta|为 Git diff 提供语法高亮与更清晰的差异展示||official_release
-mtr|网络|mtr|网络链路诊断工具|mtr-tiny|
-traceroute|网络|traceroute|路由跟踪工具|traceroute|
-whois|网络|whois|域名和 IP 信息查询|whois|
-socat|网络|socat|双向数据转发工具|socat|
-nmap|网络|Nmap|端口和主机扫描工具|nmap|
-iperf3|网络|iperf3|网络吞吐测试工具|iperf3|
-dnsutils|网络|DNS 工具|dig 和 nslookup 等 DNS 工具|dnsutils|
-tcpdump|网络|tcpdump|网络抓包工具|tcpdump|
-net-tools|网络|net-tools|ifconfig 和 netstat 等传统工具|net-tools|
-ping|网络|ping|ICMP 连通性测试工具|iputils-ping|
-ethtool|网络|ethtool|查看和配置网卡参数|ethtool|
-netcat|网络|Netcat|TCP 与 UDP 连接调试工具|netcat-openbsd|
-nftables|网络|nftables|Linux 原生包过滤管理工具|nftables|
-wireguard-tools|网络|WireGuard 工具|WireGuard VPN 命令行工具|wireguard-tools|
-conntrack|网络|Conntrack|查看内核连接跟踪表|conntrack|
-openssh-client|网络|OpenSSH Client|SSH、SCP 与 SFTP 客户端工具|openssh-client|
-sshpass|网络|sshpass|为兼容场景提供非交互式 SSH 密码输入|sshpass|
-autossh|网络|AutoSSH|自动监测并重连 SSH 隧道|autossh|
-iproute2|网络|iproute2|现代 Linux 网络配置与路由工具集|iproute2|
-bridge-utils|网络|Bridge Utils|管理 Linux 以太网桥|bridge-utils|
-vlan|网络|VLAN|配置 802.1Q VLAN 网络接口|vlan|
-bmon|网络|bmon|实时网络带宽监控与统计工具|bmon|
-vnstat|网络|vnStat|持久化记录网卡流量统计|vnstat|
-nethogs|网络|NetHogs|按进程查看实时网络带宽占用|nethogs|
-ipcalc|网络|ipcalc|计算 IPv4 网络、掩码和地址范围|ipcalc|
-ngrep|网络|ngrep|按文本或正则表达式检查网络数据包|ngrep|
-swaks|网络|Swaks|SMTP 协议测试和邮件投递诊断工具|swaks|
-proxychains4|网络|ProxyChains|通过代理链运行网络客户端|proxychains4|
-sshfs|网络|SSHFS|通过 SSH 挂载远程文件系统（需系统允许 FUSE）|sshfs|
-sysstat|监控|sysstat|sar 和 iostat 性能统计工具|sysstat|
-iotop|监控|iotop|磁盘 IO 监控工具|iotop|
-iftop|监控|iftop|实时网络流量监控|iftop|
-ncdu|监控|ncdu|磁盘占用分析工具|ncdu|
-bottom|监控|bottom|跨平台终端资源监控器，命令为 btm||official_release
-dust|监控|dust|直观展示目录空间占用的 du 替代工具||official_release
-duf|监控|duf|现代化磁盘使用情况查看工具||official_release
-strace|监控|strace|系统调用跟踪工具|strace|
-nload|监控|nload|网卡流量监控工具|nload|
-atop|监控|atop|系统与进程历史性能监控|atop|
-smartmontools|监控|smartmontools|磁盘 SMART 健康检查工具|smartmontools|
-lm-sensors|监控|lm-sensors|硬件传感器读取工具|lm-sensors|
-inotify-tools|监控|inotify-tools|文件系统事件监控工具|inotify-tools|
-needrestart|监控|needrestart|检查更新后需要重启的服务与会话|needrestart|
-logwatch|监控|Logwatch|汇总并分析系统日志报告|logwatch|
-fio|监控|fio|存储 I/O 基准测试工具（运行测试会产生磁盘负载）|fio|
-rclone|备份|rclone|云存储同步工具|rclone|
-restic|备份|restic|加密增量备份工具|restic|
-borgbackup|备份|BorgBackup|去重备份工具|borgbackup|
-ufw|安全|UFW|简单的主机防火墙|ufw|
-fail2ban|安全|Fail2ban|登录暴力破解防护|fail2ban|
-openssl|安全|OpenSSL|TLS 和证书工具|openssl|
-auditd|安全|auditd|Linux 审计日志服务|auditd|
-apparmor-utils|安全|AppArmor 工具|管理和诊断 AppArmor 策略|apparmor-utils|
-debsums|安全|debsums|校验已安装软件包文件完整性|debsums|
-lynis|安全|Lynis|系统安全审计工具|lynis|
-clamav|安全|ClamAV|开源恶意软件扫描引擎|clamav|
-rkhunter|安全|Rootkit Hunter|检查常见 Rootkit 与可疑系统变化|rkhunter|
-chkrootkit|安全|chkrootkit|扫描常见 Rootkit 痕迹|chkrootkit|
-pass|安全|pass|基于 GnuPG 的命令行密码管理器|pass|
-age|安全|age|简单、现代的文件加密工具|age|
-gcc|开发|GCC|C 编译器|gcc|
-gpp|开发|G++|C++ 编译器|g++|
-make|开发|Make|经典构建工具|make|
-cmake|开发|CMake|跨平台构建系统|cmake|
-ninja|开发|Ninja|高速构建工具|ninja-build|
-pkg-config|开发|pkg-config|查找编译依赖信息|pkg-config|
-build-essential|开发|build-essential|Debian 与 Ubuntu 标准编译工具集合|build-essential|
-python-dev|开发|Python 3 开发文件|构建 Python 原生扩展所需头文件|python3-dev|
-clang|开发|Clang|LLVM 项目的 C 与 C++ 编译器|clang|
-lldb|开发|LLDB|LLVM 项目的原生代码调试器|lldb|
-gdb|开发|GDB|GNU 原生程序调试器|gdb|
-valgrind|开发|Valgrind|内存错误与性能分析工具|valgrind|
-autoconf|开发|Autoconf|生成可移植 configure 构建脚本|autoconf|
-automake|开发|Automake|生成标准 Makefile 构建文件|automake|
-libtool|开发|GNU Libtool|管理可移植共享库构建|libtool|
-meson|开发|Meson|现代化的高性能构建系统|meson|
-hyperfine|开发|hyperfine|支持统计分析的命令行基准测试工具||official_release
-just|开发|just|面向项目命令的现代任务运行器||official_release
-gh|开发|GitHub CLI|官方稳定版 GitHub 仓库与协作管理工具|gh|official_release
-tig|开发|tig|Git 仓库历史与差异的终端浏览器|tig|
-yamllint|开发|yamllint|YAML 语法与风格检查工具|yamllint|
-shfmt|开发|shfmt|Shell 脚本格式化工具|shfmt|
-universal-ctags|开发|Universal Ctags|为多种语言生成代码符号索引|universal-ctags|
-ccache|开发|ccache|缓存编译结果以缩短重复构建时间|ccache|
-actionlint|开发|actionlint|GitHub Actions 工作流静态检查工具||official_release
-python|运行时|Python 3|Python 3 解释器|python3|
-pip|运行时|pip|Python 包管理器|python3-pip|
-python-venv|运行时|Python venv|Python 虚拟环境支持|python3-venv|
-pipx|运行时|pipx|隔离安装 Python 命令行程序|pipx|
-node|运行时|Node.js|Node.js 运行时|nodejs|
-npm|运行时|npm|Node.js 包管理器|npm|
-go|运行时|Go|Go 编译器和工具链|golang-go|
-rust|运行时|Rust|Rust 编译器|rustc|
-cargo|运行时|Cargo|Rust 包管理器|cargo|
-java|运行时|OpenJDK|默认 Java 开发环境|default-jdk|
-php|运行时|PHP CLI|PHP 命令行运行时|php-cli|
-php-fpm|运行时|PHP-FPM|PHP FastCGI 服务|php-fpm|
-ruby|运行时|Ruby|Ruby 完整运行与开发环境|ruby-full|
-composer|运行时|Composer|PHP 依赖管理工具|composer|
-perl|运行时|Perl|Perl 语言解释器与核心模块|perl|
-lua|运行时|Lua|轻量级 Lua 语言解释器|lua5.3|
-nginx|服务|Nginx|Web 服务器和反向代理|nginx|
-caddy|服务|Caddy|从官方仓库安装 Caddy||caddy_official
-redis|服务|Redis|内存缓存和数据存储|redis-server|
-postgresql|服务|PostgreSQL|PostgreSQL 数据库服务器|postgresql|
-postgresql-contrib|服务|PostgreSQL 扩展|PostgreSQL 常用扩展|postgresql-contrib|
-mariadb|服务|MariaDB|MariaDB 数据库服务器|mariadb-server|
-sqlite|服务|SQLite|SQLite 命令行工具|sqlite3|
-apache|服务|Apache HTTP Server|通用 Web 服务器|apache2|
-haproxy|服务|HAProxy|高性能 TCP 与 HTTP 负载均衡器|haproxy|
-memcached|服务|Memcached|内存对象缓存服务|memcached|
-dnsmasq|服务|dnsmasq|轻量 DNS 缓存与 DHCP 服务|dnsmasq|
-bind9|服务|BIND 9|权威与递归 DNS 服务器|bind9|
-certbot|服务|Certbot|Let's Encrypt ACME 证书客户端|certbot|
-certbot-nginx|服务|Certbot Nginx 插件|使用 Nginx 完成 ACME 证书验证与部署|python3-certbot-nginx|
-certbot-apache|服务|Certbot Apache 插件|使用 Apache 完成 ACME 证书验证与部署|python3-certbot-apache|
-lighttpd|服务|Lighttpd|轻量级 Web 服务器|lighttpd|
-vsftpd|服务|vsftpd|注重安全的 FTP 服务器|vsftpd|
-samba|服务|Samba|SMB/CIFS 文件与打印共享服务|samba|
-mosquitto|服务|Mosquitto|轻量级 MQTT 消息代理|mosquitto|
-postgresql-client|数据库|PostgreSQL 客户端|psql 等 PostgreSQL 客户端工具|postgresql-client|
-mariadb-client|数据库|MariaDB 客户端|MariaDB 与 MySQL 客户端工具|mariadb-client|
-redis-tools|数据库|Redis 工具|redis-cli 等 Redis 客户端工具|redis-tools|
-docker|容器|Docker Engine|从 Docker 官方仓库安装 Engine 和 Compose||docker_official
-podman|容器|Podman|无守护进程 OCI 容器引擎|podman|
-buildah|容器|Buildah|构建 OCI 容器镜像|buildah|
-skopeo|容器|Skopeo|检查和复制容器镜像|skopeo|
-lazydocker|容器|Lazydocker|以终端界面查看和管理 Docker 资源||official_release
+# 按主要用途分类；一项对应一个安装目标，依赖与运行影响在安装前预览。
+# 系统基础
+psmisc|系统基础|psmisc|提供 pstree、killall 和 fuser|psmisc|
+bc|系统基础|bc|命令行高精度计算器|bc|
+file|系统基础|file|识别文件类型与内容格式|file|
+man-db|系统基础|man-db|系统手册页查询工具|man-db|
+locales|系统基础|Locales|系统语言与区域设置数据|locales|
+needrestart|系统基础|needrestart|检查更新后需要重启的服务与会话|needrestart|
+fastfetch|系统基础|Fastfetch|快速展示系统和硬件信息的现代工具||official_release
+procps|系统基础|procps|ps、top、free、vmstat 等标准资源工具|procps|
+util-linux|系统基础|util-linux|lsblk、findmnt、flock 等标准系统工具|util-linux|
+pciutils|系统基础|PCI 工具|查看 PCI 硬件与驱动|pciutils|
+usbutils|系统基础|USB 工具|查看 USB 设备|usbutils|
+lshw|系统基础|lshw|查看硬件与虚拟设备信息|lshw|
+dmidecode|系统基础|dmidecode|查看固件硬件信息，部分 VPS 不支持|dmidecode|
+apt-file|系统基础|apt-file|查询包中文件，首次使用需更新专用索引|apt-file|
+debian-goodies|系统基础|Debian Goodies|checkrestart、dpigs 等软件包辅助工具|debian-goodies|
+logrotate|系统基础|Logrotate|日志轮换工具，安装后可能启用调度|logrotate|
+chrony|系统基础|Chrony|时间同步服务，可能替换现有同步组件|chrony|
+# 终端与编辑器
+vim|终端与编辑器|Vim|终端文本编辑器|vim|
+nano|终端与编辑器|Nano|简单的终端文本编辑器|nano|
+tmux|终端与编辑器|tmux|终端会话复用工具|tmux|
+screen|终端与编辑器|GNU Screen|终端会话复用工具|screen|
+mc|终端与编辑器|Midnight Commander|终端双栏文件管理器|mc|
+less|终端与编辑器|less|分页浏览文本与命令输出|less|
+bash-completion|终端与编辑器|Bash Completion|为 Bash 提供可扩展的命令补全|bash-completion|
+neovim|终端与编辑器|Neovim|现代 Vim 编辑器|neovim|
+zoxide|终端与编辑器|zoxide|学习使用习惯的智能目录跳转工具||official_release
+eza|终端与编辑器|eza|现代化 ls 替代工具，来自项目官方 Release||official_release
+micro|终端与编辑器|Micro|支持鼠标与常用快捷键的终端编辑器|micro|
+joe|终端与编辑器|JOE|轻量终端文本编辑器|joe|
+reptyr|终端与编辑器|reptyr|将已有进程接入终端，需要 ptrace 权限|reptyr|
+expect|终端与编辑器|Expect|脚本化控制交互式命令行程序|expect|
+# 文件与存储
+unzip|文件与存储|unzip|ZIP 解压工具|unzip|
+zip|文件与存储|zip|ZIP 压缩工具|zip|
+acl|文件与存储|ACL 工具|管理文件系统访问控制列表|acl|
+pv|文件与存储|pv|显示管道数据传输进度|pv|
+zstd|文件与存储|Zstandard|高性能压缩工具|zstd|
+xz-utils|文件与存储|XZ Utils|XZ 与 LZMA 压缩工具|xz-utils|
+bzip2|文件与存储|bzip2|bzip2 压缩与解压工具|bzip2|
+tree|文件与存储|tree|以树形显示目录|tree|
+ncdu|文件与存储|ncdu|磁盘占用分析工具|ncdu|
+dust|文件与存储|dust|直观展示目录空间占用的 du 替代工具||official_release
+duf|文件与存储|duf|现代化磁盘使用情况查看工具||official_release
+smartmontools|文件与存储|smartmontools|磁盘 SMART 健康检查工具|smartmontools|
+tar|文件与存储|GNU tar|创建与解包 tar 归档|tar|
+gzip|文件与存储|gzip|gzip 压缩与解压工具|gzip|
+parted|文件与存储|GNU Parted|分区管理，写操作具有数据风险|parted|
+gdisk|文件与存储|GPT fdisk|GPT 分区管理，写操作具有数据风险|gdisk|
+e2fsprogs|文件与存储|Ext 文件系统工具|检查与维护 ext2/3/4 文件系统|e2fsprogs|
+xfsprogs|文件与存储|XFS 工具|检查与维护 XFS 文件系统|xfsprogs|
+btrfs-progs|文件与存储|Btrfs 工具|检查与维护 Btrfs 文件系统|btrfs-progs|
+lvm2|文件与存储|LVM2|逻辑卷管理，可能启动卷监测服务|lvm2|
+mdadm|文件与存储|mdadm|软件 RAID 管理，可能启用阵列监测|mdadm|
+fuse3|文件与存储|FUSE 3|用户态文件系统挂载辅助工具|fuse3|
+testdisk|文件与存储|TestDisk|分区与文件恢复，写入前应备份磁盘|testdisk|
+gdrescue|文件与存储|GNU ddrescue|复制损坏介质数据，目标盘会被写入|gddrescue|
+# 文本与搜索
+jq|文本与搜索|jq|JSON 命令行处理器|jq|
+ripgrep|文本与搜索|ripgrep|高速文本搜索工具，优先使用官方稳定版|ripgrep|official_release
+fd|文本与搜索|fd|现代文件查找工具，优先使用官方稳定版|fd-find|official_release
+bat|文本与搜索|bat|带语法高亮的文件查看器，优先使用官方稳定版|bat|official_release
+fzf|文本与搜索|fzf|通用模糊查找器，优先使用官方稳定版|fzf|official_release
+ag|文本与搜索|The Silver Searcher|面向代码的高速文本搜索工具|silversearcher-ag|
+parallel|文本与搜索|GNU Parallel|并行执行批量命令|parallel|
+entr|文本与搜索|entr|文件变化时自动运行命令|entr|
+dos2unix|文本与搜索|dos2unix|转换 Unix 与 Windows 文本换行格式|dos2unix|
+moreutils|文本与搜索|moreutils|补充 sponge、ts、chronic 等 Unix 实用工具|moreutils|
+inotify-tools|文本与搜索|inotify-tools|文件系统事件监控工具|inotify-tools|
+miller|文本与搜索|Miller|处理 CSV、TSV 与 JSON 文本|miller|
+xmlstarlet|文本与搜索|XMLStarlet|查询、转换和校验 XML|xmlstarlet|
+datamash|文本与搜索|GNU Datamash|文本表格分组与统计|datamash|
+rename|文本与搜索|rename|按 Perl 表达式批量重命名文件|rename|
+recode|文本与搜索|Recode|转换文本字符编码|recode|
+# 网络诊断
+mtr|网络诊断|mtr|网络链路诊断工具|mtr-tiny|
+traceroute|网络诊断|traceroute|路由跟踪工具|traceroute|
+whois|网络诊断|whois|域名和 IP 信息查询|whois|
+socat|网络诊断|socat|双向数据转发工具|socat|
+nmap|网络诊断|Nmap|端口和主机扫描工具|nmap|
+iperf3|网络诊断|iperf3|网络吞吐测试工具|iperf3|
+dnsutils|网络诊断|DNS 工具|dig 和 nslookup 等 DNS 工具|dnsutils|
+tcpdump|网络诊断|tcpdump|网络抓包工具|tcpdump|
+net-tools|网络诊断|net-tools|ifconfig 和 netstat 等传统工具|net-tools|
+ping|网络诊断|ping|ICMP 连通性测试工具|iputils-ping|
+ethtool|网络诊断|ethtool|查看和配置网卡参数|ethtool|
+netcat|网络诊断|Netcat|TCP 与 UDP 连接调试工具|netcat-openbsd|
+conntrack|网络诊断|Conntrack|查看内核连接跟踪表|conntrack|
+iproute2|网络诊断|iproute2|现代 Linux 网络配置与路由工具集|iproute2|
+bridge-utils|网络诊断|Bridge Utils|管理 Linux 以太网桥|bridge-utils|
+vlan|网络诊断|VLAN|配置 802.1Q VLAN 网络接口|vlan|
+ipcalc|网络诊断|ipcalc|计算 IPv4 网络、掩码和地址范围|ipcalc|
+ngrep|网络诊断|ngrep|按文本或正则表达式检查网络数据包|ngrep|
+swaks|网络诊断|Swaks|SMTP 协议测试和邮件投递诊断工具|swaks|
+httpie|网络诊断|HTTPie|面向人类的 HTTP 命令行客户端|httpie|
+fping|网络诊断|fping|批量检查主机 ICMP 连通性|fping|
+arping|网络诊断|arping|检查本地链路 ARP 连通性|arping|
+tracepath|网络诊断|tracepath|探测网络路径与路径 MTU|iputils-tracepath|
+tshark|网络诊断|TShark|命令行抓包与协议分析|tshark|
+ipset|网络诊断|IPSet|管理内核 IP 地址与网络集合|ipset|
+ipvsadm|网络诊断|IPVS 工具|管理内核虚拟服务器与负载均衡|ipvsadm|
+iptraf-ng|网络诊断|IPTraf-ng|交互式网络流量与连接统计|iptraf-ng|
+ncat|网络诊断|Ncat|支持 TLS 与代理的连接调试工具|ncat|
+telnet|网络诊断|Telnet 客户端|明文 TCP 调试，不用于安全远程登录|telnet|
+# 远程连接与传输
+curl|远程连接与传输|curl|HTTP 下载和 API 请求工具|curl|
+wget|远程连接与传输|wget|文件下载工具|wget|
+aria2|远程连接与传输|aria2|多协议并行下载工具|aria2|
+openssh-client|远程连接与传输|OpenSSH Client|SSH、SCP 与 SFTP 客户端工具|openssh-client|
+sshpass|远程连接与传输|sshpass|为兼容场景提供非交互式 SSH 密码输入|sshpass|
+autossh|远程连接与传输|AutoSSH|自动监测并重连 SSH 隧道|autossh|
+proxychains4|远程连接与传输|ProxyChains|通过代理链运行网络客户端|proxychains4|
+sshfs|远程连接与传输|SSHFS|通过 SSH 挂载远程文件系统（需系统允许 FUSE）|sshfs|
+wireguard-tools|远程连接与传输|WireGuard 工具|WireGuard VPN 命令行工具|wireguard-tools|
+vsftpd|远程连接与传输|vsftpd|注重安全的 FTP 服务器|vsftpd|
+samba|远程连接与传输|Samba|SMB/CIFS 文件与打印共享服务|samba|
+mosh|远程连接与传输|Mosh|远程终端，需双方安装并放行 UDP|mosh|
+sshuttle|远程连接与传输|sshuttle|通过 SSH 按需转发流量|sshuttle|
+lftp|远程连接与传输|lftp|FTP、SFTP 与 HTTP 文件传输客户端|lftp|
+cifs-utils|远程连接与传输|CIFS 工具|挂载 SMB/CIFS 文件共享|cifs-utils|
+nfs-common|远程连接与传输|NFS 客户端|挂载 NFS 共享，可能引入 RPC 服务|nfs-common|
+nfs-server|远程连接与传输|NFS 服务端|提供 NFS 共享，需核实访问控制|nfs-kernel-server|
+openvpn|远程连接与传输|OpenVPN|VPN 工具，不自动创建连接配置|openvpn|
+openconnect|远程连接与传输|OpenConnect|多协议 SSL VPN 客户端|openconnect|
+# 性能与排障
+htop|性能与排障|htop|交互式进程查看器|htop|
+lsof|性能与排障|lsof|查看文件和端口占用|lsof|
+sysstat|性能与排障|sysstat|sar 和 iostat 性能统计工具|sysstat|
+iotop|性能与排障|iotop|磁盘 IO 监控工具|iotop|
+iftop|性能与排障|iftop|实时网络流量监控|iftop|
+bottom|性能与排障|bottom|跨平台终端资源监控器，命令为 btm||official_release
+strace|性能与排障|strace|系统调用跟踪工具|strace|
+nload|性能与排障|nload|网卡流量监控工具|nload|
+atop|性能与排障|atop|系统与进程历史性能监控|atop|
+lm-sensors|性能与排障|lm-sensors|硬件传感器读取工具|lm-sensors|
+fio|性能与排障|fio|存储 I/O 基准测试工具（运行测试会产生磁盘负载）|fio|
+bmon|性能与排障|bmon|实时网络带宽监控与统计工具|bmon|
+vnstat|性能与排障|vnStat|持久化记录网卡流量统计|vnstat|
+nethogs|性能与排障|NetHogs|按进程查看实时网络带宽占用|nethogs|
+hyperfine|性能与排障|hyperfine|支持统计分析的命令行基准测试工具||official_release
+logwatch|性能与排障|Logwatch|汇总并分析系统日志报告|logwatch|
+btop|性能与排障|btop|交互式 CPU、内存、进程与磁盘视图|btop|
+glances|性能与排障|Glances|综合资源视图，项目不启用 Web 或后台模式|glances|
+lnav|性能与排障|lnav|日志格式识别与交互式查询|lnav|
+multitail|性能与排障|MultiTail|同时查看多个日志|multitail|
+ltrace|性能与排障|ltrace|跟踪动态库调用|ltrace|
+stress-ng|性能与排障|stress-ng|资源压力测试，运行时会产生负载|stress-ng|
+sysbench|性能与排障|Sysbench|CPU、内存、I/O 与数据库基准测试|sysbench|
+# 安全与证书
+ca-certificates|安全与证书|CA 证书|HTTPS 连接所需的根证书|ca-certificates|
+gnupg|安全与证书|GnuPG|密钥、签名与加密工具|gnupg|
+nftables|安全与证书|nftables|Linux 原生包过滤管理工具|nftables|
+ufw|安全与证书|UFW|简单的主机防火墙|ufw|
+fail2ban|安全与证书|Fail2ban|登录暴力破解防护|fail2ban|
+openssl|安全与证书|OpenSSL|TLS 和证书工具|openssl|
+auditd|安全与证书|auditd|Linux 审计日志服务|auditd|
+apparmor-utils|安全与证书|AppArmor 工具|管理和诊断 AppArmor 策略|apparmor-utils|
+debsums|安全与证书|debsums|校验已安装软件包文件完整性|debsums|
+lynis|安全与证书|Lynis|系统安全审计工具|lynis|
+clamav|安全与证书|ClamAV|开源恶意软件扫描引擎|clamav|
+rkhunter|安全与证书|Rootkit Hunter|检查常见 Rootkit 与可疑系统变化|rkhunter|
+chkrootkit|安全与证书|chkrootkit|扫描常见 Rootkit 痕迹|chkrootkit|
+pass|安全与证书|pass|基于 GnuPG 的命令行密码管理器|pass|
+age|安全与证书|age|简单、现代的文件加密工具|age|
+certbot|安全与证书|Certbot|Let's Encrypt ACME 证书客户端|certbot|
+certbot-nginx|安全与证书|Certbot Nginx 插件|使用 Nginx 完成 ACME 证书验证与部署|python3-certbot-nginx|
+certbot-apache|安全与证书|Certbot Apache 插件|使用 Apache 完成 ACME 证书验证与部署|python3-certbot-apache|
+cryptsetup|安全与证书|Cryptsetup|LUKS 加密管理，格式化会破坏原数据|cryptsetup|
+gocryptfs|安全与证书|gocryptfs|基于 FUSE 的文件加密|gocryptfs|
+pwgen|安全与证书|pwgen|按需生成随机密码|pwgen|
+pinentry-curses|安全与证书|Pinentry Curses|终端 GnuPG 密码输入界面|pinentry-curses|
+# 备份与同步
+rsync|备份与同步|rsync|增量文件同步工具|rsync|
+rclone|备份与同步|rclone|云存储同步工具|rclone|
+restic|备份与同步|restic|加密增量备份工具|restic|
+borgbackup|备份与同步|BorgBackup|去重备份工具|borgbackup|
+duplicity|备份与同步|Duplicity|加密与多种远程存储的增量备份|duplicity|
+rdiff-backup|备份与同步|rdiff-backup|保留历史版本的增量目录备份|rdiff-backup|
+unison|备份与同步|Unison|交互式双向文件同步|unison|
+syncthing|备份与同步|Syncthing|点对点同步，需显式启动服务或实例|syncthing|
+# Web与代理
+nginx|Web与代理|Nginx|Web 服务器和反向代理|nginx|
+caddy|Web与代理|Caddy|从官方仓库安装 Caddy||caddy_official
+apache|Web与代理|Apache HTTP Server|通用 Web 服务器|apache2|
+haproxy|Web与代理|HAProxy|高性能 TCP 与 HTTP 负载均衡器|haproxy|
+lighttpd|Web与代理|Lighttpd|轻量级 Web 服务器|lighttpd|
+apache-utils|Web与代理|Apache 工具|htpasswd、ab 等认证与 HTTP 测试工具|apache2-utils|
+varnish|Web与代理|Varnish|HTTP 缓存反向代理，可能启动服务|varnish|
+squid|Web与代理|Squid|HTTP 代理与缓存，需核实访问控制|squid|
+privoxy|Web与代理|Privoxy|HTTP 过滤代理服务|privoxy|
+nghttp2-client|Web与代理|HTTP/2 工具|nghttp、h2load 等客户端与测试工具|nghttp2-client|
+# 数据库与缓存
+redis|数据库与缓存|Redis|内存缓存和数据存储|redis-server|
+postgresql|数据库与缓存|PostgreSQL|PostgreSQL 数据库服务器|postgresql|
+postgresql-contrib|数据库与缓存|PostgreSQL 扩展|PostgreSQL 常用扩展|postgresql-contrib|
+mariadb|数据库与缓存|MariaDB|MariaDB 数据库服务器|mariadb-server|
+sqlite|数据库与缓存|SQLite|SQLite 命令行工具|sqlite3|
+memcached|数据库与缓存|Memcached|内存对象缓存服务|memcached|
+postgresql-client|数据库与缓存|PostgreSQL 客户端|psql 等 PostgreSQL 客户端工具|postgresql-client|
+mariadb-client|数据库与缓存|MariaDB 客户端|MariaDB 与 MySQL 客户端工具|mariadb-client|
+redis-tools|数据库与缓存|Redis 工具|redis-cli 等 Redis 客户端工具|redis-tools|
+pgcli|数据库与缓存|pgcli|支持补全与高亮的 PostgreSQL 客户端|pgcli|
+mycli|数据库与缓存|mycli|支持补全与高亮的 MySQL/MariaDB 客户端|mycli|
+pgbouncer|数据库与缓存|PgBouncer|PostgreSQL 连接池代理|pgbouncer|
+# 容器工具
+docker|容器工具|Docker Engine|从 Docker 官方仓库安装 Engine 和 Compose||docker_official
+podman|容器工具|Podman|无守护进程 OCI 容器引擎|podman|
+buildah|容器工具|Buildah|构建 OCI 容器镜像|buildah|
+skopeo|容器工具|Skopeo|检查和复制容器镜像|skopeo|
+lazydocker|容器工具|Lazydocker|以终端界面查看和管理 Docker 资源||official_release
+podman-compose|容器工具|Podman Compose|使用 Compose 文件编排 Podman 容器|podman-compose|
+# 语言与包管理
+python|语言与包管理|Python 3|Python 3 解释器|python3|
+pip|语言与包管理|pip|Python 包管理器|python3-pip|
+python-venv|语言与包管理|Python venv|Python 虚拟环境支持|python3-venv|
+pipx|语言与包管理|pipx|隔离安装 Python 命令行程序|pipx|
+node|语言与包管理|Node.js|Node.js 运行时|nodejs|
+npm|语言与包管理|npm|Node.js 包管理器|npm|
+go|语言与包管理|Go|Go 编译器和工具链|golang-go|
+rust|语言与包管理|Rust|Rust 编译器|rustc|
+cargo|语言与包管理|Cargo|Rust 包管理器|cargo|
+java|语言与包管理|OpenJDK|默认 Java 开发环境|default-jdk|
+php|语言与包管理|PHP CLI|PHP 命令行运行时|php-cli|
+php-fpm|语言与包管理|PHP-FPM|PHP FastCGI 服务|php-fpm|
+ruby|语言与包管理|Ruby|Ruby 完整运行与开发环境|ruby-full|
+composer|语言与包管理|Composer|PHP 依赖管理工具|composer|
+perl|语言与包管理|Perl|Perl 语言解释器与核心模块|perl|
+lua|语言与包管理|Lua|轻量级 Lua 语言解释器|lua5.3|
+python-poetry|语言与包管理|Poetry|Python 依赖与虚拟环境管理器|python3-poetry|
+php-curl|语言与包管理|PHP cURL 扩展|系统 PHP HTTP 客户端扩展|php-curl|
+php-mbstring|语言与包管理|PHP 多字节扩展|系统 PHP 多字节字符串处理|php-mbstring|
+php-xml|语言与包管理|PHP XML 扩展|系统 PHP DOM、SimpleXML 等扩展|php-xml|
+php-zip|语言与包管理|PHP ZIP 扩展|系统 PHP ZIP 归档支持|php-zip|
+php-mysql|语言与包管理|PHP MySQL 扩展|系统 PHP MySQL/MariaDB 驱动|php-mysql|
+php-pgsql|语言与包管理|PHP PostgreSQL 扩展|系统 PHP PostgreSQL 驱动|php-pgsql|
+php-sqlite3|语言与包管理|PHP SQLite 扩展|系统 PHP SQLite 驱动|php-sqlite3|
+php-gd|语言与包管理|PHP GD 扩展|系统 PHP 图像处理扩展|php-gd|
+php-intl|语言与包管理|PHP 国际化扩展|系统 PHP ICU 国际化支持|php-intl|
+# 开发与构建
+git|开发与构建|Git|版本控制工具|git|
+shellcheck|开发与构建|ShellCheck|Shell 脚本静态分析工具，来自官方稳定版|shellcheck|official_release
+git-lfs|开发与构建|Git LFS|Git 大文件存储扩展|git-lfs|
+lazygit|开发与构建|Lazygit|交互式 Git 终端界面，来自项目官方 Release||official_release
+git-delta|开发与构建|Delta|为 Git diff 提供语法高亮与更清晰的差异展示||official_release
+gcc|开发与构建|GCC|C 编译器|gcc|
+gpp|开发与构建|G++|C++ 编译器|g++|
+make|开发与构建|Make|经典构建工具|make|
+cmake|开发与构建|CMake|跨平台构建系统|cmake|
+ninja|开发与构建|Ninja|高速构建工具|ninja-build|
+pkg-config|开发与构建|pkg-config|查找编译依赖信息|pkg-config|
+build-essential|开发与构建|build-essential|Debian 与 Ubuntu 标准编译工具集合|build-essential|
+python-dev|开发与构建|Python 3 开发文件|构建 Python 原生扩展所需头文件|python3-dev|
+clang|开发与构建|Clang|LLVM 项目的 C 与 C++ 编译器|clang|
+lldb|开发与构建|LLDB|LLVM 项目的原生代码调试器|lldb|
+gdb|开发与构建|GDB|GNU 原生程序调试器|gdb|
+valgrind|开发与构建|Valgrind|内存错误与性能分析工具|valgrind|
+autoconf|开发与构建|Autoconf|生成可移植 configure 构建脚本|autoconf|
+automake|开发与构建|Automake|生成标准 Makefile 构建文件|automake|
+libtool|开发与构建|GNU Libtool|管理可移植共享库构建|libtool|
+meson|开发与构建|Meson|现代化的高性能构建系统|meson|
+just|开发与构建|just|面向项目命令的现代任务运行器||official_release
+gh|开发与构建|GitHub CLI|官方稳定版 GitHub 仓库与协作管理工具|gh|official_release
+tig|开发与构建|tig|Git 仓库历史与差异的终端浏览器|tig|
+yamllint|开发与构建|yamllint|YAML 语法与风格检查工具|yamllint|
+shfmt|开发与构建|shfmt|Shell 脚本格式化工具|shfmt|
+universal-ctags|开发与构建|Universal Ctags|为多种语言生成代码符号索引|universal-ctags|
+ccache|开发与构建|ccache|缓存编译结果以缩短重复构建时间|ccache|
+actionlint|开发与构建|actionlint|GitHub Actions 工作流静态检查工具||official_release
+direnv|开发与构建|direnv|按目录加载开发环境变量|direnv|
+ansible|开发与构建|Ansible|按需配置与部署，不自动创建任务|ansible|
+ansible-lint|开发与构建|Ansible Lint|检查 Playbook 与角色规范|ansible-lint|
+llvm|开发与构建|LLVM 工具链|LLVM 编译基础设施与工具|llvm|
+clang-format|开发与构建|Clang Format|格式化 C/C++ 等源代码|clang-format|
+clang-tidy|开发与构建|Clang Tidy|C/C++ 静态检查与重构|clang-tidy|
+protobuf-compiler|开发与构建|Protocol Buffers|protoc 消息定义编译器|protobuf-compiler|
+flex|开发与构建|Flex|生成词法分析器|flex|
+bison|开发与构建|Bison|生成语法分析器|bison|
+nasm|开发与构建|NASM|x86/x86-64 汇编器|nasm|
+patch|开发与构建|GNU Patch|将差异补丁应用到文件|patch|
+diffutils|开发与构建|GNU Diffutils|比较文件与目录内容|diffutils|
+dpkg-dev|开发与构建|dpkg 开发工具|构建与维护 Debian 软件包|dpkg-dev|
+fakeroot|开发与构建|Fakeroot|打包时模拟文件所有权，不授予实际 root 权限|fakeroot|
+subversion|开发与构建|Subversion|SVN 版本控制客户端|subversion|
+mercurial|开发与构建|Mercurial|分布式版本控制工具|mercurial|
+git-crypt|开发与构建|git-crypt|透明加密 Git 中的指定文件|git-crypt|
+# DNS与消息
+dnsmasq|DNS与消息|dnsmasq|轻量 DNS 缓存与 DHCP 服务|dnsmasq|
+bind9|DNS与消息|BIND 9|权威与递归 DNS 服务器|bind9|
+mosquitto|DNS与消息|Mosquitto|轻量级 MQTT 消息代理|mosquitto|
+unbound|DNS与消息|Unbound|验证 DNSSEC 的递归 DNS 服务|unbound|
+bind9-utils|DNS与消息|BIND 管理工具|DNS 配置与区域检查工具|bind9-utils|
+mosquitto-clients|DNS与消息|MQTT 客户端|发布与订阅 MQTT 消息|mosquitto-clients|
+mailutils|DNS与消息|GNU Mailutils|邮件工具，推荐依赖可能引入邮件传输服务|mailutils|
+msmtp|DNS与消息|msmtp|轻量 SMTP 客户端，需配置服务器和凭据|msmtp|

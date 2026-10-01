@@ -119,7 +119,7 @@ software_install_docker() {
   # 先验证官方仓库和候选版本，再改动现有容器运行时。这样即使网络、
   # 签名或 APT 元数据失败，也不会先卸载一套仍可工作的 Docker。
   info "准备并验证 Docker 官方仓库。"
-  software_prepare_docker_repository || return 1
+  software_prepare_docker_repository 0 || return 1
   software_verify_docker_candidates || return 1
   if ((${#installed_conflicts[@]} > 0)); then
     printf -v conflict_list '%s ' "${installed_conflicts[@]}"
@@ -152,7 +152,7 @@ software_update_docker() {
     package_installed "$package" && installed+=("$package")
   done
   ((${#installed[@]} > 0)) || { warn "没有检测到可更新的 Docker 官方组件。"; return 1; }
-  software_prepare_docker_repository || return 1
+  software_prepare_docker_repository 0 || return 1
   apt_run install --only-upgrade -y "${installed[@]}" || { warn "Docker 官方组件更新失败。"; return 1; }
   local failed=0
   for package in "${installed[@]}"; do package_verify_candidate "$package" || failed=1; done

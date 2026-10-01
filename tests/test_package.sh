@@ -8,7 +8,7 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
 . "$ROOT_DIR/src/core/platform.sh"
 
 # package_candidate_version 通过环境限定间接调用该测试桩。
-# shellcheck disable=SC2329
+# shellcheck disable=SC2317,SC2329
 apt-cache() {
   if [[ "${LC_ALL:-}" == "C" ]]; then
     printf '%s\n' '  Candidate: 2.0.0'

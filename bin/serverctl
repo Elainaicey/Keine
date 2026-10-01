@@ -55,6 +55,7 @@ usage() {
   serverctl doctor                检查运行环境与项目完整性
   serverctl triage                运行只读故障快速排查
   serverctl updates               查看系统软件包更新清单
+  serverctl system-update         预览并确认更新当前 VPS 系统
   serverctl storage               显示只读存储概览
   serverctl swap                  打开 Swap 生命周期管理
   serverctl process PID           查看并管理一个进程
@@ -155,6 +156,11 @@ main() {
       ((${#arguments[@]} == 0)) || die "updates 不接受参数"
       platform_detect_identity
       system_package_health 0
+      ;;
+    system-update)
+      ((${#arguments[@]} == 0)) || die "system-update 不接受参数"
+      platform_detect_identity
+      system_update_menu
       ;;
     storage)
       ((${#arguments[@]} == 0)) || die "storage 不接受参数"

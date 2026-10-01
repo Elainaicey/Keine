@@ -23,6 +23,7 @@ toolkit_uninstall() { captured="uninstall"; }
 toolkit_doctor() { captured="doctor"; }
 system_triage() { captured="triage:$1"; }
 system_package_health() { captured="updates:$1"; }
+system_update_menu() { captured="system-update"; }
 system_disk_usage() { captured="storage:$1"; }
 service_exists() { return 0; }
 services_logs() { captured="logs:$1"; }
@@ -86,6 +87,11 @@ main updates
 
 main storage
 [[ "$captured" == "storage:0" ]] || { printf 'FAIL: storage 命令没有进入只读存储概览\n' >&2; exit 1; }
+main system-update
+[[ "$captured" == "system-update" ]] || { printf 'FAIL: 系统更新命令分发错误\n' >&2; exit 1; }
+if (main system-update extra >/dev/null 2>&1); then
+  printf 'FAIL: 系统更新接受了意外参数\n' >&2; exit 1
+fi
 
 main swap
 [[ "$captured" == "swap" ]] || { printf 'FAIL: swap 命令没有进入生命周期管理\n' >&2; exit 1; }

@@ -224,10 +224,14 @@ catalog_categories_view() {
   mapfile -t entries < <(catalog_categories)
   while true; do
     ui_page "软件管理 / 分类浏览" "按用途浏览 ${#entries[@]} 个分类"
-    ui_section "软件分类" "primary"
     for index in "${!entries[@]}"; do
       IFS='|' read -r category count <<<"${entries[$index]}"
-      ui_item "$((index + 1))" "$category" "$count 个软件"
+      case "$category" in
+        系统基础) ui_section "日常工具" "primary" ;;
+        网络诊断) ui_section "运维与防护" "accent" ;;
+        Web与代理) ui_section "应用与开发" "warning" ;;
+      esac
+      ui_item "$((index + 1))" "$category" "$count 项 · $(catalog_category_description "$category")"
     done
     ui_action 0 "返回软件中心" "muted"
     choice="$(read_input "请选择分类" "0")"
@@ -239,7 +243,7 @@ catalog_categories_view() {
     fi
     selected="${entries[$((choice - 1))]}"
     IFS='|' read -r category count <<<"$selected"
-    catalog_browse_view category "$category" "软件管理 / $category" "$count 个独立软件 · 单项管理"
+    catalog_browse_view category "$category" "软件管理 / $category" "$(catalog_category_description "$category") · $count 项"
   done
 }
 

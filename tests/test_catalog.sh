@@ -53,7 +53,7 @@ IFS='|' read -r id _category _name _description packages handler <<<"$record"
 
 record="$(catalog_record podman)"
 IFS='|' read -r id category _name _description packages handler <<<"$record"
-[[ "$id" == "podman" && "$category" == "容器" && "$packages" == "podman" && -z "$handler" ]] || die "podman 映射错误"
+[[ "$id" == "podman" && "$category" == "容器工具" && "$packages" == "podman" && -z "$handler" ]] || die "podman 映射错误"
 
 catalog_total="$(catalog_rows | wc -l | tr -d '[:space:]')"
 (( catalog_total > 0 )) || die "软件目录为空"
@@ -61,13 +61,17 @@ if catalog_record oh-my-zsh >/dev/null; then die "终端框架仍混入软件目
 
 record="$(catalog_record ripgrep)"
 IFS='|' read -r id category _name _description packages handler <<<"$record"
-[[ "$id" == "ripgrep" && "$category" == "命令行" && "$packages" == "ripgrep" &&
+[[ "$id" == "ripgrep" && "$category" == "文本与搜索" && "$packages" == "ripgrep" &&
   "$handler" == "official_release" ]] || die "ripgrep 官方 Release 映射错误"
 
-network_total="$(catalog_category_rows 网络 | wc -l | tr -d '[:space:]')"
+network_total="$(catalog_category_rows 网络诊断 | wc -l | tr -d '[:space:]')"
 (( network_total >= 10 )) || die "网络分类条目不足：$network_total"
-[[ -z "$(catalog_category_rows 网络 | awk -F '|' '$2 != "网络" {print}')" ]] || die "分类查询返回了其他分类"
-grep -Eq '^基础\|[0-9]+$' < <(catalog_categories) || die "分类统计缺少基础分类"
+[[ -z "$(catalog_category_rows 网络诊断 | awk -F '|' '$2 != "网络诊断" {print}')" ]] || die "分类查询返回了其他分类"
+grep -Eq '^系统基础\|[0-9]+$' < <(catalog_categories) || die "分类统计缺少基础分类"
+[[ "$(catalog_categories | wc -l | tr -d '[:space:]')" -eq 15 ]] || die "软件分类数量错误"
+for expected in btop micro mosh nfs-server syncthing pgbouncer podman-compose ansible php-curl; do
+  catalog_record "$expected" >/dev/null || die "缺少常用软件：$expected"
+done
 
 duplicates="$(catalog_rows | awk -F '|' '{count[$1]++} END {for (id in count) if (count[id] > 1) print id}')"
 [[ -z "$duplicates" ]] || die "存在重复 ID：$duplicates"

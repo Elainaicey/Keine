@@ -1,6 +1,6 @@
 # number|id|section|title|handler|hint
 1|overview|主机与运行|运维总览|dashboard_menu|关键状态、关注事项与快捷操作
-2|system|主机与运行|系统管理|system_menu|资源、进程、存储与基础设置
+2|system|主机与运行|系统管理|system_menu|系统更新、资源、存储与基础设置
 3|network|主机与运行|网络与连接|network_menu|接口、端口、诊断与原生 WARP
 4|security|主机与运行|安全与访问|security_menu|SSH、UFW、Fail2ban 与证书
 5|services|主机与运行|服务与日志|services_menu|已有 systemd 服务与 Journal

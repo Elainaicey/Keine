@@ -34,3 +34,18 @@ vsftpd|service|vsftpd.service|none|tcp-listener|安装后通常启动 FTP 服务
 samba|service|smbd.service,nmbd.service|none|tcp-udp-listener|安装后可能启动 SMB 与 NetBIOS 服务并监听多个端口
 mosquitto|service|mosquitto.service|none|tcp-listener|安装后通常启动 MQTT Broker，默认绑定范围由发行版配置决定
 docker|service|docker.service,docker.socket,containerd.service|none|local-socket|官方包通常启动 Docker 与 containerd，并创建本地管理 Socket
+logrotate|scheduled|logrotate.timer|timer-or-cron|none|发行版通常安排定期日志轮换；安装不意味着项目创建了调度
+chrony|service|chrony.service|none|tcp-udp-listener|时间同步守护进程可能替换现有同步组件；NTP 与控制监听由配置决定
+lvm2|service+scheduled|lvm2-monitor.service,lvm2-lvmpolld.socket,lvm2-pvscan@.service,lvm2-lvmpolld.service|timer-or-cron|local-socket|可能通过单元、Socket 与事件监测逻辑卷，启用情况取决于现有 LVM 配置
+mdadm|service+scheduled|mdmonitor.service,mdcheck_start.timer,mdcheck_continue.timer|timer-or-cron|none|可能监测已有 RAID 阵列并周期校验；不会由项目创建阵列
+nfs-common|service|rpcbind.service,rpcbind.socket,rpc-statd.service|none|tcp-udp-listener|部分 NFS 模式需要 RPC 服务；端口暴露由协议版本与配置决定
+nfs-server|service|nfs-server.service,rpcbind.service,rpcbind.socket|none|tcp-udp-listener|可能启动 NFS 与 RPC；导出目录和授权客户端必须另外配置
+openvpn|service|openvpn.service,openvpn-client@.service,openvpn-server@.service|none|tcp-udp-listener|实例仅在已有配置或显式启用后连接或监听，不自动生成隧道配置
+glances|service|glances.service|none|tcp-listener|部分发行版提供服务单元，Web 与客户端服务端模式须按配置启用；项目不启动它
+syncthing|service|syncthing@.service|none|tcp-udp-listener|显式启动实例后持续同步，并可提供管理界面与发现端口；绑定和认证需自行核实
+varnish|service|varnish.service,varnishncsa.service|none|tcp-listener|安装后可能启动 HTTP 缓存与请求日志服务，并使用可观内存
+squid|service|squid.service|none|tcp-listener|安装后可能启动 HTTP 代理；使用前核实访问控制，避免成为开放代理
+privoxy|service|privoxy.service|none|tcp-listener|安装后通常提供本机 HTTP 代理，实际监听范围由发行版配置决定
+pgbouncer|service|pgbouncer.service|none|tcp-listener|安装后可能启动连接池；数据库连接与认证需要单独配置
+unbound|service|unbound.service|none|tcp-udp-listener|安装后可能占用 DNS 端口；应核实与已有 DNS 服务的端口冲突
+mailutils|service|-|none|tcp-listener|推荐依赖可能引入邮件传输代理，并监听 SMTP；以 APT 事务预览为准

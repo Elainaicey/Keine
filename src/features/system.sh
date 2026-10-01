@@ -4,6 +4,7 @@
 . "$ROOT_DIR/src/features/system/diagnostics.sh"
 . "$ROOT_DIR/src/features/system/processes.sh"
 . "$ROOT_DIR/src/features/system/packages.sh"
+. "$ROOT_DIR/src/features/system/updates.sh"
 . "$ROOT_DIR/src/features/system/storage.sh"
 . "$ROOT_DIR/src/features/system/triage.sh"
 . "$ROOT_DIR/src/features/system/settings.sh"

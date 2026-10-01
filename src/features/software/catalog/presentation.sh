@@ -1,5 +1,26 @@
 #!/usr/bin/env bash
 
+catalog_category_description() {
+  case "$1" in
+    系统基础) printf '系统信息、包工具与时间同步' ;;
+    终端与编辑器) printf '编辑、会话、补全与目录导航' ;;
+    文件与存储) printf '归档、磁盘分析与文件系统' ;;
+    文本与搜索) printf '搜索、过滤与结构化文本处理' ;;
+    网络诊断) printf '连通性、路由、抓包与协议调试' ;;
+    远程连接与传输) printf 'SSH、VPN、下载与文件共享' ;;
+    性能与排障) printf '资源、日志、跟踪与基准测试' ;;
+    安全与证书) printf '防火墙、审计、加密与 TLS' ;;
+    备份与同步) printf '增量备份、远程同步与历史恢复' ;;
+    Web与代理) printf 'Web 服务、反向代理与 HTTP 工具' ;;
+    数据库与缓存) printf '数据库、缓存、连接池与客户端' ;;
+    容器工具) printf '引擎、镜像、Compose 与终端管理' ;;
+    语言与包管理) printf '运行时、虚拟环境、依赖与扩展' ;;
+    开发与构建) printf '版本控制、编译、调试与静态检查' ;;
+    DNS与消息) printf 'DNS 解析、MQTT 与邮件工具' ;;
+    *) printf '单项安装、版本检查与管理' ;;
+  esac
+}
+
 catalog_state_info() {
   case "$1" in
     absent) printf '未安装|muted' ;;

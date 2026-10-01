@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 system_package_upgradable_rows() {
-  apt list --upgradable 2>/dev/null | awk '
+  LC_ALL=C apt list --upgradable 2>/dev/null | awk '
     NR == 1 {next}
     NF >= 3 {
       package=$1
@@ -21,7 +21,7 @@ system_package_upgradable_rows() {
 }
 
 system_package_security_rows() {
-  apt-get -s -o Debug::NoLocking=true upgrade 2>/dev/null |
+  LC_ALL=C apt-get -s -o Debug::NoLocking=true upgrade --with-new-pkgs --no-remove 2>/dev/null |
     awk 'tolower($0) ~ /^inst / && tolower($0) ~ /security/ {print $2}' |
     LC_ALL=C sort -u
 }
@@ -106,7 +106,7 @@ system_package_updates_view() {
   done < <(system_package_upgradable_rows)
   (( count > 0 )) || ui_empty "$([[ "$mode" == "security" ]] && printf '没有识别到安全更新' || printf '没有可用更新')"
   (( count < 100 )) || ui_note "仅显示前 100 项。"
-  ui_note "系统更新不会在此页面自动执行；单项工具仍通过软件管理中心维护。"
+  ui_note "清单基于本地索引；通过 系统管理 → 系统更新 刷新、预览并确认更新。"
 }
 
 system_package_sources_view() {
@@ -270,6 +270,7 @@ system_package_health() {
     ui_action 6 "清理残留依赖" "$([[ "$autoremove" -eq 0 ]] && printf 'disabled' || printf 'warning')" "$autoremove 个自动安装软件包"
     ui_action 7 "清理下载缓存" "warning" "当前占用 $cache_size"
     ui_action 8 "刷新 APT 索引" "accent" "重新读取所有配置的软件源"
+    ui_action 9 "系统更新" "warning" "刷新、事务预览与人工确认"
     ui_action 0 "返回系统管理" "muted"
     choice="$(read_input "请选择" "0")"
     case "$choice" in
@@ -287,7 +288,9 @@ system_package_health() {
         require_root
         package_invalidate_index
         package_update_index && ui_success "APT 索引刷新完成。"
+        catalog_cache_invalidate
         ;;
+      9) system_update_menu; continue ;;
       0) return 0 ;;
       *) warn "未知选项：$choice"; continue ;;
     esac

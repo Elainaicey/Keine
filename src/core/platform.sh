@@ -75,11 +75,11 @@ package_wait_for_lock() {
 apt_run() {
   local inventory="" result=0
   package_wait_for_lock
-  if [[ "${1:-}" == install ]] && declare -F changes_ready >/dev/null && changes_ready; then
+  if [[ "${1:-}" == install || "${1:-}" == upgrade ]] && declare -F changes_ready >/dev/null && changes_ready; then
     inventory="$(mktemp)" || return 1
     changes_package_inventory >"$inventory" || { rm -f -- "$inventory"; return 1; }
   fi
-  run env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get \
+  run env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE="${APT_NEEDRESTART_MODE:-a}" apt-get \
     -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold -o Acquire::Retries=3 "$@" || result=$?
   if [[ -n "$inventory" ]]; then
     changes_packages_record_new "$inventory" || result=1

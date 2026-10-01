@@ -123,6 +123,7 @@ toolkit_doctor() {
     src/features/system/diagnostics.sh
     src/features/system/processes.sh
     src/features/system/packages.sh
+    src/features/system/updates.sh
     src/features/system/storage.sh
     src/features/system/triage.sh
     src/features/system/settings.sh

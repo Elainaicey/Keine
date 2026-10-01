@@ -64,6 +64,7 @@ required=(
   src/features/system/diagnostics.sh
   src/features/system/menu.sh
   src/features/system/packages.sh
+  src/features/system/updates.sh
   src/features/system/storage.sh
   src/features/system/triage.sh
   src/features/network/diagnostics.sh

@@ -82,7 +82,7 @@ software_prepare_caddy_repository() {
 
 software_install_caddy() {
   info "准备 Caddy 官方仓库。"
-  software_prepare_caddy_repository || return 1
+  software_prepare_caddy_repository 0 || return 1
   package_install_latest caddy || return 1
   if [[ "$DRY_RUN" -eq 1 ]]; then
     info "将启用并启动 caddy.service。"
@@ -94,6 +94,6 @@ software_install_caddy() {
 software_remove_caddy() { package_remove caddy; }
 
 software_update_caddy() {
-  software_prepare_caddy_repository || return 1
+  software_prepare_caddy_repository 0 || return 1
   package_upgrade caddy
 }
