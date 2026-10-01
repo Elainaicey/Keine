@@ -125,7 +125,7 @@ network_proxy_menu() {
     ui_action 0 "返回" "muted"
     choice="$(read_input "请选择" "0")"
     case "$choice" in
-      1) network_proxy_configure || true ;; 2) network_proxy_check || true ;;
+      1) network_proxy_configure || true ;; 2) network_proxy_check "" || true ;;
       3) if confirm "移除项目 SOCKS 配置并恢复原始文件？"; then network_config_restore "$NETWORK_PROXY_FILE" network_config_no_reload && audit 'action=network-socks-restore'; fi ;;
       0) return 0 ;; *) warn "未知选项"; continue ;;
     esac
