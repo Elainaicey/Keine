@@ -32,11 +32,23 @@ df() {
   esac
 }
 security_exposure_listener_rows() { printf 'tcp|0.0.0.0|22|sshd|1\n'; }
-command_exists() { return 1; }
+TRIAGE_TIMEOUT_FILE="$(mktemp)"
+TRIAGE_DOCKER_STATUS=0
+trap 'rm -f -- "$TRIAGE_TIMEOUT_FILE"' EXIT
+command_exists() { [[ "$1" == docker ]]; }
+runtime_with_timeout() {
+  printf '%s:%s:%s' "$1" "$2" "$3" >"$TRIAGE_TIMEOUT_FILE"
+  return "$TRIAGE_DOCKER_STATUS"
+}
+docker() { :; }
 backup_snapshots() { printf '20260724-120000-42\n'; }
 backup_snapshot_protected() { return 1; }
 
 output="$(system_triage_report)"
+[[ "$(<"$TRIAGE_TIMEOUT_FILE")" == '5:docker:info' ]] || {
+  printf 'FAIL: 故障排查的 Docker 探测没有设置超时\n' >&2
+  exit 1
+}
 grep -q '故障快速排查' <<<"$output" || {
   printf 'FAIL: 故障快速排查页面缺失\n' >&2
   exit 1
@@ -51,6 +63,13 @@ grep -q '存在可用的配置快照' <<<"$output" || {
 }
 grep -q '当前快速排查项没有发现异常' <<<"$output" || {
   printf 'FAIL: 正常夹具产生了错误排查结论\n' >&2
+  exit 1
+}
+
+TRIAGE_DOCKER_STATUS=1
+output="$(system_triage_report)"
+grep -q 'Docker Daemon 在 5 秒内不可用' <<<"$output" || {
+  printf 'FAIL: Docker Daemon 探测失败被误报为健康\n' >&2
   exit 1
 }
 

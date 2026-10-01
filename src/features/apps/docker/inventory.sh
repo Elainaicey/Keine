@@ -2,6 +2,10 @@
 
 docker_require() { command_exists docker || { warn "Docker 未安装，可在软件管理中搜索 docker。"; return 1; }; }
 
+docker_daemon_ready() {
+  runtime_with_timeout 5 docker info >/dev/null 2>&1
+}
+
 docker_overview() {
   docker_require || return 1
   ui_page "Docker 概览" "Engine、运行中容器和磁盘占用"
@@ -31,7 +35,7 @@ docker_resources() {
 docker_health() {
   docker_require || return 1
   ui_page "Docker 健康检查" "Daemon、容器运行状态、健康检查与异常退出"
-  if ! docker info >/dev/null 2>&1; then
+  if ! docker_daemon_ready; then
     ui_check fail "无法连接 Docker Daemon"
     ui_note "请检查 docker.service 状态或当前用户的 Docker Socket 权限。"
     return 1

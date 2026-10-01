@@ -126,7 +126,7 @@ docker_volume_backup_execute() {
 docker_volume_backup_create() {
   local volume
   docker_require || return 1
-  docker info >/dev/null 2>&1 || { warn "无法连接 Docker Daemon。"; return 1; }
+  docker_daemon_ready || { warn "无法在 5 秒内连接 Docker Daemon。"; return 1; }
   ui_page "创建 Docker 卷备份" "只读挂载源卷，生成压缩归档和 SHA-256 校验"
   docker volume ls --format '  {{.Name}}' 2>/dev/null || true
   volume="$(read_input "卷名称" "")"; [[ -n "$volume" ]] || return 0

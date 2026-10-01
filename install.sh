@@ -21,7 +21,7 @@ command -v curl >/dev/null 2>&1 || {
 }
 
 printf '[安装器] 获取 %s@%s 的安装程序…\n' "$REPOSITORY" "$REF"
-curl -fsSL --retry 3 --connect-timeout 10 --max-time 120 \
+curl --disable -fsSL --retry 3 --connect-timeout 10 --max-time 120 \
   "https://raw.githubusercontent.com/$REPOSITORY/$REF/scripts/install.sh" \
   -o "$TEMP_FILE"
 bash "$TEMP_FILE" "$@"

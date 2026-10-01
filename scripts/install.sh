@@ -224,8 +224,8 @@ else
   info "下载 $REPOSITORY@$REF"
   branch_url="https://github.com/$REPOSITORY/archive/refs/heads/$REF.tar.gz"
   tag_url="https://github.com/$REPOSITORY/archive/refs/tags/$REF.tar.gz"
-  if ! curl -fsSL --retry 3 --connect-timeout 10 --max-time 120 --max-filesize 134217728 "$branch_url" -o "$archive"; then
-    curl -fsSL --retry 3 --connect-timeout 10 --max-time 120 --max-filesize 134217728 "$tag_url" -o "$archive" ||
+  if ! curl --disable -fsSL --retry 3 --connect-timeout 10 --max-time 120 --max-filesize 134217728 "$branch_url" -o "$archive"; then
+    curl --disable -fsSL --retry 3 --connect-timeout 10 --max-time 120 --max-filesize 134217728 "$tag_url" -o "$archive" ||
       die "下载源码失败"
   fi
   archive_root="$(source_archive_root "$archive" "$archive_listing" "$archive_verbose")" ||

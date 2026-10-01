@@ -121,6 +121,7 @@ software_install_oh_my_zsh() {
     software_oh_my_zsh_installed && { info "Oh My Zsh 已经安装。"; return 0; }
     die "目标目录已存在且不是受支持的官方 Oh My Zsh 仓库：$directory"
   fi
+  if declare -F changes_prepare_file >/dev/null; then changes_prepare_file "$directory" directory || return 1; fi
   package_install zsh git || return 1
   info "将为用户 $user 安装 Oh My Zsh 到 $directory。"
   software_run_as_target "$user" "$home" git clone --depth=1 "$OH_MY_ZSH_REPOSITORY" "$directory" || {
@@ -129,7 +130,7 @@ software_install_oh_my_zsh() {
   }
   software_oh_my_zsh_configure "$user" "$home" || return 1
   zsh_path="$(command -v zsh 2>/dev/null || printf '/usr/bin/zsh')"
-  if confirm "是否将 $user 的默认 Shell 切换为 $zsh_path？"; then
+  if [[ "${TERMINAL_SWITCHING:-0}" -eq 0 ]] && confirm "是否将 $user 的默认 Shell 切换为 $zsh_path？"; then
     run chsh -s "$zsh_path" "$user" || { warn "默认 Shell 修改失败；Oh My Zsh 已安装，可稍后手动切换。"; return 1; }
   else
     info "已保留 $user 当前的默认 Shell；可稍后执行 chsh -s $zsh_path $user。"
@@ -144,6 +145,10 @@ software_update_oh_my_zsh() {
   software_oh_my_zsh_installed || die "没有检测到受支持的官方 Oh My Zsh 安装。"
   remote="$(git -C "$directory" remote get-url origin 2>/dev/null || true)"
   software_oh_my_zsh_official_remote "$remote" || die "拒绝更新来源不明的 Oh My Zsh 仓库。"
+  if declare -F changes_prepare_file >/dev/null; then
+    [[ -d "$(changes_file_entry "$directory")" ]] || { warn "外部 Oh My Zsh 请使用原生更新命令；本项目只切换配置。"; return 1; }
+    changes_prepare_file "$directory" directory || return 1
+  fi
   software_run_as_target "$user" "$home" zsh "$directory/tools/upgrade.sh" || {
     warn "Oh My Zsh 官方更新程序执行失败。"
     return 1
@@ -159,6 +164,10 @@ software_remove_oh_my_zsh() {
   software_oh_my_zsh_installed || die "没有检测到受支持的官方 Oh My Zsh 安装。"
   remote="$(git -C "$directory" remote get-url origin 2>/dev/null || true)"
   software_oh_my_zsh_official_remote "$remote" || die "拒绝删除来源不明的目录：$directory"
+  if declare -F changes_prepare_file >/dev/null; then
+    [[ -d "$(changes_file_entry "$directory")" ]] || { warn "外部 Oh My Zsh 不由本项目删除。"; return 1; }
+    changes_prepare_file "$directory" directory || return 1
+  fi
   software_oh_my_zsh_remove_config "$user" "$home" || return 1
   software_run_as_target "$user" "$home" rm -rf -- "$directory" || { warn "Oh My Zsh 目录删除失败。"; return 1; }
   info "已保留 Zsh、Git、用户的其他配置和默认 Shell 设置。"

@@ -1,4 +1,6 @@
 # id|GitHub repository|command|amd64 asset template|arm64 asset template|homepage
+gh|cli/cli|gh|gh_{version}_linux_amd64.tar.gz|gh_{version}_linux_arm64.tar.gz|https://github.com/cli/cli
+shellcheck|koalaman/shellcheck|shellcheck|shellcheck-v{version}.linux.x86_64.tar.gz|shellcheck-v{version}.linux.aarch64.tar.gz|https://github.com/koalaman/shellcheck
 ripgrep|BurntSushi/ripgrep|rg|ripgrep-{version}-x86_64-unknown-linux-musl.tar.gz|ripgrep-{version}-aarch64-unknown-linux-musl.tar.gz|https://github.com/BurntSushi/ripgrep
 fd|sharkdp/fd|fd|fd-v{version}-x86_64-unknown-linux-musl.tar.gz|fd-v{version}-aarch64-unknown-linux-musl.tar.gz|https://github.com/sharkdp/fd
 bat|sharkdp/bat|bat|bat-v{version}-x86_64-unknown-linux-musl.tar.gz|bat-v{version}-aarch64-unknown-linux-musl.tar.gz|https://github.com/sharkdp/bat
@@ -11,3 +13,7 @@ dust|bootandy/dust|dust|dust-v{version}-x86_64-unknown-linux-musl.tar.gz|dust-v{
 duf|muesli/duf|duf|duf_{version}_linux_x86_64.tar.gz|duf_{version}_linux_arm64.tar.gz|https://github.com/muesli/duf
 hyperfine|sharkdp/hyperfine|hyperfine|hyperfine-v{version}-x86_64-unknown-linux-musl.tar.gz|hyperfine-v{version}-aarch64-unknown-linux-gnu.tar.gz|https://github.com/sharkdp/hyperfine
 just|casey/just|just|just-{version}-x86_64-unknown-linux-musl.tar.gz|just-{version}-aarch64-unknown-linux-musl.tar.gz|https://github.com/casey/just
+lazygit|jesseduffield/lazygit|lazygit|lazygit_{version}_linux_x86_64.tar.gz|lazygit_{version}_linux_arm64.tar.gz|https://github.com/jesseduffield/lazygit
+git-delta|dandavison/delta|delta|delta-{version}-x86_64-unknown-linux-gnu.tar.gz|delta-{version}-aarch64-unknown-linux-gnu.tar.gz|https://github.com/dandavison/delta
+lazydocker|jesseduffield/lazydocker|lazydocker|lazydocker_{version}_Linux_x86_64.tar.gz|lazydocker_{version}_Linux_arm64.tar.gz|https://github.com/jesseduffield/lazydocker
+actionlint|rhysd/actionlint|actionlint|actionlint_{version}_linux_amd64.tar.gz|actionlint_{version}_linux_arm64.tar.gz|https://github.com/rhysd/actionlint

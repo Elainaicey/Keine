@@ -14,8 +14,8 @@ network_connectivity_test() {
   if ip -4 route get 1.1.1.1 >/dev/null 2>&1; then ui_check pass "IPv4 默认路由"; else ui_check warn "没有 IPv4 默认路由"; fi
   if ip -6 route get 2606:4700:4700::1111 >/dev/null 2>&1; then ui_check pass "IPv6 默认路由"; else ui_check warn "没有 IPv6 默认路由"; fi
   if command_exists curl; then
-    if curl -4fsI --connect-timeout 3 --max-time 8 https://github.com >/dev/null 2>&1; then ui_check pass "IPv4 HTTPS"; else ui_check warn "IPv4 HTTPS 不可用"; fi
-    if curl -6fsI --connect-timeout 3 --max-time 8 https://github.com >/dev/null 2>&1; then ui_check pass "IPv6 HTTPS"; else ui_check warn "IPv6 HTTPS 不可用"; fi
+    if curl --disable -4fsI --connect-timeout 3 --max-time 8 https://github.com >/dev/null 2>&1; then ui_check pass "IPv4 HTTPS"; else ui_check warn "IPv4 HTTPS 不可用"; fi
+    if curl --disable -6fsI --connect-timeout 3 --max-time 8 https://github.com >/dev/null 2>&1; then ui_check pass "IPv6 HTTPS"; else ui_check warn "IPv6 HTTPS 不可用"; fi
   else
     ui_check warn "未安装 curl，跳过 HTTPS 检查"
   fi

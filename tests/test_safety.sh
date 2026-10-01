@@ -6,6 +6,7 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
 # shellcheck source=../src/core/runtime.sh
 . "$ROOT_DIR/src/core/runtime.sh"
 . "$ROOT_DIR/src/core/validation.sh"
+. "$ROOT_DIR/src/features/services/audit.sh"
 
 [[ "$(read_input "测试输入" "默认值" </dev/null)" == "默认值" ]] || {
   printf 'FAIL: 非交互输入没有正确返回默认值\n' >&2
@@ -15,6 +16,27 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
 sanitized_text="$(terminal_safe_text $'safe\e[31m\r\ntext')"
 if [[ "$sanitized_text" == *[[:cntrl:]]* || "$sanitized_text" != safe\ \[31m*text ]]; then
   printf 'FAIL: 终端控制字符没有被清理\n' >&2
+  exit 1
+fi
+
+captured_audit=""
+audit() { captured_audit="$*"; }
+SAFETY_ERROR_FILE="$(mktemp)"
+runtime_error 42 9 $'token=super-secret\e[31m' 2>"$SAFETY_ERROR_FILE"
+error_output="$(<"$SAFETY_ERROR_FILE")"
+rm -f -- "$SAFETY_ERROR_FILE"
+[[ "$captured_audit" == 'result=failed status=9 line=42' ]] || {
+  printf 'FAIL: 运行时错误审计包含了完整失败命令\n' >&2
+  exit 1
+}
+if [[ "$error_output" == *'super-secret'* || "$error_output" == *[[:cntrl:]]* ]]; then
+  printf 'FAIL: 运行时错误向终端泄漏命令参数或控制字符\n' >&2
+  exit 1
+fi
+
+legacy_audit="$(services_audit_safe_line '2026-08-23 user=root pid=42 result=failed status=1 line=9 command=curl%20token=legacy-secret')"
+if [[ "$legacy_audit" == *'legacy-secret'* || "$legacy_audit" != *'command=[redacted]'* ]]; then
+  printf 'FAIL: 旧版失败命令审计没有在展示前脱敏\n' >&2
   exit 1
 fi
 
@@ -71,7 +93,7 @@ if safe_toolkit_path /var/log || safe_toolkit_path /var/backups/general ||
 fi
 
 valid_service_name ssh.service || { printf 'FAIL: 正常服务名被拒绝\n' >&2; exit 1; }
-if valid_service_name '../ssh' || valid_service_name 'ssh service'; then
+if valid_service_name '../ssh' || valid_service_name 'ssh service' || valid_service_name '--help.service'; then
   printf 'FAIL: 接受了危险服务名\n' >&2
   exit 1
 fi

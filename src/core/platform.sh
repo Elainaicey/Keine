@@ -7,16 +7,27 @@
 OS_ID=""; OS_NAME=""; OS_CODENAME=""; ARCH=""
 CPU_CORES=""; MEMORY_MB=""; MEMORY_USED_MB=""; SWAP_MB=""; SWAP_USED_MB=""; ROOT_USED_PERCENT=""; VIRTUALIZATION=""; LOAD_AVERAGE=""; UPTIME_TEXT=""
 PACKAGE_INDEX_UPDATED=0
+PLATFORM_IDENTITY_READY=0
 
-platform_detect() {
+platform_detect_identity() {
+  (( PLATFORM_IDENTITY_READY == 0 )) || return 0
   [[ -r /etc/os-release ]] || die "无法读取 /etc/os-release。"
   # shellcheck source=/dev/null
   . /etc/os-release
   OS_ID="${ID:-unknown}"
   OS_NAME="${PRETTY_NAME:-$OS_ID ${VERSION_ID:-unknown}}"
-  OS_CODENAME="${VERSION_CODENAME:-${UBUNTU_CODENAME:-}}"
+  if [[ "$OS_ID" == "ubuntu" ]]; then
+    OS_CODENAME="${UBUNTU_CODENAME:-${VERSION_CODENAME:-}}"
+  else
+    OS_CODENAME="${VERSION_CODENAME:-}"
+  fi
   case "$OS_ID" in debian|ubuntu) ;; *) die "当前仅支持 Debian 和 Ubuntu，检测到：$OS_NAME" ;; esac
   ARCH="$(dpkg --print-architecture 2>/dev/null || uname -m)"
+  PLATFORM_IDENTITY_READY=1
+}
+
+platform_collect_metrics() {
+  platform_detect_identity
   CPU_CORES="$(getconf _NPROCESSORS_ONLN 2>/dev/null || printf '?')"
   MEMORY_MB="$(awk '/MemTotal/ {printf "%.0f", $2/1024}' /proc/meminfo 2>/dev/null || printf '?')"
   MEMORY_USED_MB="$(awk '/MemTotal/{total=$2}/MemAvailable/{available=$2}END{printf "%.0f",(total-available)/1024}' /proc/meminfo 2>/dev/null || printf '0')"
@@ -28,6 +39,10 @@ platform_detect() {
   UPTIME_TEXT="$(uptime -p 2>/dev/null | sed 's/^up //' || printf '?')"
 }
 
+platform_detect() {
+  platform_collect_metrics
+}
+
 package_installed() { dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q '^install ok installed$'; }
 
 package_installed_version() {
@@ -35,7 +50,7 @@ package_installed_version() {
 }
 
 package_candidate_version() {
-  apt-cache policy "$1" 2>/dev/null | awk '/^[[:space:]]*Candidate:/ {print $2; exit}'
+  LC_ALL=C apt-cache policy "$1" 2>/dev/null | awk '/^[[:space:]]*Candidate:/ {print $2; exit}'
 }
 
 package_has_update() {
@@ -58,9 +73,19 @@ package_wait_for_lock() {
 }
 
 apt_run() {
+  local inventory="" result=0
   package_wait_for_lock
+  if [[ "${1:-}" == install ]] && declare -F changes_ready >/dev/null && changes_ready; then
+    inventory="$(mktemp)" || return 1
+    changes_package_inventory >"$inventory" || { rm -f -- "$inventory"; return 1; }
+  fi
   run env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get \
-    -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold -o Acquire::Retries=3 "$@"
+    -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold -o Acquire::Retries=3 "$@" || result=$?
+  if [[ -n "$inventory" ]]; then
+    changes_packages_record_new "$inventory" || result=1
+    rm -f -- "$inventory"
+  fi
+  return "$result"
 }
 
 package_update_index() {
@@ -142,11 +167,14 @@ package_upgrade() {
   package_verify_candidate "$package"
 }
 
-package_upgradable_count() { apt list --upgradable 2>/dev/null | sed '1d' | grep -c . || true; }
+package_upgradable_count() { LC_ALL=C apt list --upgradable 2>/dev/null | sed '1d' | grep -c . || true; }
 
 unit_exists() {
-  command_exists systemctl && systemctl list-unit-files --no-legend 2>/dev/null |
-    awk -v unit="$1" '$1 == unit { found=1 } END { exit !found }'
+  command_exists systemctl || return 1
+  if systemctl list-unit-files --no-legend 2>/dev/null |
+    awk -v unit="$1" '$1 == unit { found=1 } END { exit !found }'; then return 0; fi
+  # 未启用过的模板实例不一定出现在 list-unit-files 中，但仍可原生管理。
+  [[ "$(systemctl show -p LoadState --value "$1" 2>/dev/null)" == loaded ]]
 }
 service_exists() {
   [[ "$1" == *.service ]] && unit_exists "$1"
@@ -163,6 +191,31 @@ service_state() {
   local state
   state="$(systemctl is-active "$1" 2>/dev/null || true)"
   printf '%s' "${state:-inactive}"
+}
+
+unit_properties_snapshot() {
+  local unit="$1" property
+  local arguments=()
+  shift
+  valid_service_name "$unit" || return 1
+  (($# > 0)) || return 1
+  for property in "$@"; do
+    [[ "$property" =~ ^[A-Za-z][A-Za-z0-9]*$ ]] || return 1
+    arguments+=(-p "$property")
+  done
+  systemctl show --no-pager "${arguments[@]}" "$unit" 2>/dev/null
+}
+
+unit_snapshot_value() {
+  local snapshot="$1" property="$2" line
+  [[ "$property" =~ ^[A-Za-z][A-Za-z0-9]*$ ]] || return 1
+  while IFS= read -r line; do
+    if [[ "$line" == "$property="* ]]; then
+      printf '%s' "${line#*=}"
+      return 0
+    fi
+  done <<<"$snapshot"
+  return 1
 }
 
 detect_ssh_port() {

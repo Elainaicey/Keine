@@ -13,6 +13,8 @@ bin/serverctl
 ├── src/core/platform.sh
 ├── src/core/backup.sh
 ├── src/features/*.sh
+├── src/features/dashboard/overview.sh
+├── src/features/dashboard/menu.sh
 ├── src/features/apps/services.sh
 ├── src/features/apps/services/*.sh
 ├── src/features/apps/docker.sh
@@ -21,8 +23,18 @@ bin/serverctl
 ├── src/features/services/*.sh
 ├── src/features/software/catalog.sh
 ├── src/features/software/catalog/*.sh
-├── src/features/software/oh-my-zsh.sh
-├── src/features/software/prompts.sh
+├── src/features/software/repositories/*.sh
+├── src/features/terminal/{framework,prompts,menu}.sh
+├── src/features/recovery.sh
+├── src/core/changes.sh
+├── src/core/changes/{packages,settings}.sh
+├── src/core/navigation.sh
+├── src/integrations/warp.sh
+├── config/navigation.tsv
+├── config/terminal.tsv
+├── config/integrations.tsv
+├── src/features/network.sh
+├── src/features/network/{overview,diagnostics,http,tuning,menu}.sh
 ├── src/features/system.sh
 ├── src/features/system/diagnostics.sh
 ├── src/features/system/menu.sh
@@ -31,31 +43,37 @@ bin/serverctl
 ├── src/features/system/storage.sh
 ├── src/features/system/triage.sh
 ├── src/features/system/settings.sh
-└── config/software.tsv
+├── config/software.tsv
+├── config/software-effects.tsv
+├── config/official-releases.tsv
+└── config/apps.tsv
 ```
 
 - `bin/` 只放用户直接执行的程序，负责参数解析、加载模块和顶层导航。
 - `src/core/` 提供通用能力，不出现某个功能中心专属的交互流程。
+- `src/integrations/` 提供原生 CLI 与服务适配。扩展契约、所有权和可逆操作边界见 [原生集成与可逆操作契约](INTEGRATIONS.md)。
 - `src/features/` 按领域组织完整操作；当单个领域包含多组职责时，使用同名子目录拆分实现，领域根文件只保留该中心的编排与导航。
 - 输入格式与安全路径等跨领域纯校验集中在 `src/core/validation.sh`；领域语义校验仍保留在对应 feature 中。
 - 软件目录属于软件功能域，查询、状态、写操作与页面分别位于 `src/features/software/catalog/`，不能反向放入 core。
-- 系统、网络、安全、服务、应用服务、Docker 与软件目录的领域入口只加载子模块，不承载业务实现；结构测试限制入口文件体量，防止职责重新聚合。
+- 软件目录的交互浏览统一复用分页层；筛选结果在安装、更新或移除后重新读取状态，完整目录的非交互输出仍由 `list` 提供。
+- 运维总览、系统、网络、安全、服务、应用服务、Docker 与软件目录的领域入口只加载子模块，不承载业务实现；结构测试限制入口文件体量，防止职责重新聚合。
 - 公网暴露分析只能把本机监听与可观测的主机规则、进程和容器相关联，不能把“监听所有地址”或“UFW 放行”表述为已经确认公网可达。
 - 系统软件包健康中心可以管理 APT 的 hold、缓存、残留依赖和损坏状态，但不得自动执行全系统升级；修复依赖前必须展示模拟结果并再次确认。
 - 存储中心的大目录和大文件扫描只接受显式白名单根目录，不接受任意路径，不提供分区、格式化、挂载或自动删除文件功能；维护动作必须跳转到对应领域的安全入口。
 - SSH 状态应优先读取 `sshd -T` 的最终有效值；远端日志、公钥注释、进程名和路径在进入终端前必须移除控制字符。
 - Journal 条件必须构造为参数数组，单元名使用统一校验，关键词只能作为固定字符串过滤条件，不能拼接为 Shell 或 Journal 表达式。
 - `config/` 存放声明式数据，不包含可执行代码。
+- 应用服务清单位于 `config/apps.tsv`，固定声明应用 ID、名称、systemd Unit、软件目录映射、系统包和领域类别；运行时不得根据进程名或描述动态猜测这些关系。
 - `docs/` 存放设计、变更记录与发布流程等长篇项目文档。
 - `.github/` 存放 GitHub 工作流、社区规范与项目徽章资源。
 - `scripts/` 存放安装、检查等项目维护脚本，不在运行时自动加载。
 - 根目录只保留 README、LICENSE、VERSION、Git 属性等必要元数据和稳定安装入口，不放业务实现。
 
-依赖方向必须保持为 `bin → core → features/config`。功能模块可以调用 core；core 不应反向加载 feature。
+加载顺序为 `bin → core → features/integrations`；功能模块调用 core 公共能力。跨层事件通过显式接口协作，core 不 source 业务页面；导航执行目标使用静态白名单，不 eval 声明式数据。
 
 ## 交互模型
 
-顶层按依赖关系展示八个功能中心：系统概览、系统、网络、安全、服务、软件、应用、备份。进入中心后直接列出动作；Docker 等独立应用可以放在“应用与容器”下一层，但不允许增加“高级”“更多工具”“常用配置”等模糊层级。一个修改动作采用统一流程：
+顶层由 `config/navigation.tsv` 注册十个中心，按主机管理、软件与应用、恢复与维护分组；终端外观独立于软件管理，项目维护不混入系统基础设置。运维总览只聚合低成本即时状态和明确关注事项，后续操作复用既有领域入口。新项目不得增加“高级”“更多工具”等含混层级。一个修改动作采用统一流程：
 
 1. 读取并展示当前状态。
 2. 收集一个明确目标。
@@ -73,19 +91,25 @@ bin/serverctl
 
 Server Toolkit 必须保持前台、按需、短生命周期运行。运行时代码不得调用 `crontab`、`systemd-run`、`nohup`、`setsid` 或 daemonize，不得安装项目自有 systemd Unit，不得控制 `.timer` 生命周期，也不得使用 Shell `&` 脱离当前会话。系统中由软件自身提供的守护进程仍可在用户明确操作后通过 service 管理，但它们不属于 Server Toolkit 后台组件。
 
+软件自身的持久运行影响必须与项目后台边界分开表达。已知会安装服务、Timer/Cron、Socket 或监听器的目录条目使用 `config/software-effects.tsv` 声明，安装前展示但不自动禁用；元数据只能陈述发行版包可能产生的行为，不能承诺某个 Unit 在所有系统上必然启用。
+
 进程控制必须从只读详情进入，不允许从排行榜直接执行终止。PID、nice 和信号必须使用白名单校验；PID 1、工具进程与其父进程受保护。优先使用 SIGTERM，SIGKILL 必须明确说明无法清理资源的影响。发送信号不会承诺进程永久停止，因为 systemd 或容器运行时可能重新拉起。
 
 故障快速排查保持只读，面向正在发生的问题组织资源、失败服务、近期错误、监听面、容器和恢复能力；后续动作只能跳转到既有领域入口，不再建立第二套“健康巡检”平行导航。
 
 网络深度诊断只接受经过白名单校验的接口名、目标和端口。接口页面不得提供可能中断当前 SSH 的 up/down 操作；端点探测、链路路径和套接字压力必须明确单次快照与持续监控的边界，缺少 Netcat、mtr 等可选工具时不得静默安装。
 
+用户提供的 HTTP 诊断 URL 只能使用 `http://` 或 `https://`，不得包含凭据、空白或控制字符。curl 调用必须使用固定参数和 `--` 参数终止符，显式限制可用协议与重定向协议，并设置重定向次数、连接超时和总超时；诊断仅发送纯前台 HEAD 请求，不下载响应体、不持久化 Cookie，也不创建后台进程。展示的 URL、错误和响应头必须先移除终端控制字符。HTTP 405/501 只能说明端点不支持 HEAD，不能据此判断 GET 不可用；该功能只表示一次请求的可观测结果，不能承诺端点持续可用。
+
 登录活动聚合只能解析明确识别的 OpenSSH 常见事件，无法识别的日志不得猜测归类。来源处置只允许最近失败清单中的单个 IP，并拒绝当前 SSH 会话来源；Fail2ban 临时封禁与 UFW 持续拒绝必须分开展示影响范围和恢复入口。
 
-应用服务元数据必须使用固定 ID、systemd Unit、软件目录 ID、系统包和类别映射，不能从服务描述、进程参数或目录名称猜测安装来源。监听端口只关联目标 Unit cgroup 中的进程；查不到关联时应显示未知边界，不能把整机监听误归属给应用。
+应用服务元数据必须由 `config/apps.tsv` 使用固定 ID、systemd Unit、软件目录 ID、系统包和类别映射，不能从服务描述、进程参数或目录名称猜测安装来源。监听端口只关联目标 Unit cgroup 中的进程；查不到关联时应显示未知边界，不能把整机监听误归属给应用。
 
 配置资产页只能列出声明的固定路径和有限深度文件名，不显示文件内容。数据占用只能由用户进入对应页面后，对固定白名单路径执行一次同文件系统 `du`；不得在应用列表、主菜单或后台周期扫描。应用中心不得创建监控进程、Cron 或 systemd Timer。
 
 应用配置检查应调用上游提供的只读命令。reload 只允许元数据明确支持的应用，并且必须先通过配置检查、确认 systemd 声明 reload 能力，再由用户确认执行；不支持安全检查或 reload 的应用应复用通用 systemd 生命周期，不提供猜测性操作。软件更新复用单项软件中心，不在应用中心复制下载与来源逻辑。
+
+应用健康页只能执行短时、只读、无需猜测凭据的检查，并将服务状态、应用响应、cgroup 监听、近期错误、重启次数和当前资源明确分级。应用详情可以直接调用通用 service 生命周期，但不能建立第二套未经验证的 systemd 写操作。
 
 ## 持续集成与文件覆盖
 
@@ -100,6 +124,7 @@ CI 使用三个独立检查任务：`repository-files` 负责全文件分类和�
 - 不能直接使用 `printf %-Ns` 对齐中文。所有列宽必须通过 `ui_display_width` 计算终端显示宽度。
 - 颜色分为品牌层级和语义状态：青色用于导航，蓝色用于可操作项，紫色用于分组与强调；绿色表示正常，黄色表示关注，红色表示危险，灰色表示辅助信息。
 - 详情页面优先使用信息面板展示状态与元数据，并将查看、修改、危险操作放入独立操作区；禁止用连续的无分组键值行模拟完整页面。
+- 总览页面使用响应式指标行和语义提示组织跨领域状态；宽度不足时必须自动退化为逐行状态，不得截断关键值。
 - `NO_COLOR`、非 TTY 输出和至少 64 列的窄终端必须保持可读。
 - 子目录只表达真实领域归属，例如 `应用与容器 / Docker`；禁止使用“更多”“高级”“其他”等模糊导航。
 
@@ -131,6 +156,19 @@ id|category|name|description|apt packages|handler
 16. 官方二进制安装到 `/usr/local/bin`，不得覆盖未带可信状态记录的现有文件。状态记录必须包含仓库、版本、资产、目标路径和安装后二进制 SHA-256。
 17. 更新、修复、来源切换与删除前必须验证归属和本机二进制完整性；完整性异常时默认拒绝覆盖或删除，修复动作需要单独确认并先备份。
 18. 来源切换只作用于单个软件。切换到官方版可以保留底层发行版包；切回时必须先确保发行版候选版本可安装，再删除托管的优先命令。
+19. 官方 APT 仓库必须区分未配置、文件结构完整、配置不完整和危险路径。首次安装前的未配置状态不能等同于不可用；文件级状态只验证密钥格式、来源内容、系统代号和架构，不能冒充 APT 的签名身份验证。安装或修复必须刷新索引，由 APT 校验仓库签名并验证候选版本；密钥轮换或信任失败必须提供显式强制重取路径。
+20. 软件源与签名目标必须拒绝符号链接。已有普通文件在替换前进入配置快照；已有发行版来源安装不能在普通更新操作中被隐式迁移到项目官方仓库。
+21. 目录列表可以在单次页面生命周期内批量缓存 dpkg、APT 候选与可更新状态；任何安装、更新、移除、来源切换或索引刷新后必须立即失效，不得跨操作保留旧状态。
+22. 普通 APT 写操作在最终确认前必须尽可能执行无锁模拟并展示联带变更。安装或更新模拟包含移除项时默认阻止；明确移除必须展示完整计数与有限清单。首次建立官方仓库等无法提前模拟的阶段必须单独说明并验证候选版本。
+23. 可能产生持久运行影响的条目必须在 `config/software-effects.tsv` 中声明运行形态、Unit、调度方式、网络行为和简短说明；Server Toolkit 不自动替用户处置这些上游组件。
+
+运行影响目录格式：
+
+```text
+id|runtime|units|scheduler|network|note
+```
+
+运行影响 ID 必须引用软件目录中的现有条目且保持唯一；运行形态、调度与网络行为使用受控枚举，Unit 只接受 service、socket 或 timer。没有影响记录只表示项目尚未声明已知持久行为，不构成“安装后绝不会启动上游组件”的保证，最终变化仍以 APT 事务和发行版安装脚本为准。
 
 ## 配置与恢复
 

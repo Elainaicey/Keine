@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 . "$ROOT_DIR/src/features/maintenance/doctor.sh"
+. "$ROOT_DIR/src/features/maintenance/menu.sh"
 
 toolkit_about() {
   ui_page "关于 Server Toolkit" "版本、路径与项目资源"
@@ -20,7 +21,7 @@ toolkit_about() {
 
 toolkit_remote_version() {
   command_exists curl || return 1
-  curl -fsSL --retry 2 --connect-timeout 5 --max-time 15 \
+  curl --disable -fsSL --retry 2 --connect-timeout 5 --max-time 15 \
     "https://raw.githubusercontent.com/Elainaicey/server-toolkit/refs/heads/main/VERSION" 2>/dev/null |
     tr -d '[:space:]'
 }
@@ -50,7 +51,7 @@ toolkit_self_update() {
     bin_path="${SERVER_TOOLKIT_BIN_PATH:-$bin_path}"
   fi
   installer="$(mktemp)" || { warn "无法创建更新安装器临时文件。"; return 1; }
-  if ! curl -fsSL --retry 3 --connect-timeout 10 --max-time 120 \
+  if ! curl --disable -fsSL --retry 3 --connect-timeout 10 --max-time 120 \
     "https://raw.githubusercontent.com/Elainaicey/server-toolkit/refs/heads/main/scripts/install.sh" -o "$installer"; then
     rm -f -- "$installer"
     warn "更新安装器下载失败。"
@@ -69,6 +70,7 @@ toolkit_self_update() {
 
 toolkit_uninstall() {
   local choice installer install_metadata bin_path
+  local uninstall_args=()
   installer="$ROOT_DIR/scripts/install.sh"
   install_metadata="$ROOT_DIR/config/installation.conf"
   bin_path="/usr/local/bin/serverctl"
@@ -85,12 +87,18 @@ toolkit_uninstall() {
   ui_danger "卸载会立即结束当前控制台。"
   ui_action 1 "仅卸载程序" "warning" "删除程序，保留日志与备份"
   ui_action 2 "彻底清除项目数据" "danger" "同时删除项目日志、备份和状态数据"
+  ui_action 3 "撤销已记录修改并卸载" "danger" "先校验恢复；存在冲突或撤销失败时保留项目"
   ui_action 0 "取消" "muted"
-  ui_note "已安装的软件和系统配置不会被擅自删除；需要回滚时请先使用备份中心。"
+  ui_note "选项 1/2 不撤销系统修改；选项 3 仅覆盖新版开始记录的可逆操作，不追溯历史。"
+  (( DRY_RUN == 0 )) || uninstall_args+=(--dry-run)
   choice="$(read_input "请选择" "0")"
   case "$choice" in
-    1) exec bash "$installer" --uninstall --dir "$ROOT_DIR" --bin "$bin_path" ;;
-    2) exec bash "$installer" --uninstall --purge-data --dir "$ROOT_DIR" --bin "$bin_path" ;;
+    1) exec bash "$installer" --uninstall --dir "$ROOT_DIR" --bin "$bin_path" "${uninstall_args[@]}" ;;
+    2) exec bash "$installer" --uninstall --purge-data --dir "$ROOT_DIR" --bin "$bin_path" "${uninstall_args[@]}" ;;
+    3)
+      recovery_restore_all || { warn "撤销未全部完成；已保留工具和恢复记录。"; return 1; }
+      exec bash "$installer" --uninstall --purge-data --dir "$ROOT_DIR" --bin "$bin_path" "${uninstall_args[@]}"
+      ;;
     0) return 0 ;;
     *) warn "未知选项"; return 1 ;;
   esac

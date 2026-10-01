@@ -130,16 +130,18 @@ ui_action() {
 
 ui_action_pair() {
   local number1="$1" title1="$2" style1="$3" number2="$4" title2="$5" style2="$6"
-  local color1 color2 column title_width
-  if (( UI_WIDTH < 76 )); then
+  local color1 color2 column title_width width1 width2
+  column=$((UI_WIDTH / 2 - 2))
+  title_width=$((column - 7))
+  width1="$(ui_display_width "$title1")"
+  width2="$(ui_display_width "$title2")"
+  if (( UI_WIDTH < 76 || width1 >= title_width || width2 >= title_width )); then
     ui_action "$number1" "$title1" "$style1"
     ui_action "$number2" "$title2" "$style2"
     return 0
   fi
   color1="$(ui_color_for_state "$style1")"
   color2="$(ui_color_for_state "$style2")"
-  column=$((UI_WIDTH / 2 - 2))
-  title_width=$((column - 7))
   printf '  %b[%s]%b  %b' "$color1$BOLD" "$number1" "$NC" "$color1$BOLD"
   ui_pad "$title1" "$title_width"
   printf '%b  %b[%s]%b  %b' "$NC" "$color2$BOLD" "$number2" "$NC" "$color2$BOLD"
@@ -170,7 +172,12 @@ ui_state_item() {
 }
 
 ui_kv() {
-  local label="$1" value="$2" value_color="${3:-$WHITE}"
+  local label="$1" value="$2" value_color="${3:-$WHITE}" value_width
+  value_width="$(ui_display_width "$value")"
+  if (( value_width > UI_WIDTH - UI_LABEL_WIDTH - 6 )); then
+    printf '  %b%s%b\n    %b%s%b\n' "$BLUE" "$label" "$NC" "$value_color" "$value" "$NC"
+    return 0
+  fi
   printf '  %b' "$BLUE"
   ui_pad "$label" "$UI_LABEL_WIDTH"
   printf '%b%b%s%b\n' "$NC" "$value_color" "$value" "$NC"
@@ -228,7 +235,14 @@ ui_panel_begin() {
 }
 
 ui_panel_kv() {
-  local label="$1" value="$2" value_color="${3:-$WHITE}"
+  local label="$1" value="$2" value_color="${3:-$WHITE}" value_width
+  value_width="$(ui_display_width "$value")"
+  if (( value_width > UI_WIDTH - UI_LABEL_WIDTH - 6 )); then
+    printf '%b│%b  %b%s%b\n%b│%b    %b%s%b\n' \
+      "$MAGENTA" "$NC" "$BLUE" "$label" "$NC" \
+      "$MAGENTA" "$NC" "$value_color" "$value" "$NC"
+    return 0
+  fi
   printf '%b│%b  %b' "$MAGENTA" "$NC" "$BLUE"
   ui_pad "$label" "$UI_LABEL_WIDTH"
   printf '%b%b%s%b\n' "$NC" "$value_color" "$value" "$NC"
@@ -254,6 +268,53 @@ ui_health_summary() {
     "$MUTED" "$NC" "$GREEN$BOLD" "$passed" "$NC" \
     "$MUTED" "$NC" "$YELLOW$BOLD" "$warnings" "$NC" \
     "$MUTED" "$NC" "$RED$BOLD" "$failures" "$NC"
+}
+
+ui_metric_cell() {
+  local label="$1" value="$2" state="$3" target="$4"
+  local color width padding plain
+  color="$(ui_color_for_state "$state")"
+  plain="● $label  $value"
+  width="$(ui_display_width "$plain")"
+  padding=$((target - width))
+  (( padding < 1 )) && padding=1
+  printf '%b●%b %b%s%b  %b%s%b' \
+    "$color" "$NC" "$MUTED" "$label" "$NC" "$color$BOLD" "$value" "$NC"
+  ui_repeat ' ' "$padding"
+}
+
+ui_metric_row() {
+  local label1="$1" value1="$2" state1="$3"
+  local label2="$4" value2="$5" state2="$6"
+  local label3="$7" value3="$8" state3="$9"
+  local usable column1 column2 column3 width1 width2 width3
+  usable=$((UI_WIDTH - 2))
+  column1=$((usable / 3))
+  column2="$column1"
+  column3=$((usable - column1 - column2))
+  width1="$(ui_display_width "● $label1  $value1")"
+  width2="$(ui_display_width "● $label2  $value2")"
+  width3="$(ui_display_width "● $label3  $value3")"
+  if (( UI_WIDTH < 76 || width1 >= column1 || width2 >= column2 || width3 >= column3 )); then
+    ui_status "$label1" "$value1" "$state1"
+    ui_status "$label2" "$value2" "$state2"
+    ui_status "$label3" "$value3" "$state3"
+    return 0
+  fi
+  printf '  '
+  ui_metric_cell "$label1" "$value1" "$state1" "$column1"
+  ui_metric_cell "$label2" "$value2" "$state2" "$column2"
+  ui_metric_cell "$label3" "$value3" "$state3" "$column3"
+  printf '\n'
+}
+
+ui_callout() {
+  local state="$1" title="$2" message="${3:-}" color
+  color="$(ui_color_for_state "$state")"
+  printf '  %b┃%b %b%s%b\n' "$color$BOLD" "$NC" "$color$BOLD" "$title" "$NC"
+  if [[ -n "$message" ]]; then
+    printf '  %b┃%b   %b%s%b\n' "$color" "$NC" "$MUTED" "$message" "$NC"
+  fi
 }
 
 ui_empty() { printf '  %b◇%b %b%s%b\n' "$MUTED" "$NC" "$MUTED" "$1" "$NC"; }

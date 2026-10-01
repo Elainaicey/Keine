@@ -7,7 +7,7 @@ IFS=$'\n\t'
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)"
 . "$ROOT_DIR/src/core/runtime.sh"
 . "$ROOT_DIR/src/core/validation.sh"
-. "$ROOT_DIR/src/features/software/oh-my-zsh.sh"
+. "$ROOT_DIR/src/features/terminal/framework.sh"
 
 NO_COLOR=1
 DRY_RUN=1

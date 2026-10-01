@@ -32,6 +32,61 @@ toolkit_catalog_shape_valid() {
   done <"$catalog"
 }
 
+toolkit_catalog_row_count() {
+  local catalog="$1"
+  [[ -r "$catalog" ]] || return 1
+  awk -F '|' '!/^#/ && NF == 6 {total++} END {print total + 0}' "$catalog"
+}
+
+toolkit_release_catalog_valid() {
+  local release_path="$1" software_path="$2"
+  toolkit_catalog_shape_valid "$release_path" || return 1
+  toolkit_catalog_shape_valid "$software_path" || return 1
+  awk -F '|' '
+    FNR == NR {
+      if ($0 !~ /^#/ && NF == 6) software[$1]=$6
+      next
+    }
+    $0 !~ /^#/ && NF == 6 {
+      if (seen[$1]++ || software[$1] != "official_release") failed=1
+      if ($1 !~ /^[a-z0-9][a-z0-9-]*$/) failed=1
+      if ($2 !~ /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/) failed=1
+      if ($3 !~ /^[A-Za-z0-9][A-Za-z0-9._-]*$/) failed=1
+      if ($4 !~ /[.]tar[.]gz$/ || $5 !~ /[.]tar[.]gz$/) failed=1
+      if ($6 != "https://github.com/" $2) failed=1
+    }
+    END {
+      for (id in software) {
+        if (software[id] == "official_release" && !seen[id]) failed=1
+      }
+      exit failed
+    }
+  ' "$software_path" "$release_path"
+}
+
+toolkit_effect_catalog_valid() {
+  local effects_path="$1" software_path="$2"
+  toolkit_catalog_shape_valid "$effects_path" || return 1
+  toolkit_catalog_shape_valid "$software_path" || return 1
+  awk -F '|' '
+    FNR == NR {
+      if ($0 !~ /^#/ && NF == 6) software[$1]=1
+      next
+    }
+    $0 !~ /^#/ && NF == 6 {
+      if (!software[$1] || seen[$1]++) failed=1
+      if ($1 !~ /^[a-z0-9][a-z0-9-]*$/) failed=1
+      if ($2 != "service" && $2 != "scheduled" && $2 != "service+scheduled" && $2 != "boot-hook") failed=1
+      if ($3 != "-" && $3 !~ /^[A-Za-z0-9@_.-]+\.(service|socket|timer)(,[A-Za-z0-9@_.-]+\.(service|socket|timer))*$/) failed=1
+      if ($4 != "none" && $4 != "timer" && $4 != "cron" && $4 != "timer-or-cron") failed=1
+      if ($5 != "none" && $5 != "local-socket" && $5 != "tcp-listener" &&
+          $5 != "tcp-udp-listener" && $5 != "outbound") failed=1
+      if ($6 == "") failed=1
+    }
+    END { exit failed }
+  ' "$software_path" "$effects_path"
+}
+
 toolkit_doctor_result() {
   local state="$1" message="$2" hint="${3:-}"
   case "$state" in
@@ -46,11 +101,14 @@ toolkit_doctor_result() {
 
 toolkit_doctor() {
   local version entry resolved_bin expected_bin metadata parent_dir stale_count mode dependency missing=0
+  local software_total release_total effect_total
   local dependency_missing=0
   local required_files=(
     VERSION
     bin/serverctl
+    config/apps.tsv
     config/software.tsv
+    config/software-effects.tsv
     config/official-releases.tsv
     scripts/install.sh
     src/core/runtime.sh
@@ -58,6 +116,9 @@ toolkit_doctor() {
     src/core/ui.sh
     src/core/platform.sh
     src/core/backup.sh
+    src/features/dashboard.sh
+    src/features/dashboard/overview.sh
+    src/features/dashboard/menu.sh
     src/features/system.sh
     src/features/system/diagnostics.sh
     src/features/system/processes.sh
@@ -68,20 +129,68 @@ toolkit_doctor() {
     src/features/system/menu.sh
     src/features/network.sh
     src/features/network/diagnostics.sh
+    src/features/network/http.sh
     src/features/network/overview.sh
     src/features/network/tuning.sh
     src/features/network/menu.sh
     src/features/security.sh
+    src/features/security/overview.sh
+    src/features/security/exposure.sh
     src/features/security/activity.sh
+    src/features/security/fail2ban.sh
+    src/features/security/certificates.sh
+    src/features/security/firewall.sh
+    src/features/security/ssh.sh
+    src/features/security/menu.sh
     src/features/services.sh
+    src/features/services/overview.sh
+    src/features/services/journal.sh
+    src/features/services/units.sh
+    src/features/services/audit.sh
+    src/features/services/menu.sh
     src/features/software.sh
+    src/features/software/catalog.sh
+    src/features/software/catalog/cache.sh
+    src/features/software/catalog/query.sh
+    src/features/software/catalog/plan.sh
+    src/features/software/catalog/effects.sh
+    src/features/software/catalog/presentation.sh
+    src/features/software/catalog/actions.sh
+    src/features/software/catalog/views.sh
+    src/features/software/repositories/state.sh
+    src/features/software/repositories/docker.sh
+    src/features/software/repositories/caddy.sh
+    src/features/software/releases.sh
+    src/features/terminal/framework.sh
+    src/features/terminal/prompts.sh
+    src/features/terminal/menu.sh
+    src/features/terminal.sh
+    src/features/maintenance/menu.sh
+    src/core/changes.sh
+    src/core/changes/packages.sh
+    src/core/changes/settings.sh
+    src/core/navigation.sh
+    src/features/recovery.sh
+    src/integrations/warp.sh
+    src/integrations.sh
+    config/navigation.tsv
+    config/terminal.tsv
+    config/integrations.tsv
     src/features/apps.sh
     src/features/apps/menu.sh
     src/features/apps/services.sh
     src/features/apps/services/metadata.sh
     src/features/apps/services/inspect.sh
+    src/features/apps/services/health.sh
     src/features/apps/services/actions.sh
+    src/features/apps/services/overview.sh
+    src/features/apps/services/detail.sh
     src/features/apps/services/menu.sh
+    src/features/apps/docker.sh
+    src/features/apps/docker/inventory.sh
+    src/features/apps/docker/compose.sh
+    src/features/apps/docker/containers.sh
+    src/features/apps/docker/menu.sh
     src/features/apps/docker/volumes.sh
     src/features/backups.sh
     src/features/maintenance.sh
@@ -108,11 +217,17 @@ toolkit_doctor() {
   if (( missing == 0 )); then
     toolkit_doctor_result pass "${#required_files[@]} 个关键文件完整"
   fi
+  software_total="$(toolkit_catalog_row_count "$SOFTWARE_CATALOG" 2>/dev/null || printf '0')"
+  release_total="$(toolkit_catalog_row_count "$OFFICIAL_RELEASE_CATALOG" 2>/dev/null || printf '0')"
+  effect_total="$(toolkit_catalog_row_count "$SOFTWARE_EFFECTS_CATALOG" 2>/dev/null || printf '0')"
   if toolkit_catalog_shape_valid "$SOFTWARE_CATALOG" &&
-    toolkit_catalog_shape_valid "$OFFICIAL_RELEASE_CATALOG"; then
-    toolkit_doctor_result pass "软件目录结构有效"
+    toolkit_release_catalog_valid "$OFFICIAL_RELEASE_CATALOG" "$SOFTWARE_CATALOG" &&
+    toolkit_effect_catalog_valid "$SOFTWARE_EFFECTS_CATALOG" "$SOFTWARE_CATALOG" &&
+    (( software_total > 0 && release_total > 0 && effect_total >= 32 )); then
+    toolkit_doctor_result pass "声明式目录有效 · 软件 $software_total · 官方 Release $release_total · 运行影响 $effect_total"
   else
-    toolkit_doctor_result fail "软件目录不可读或字段结构无效"
+    toolkit_doctor_result fail "声明式目录缺失、关联无效或低于当前基线" \
+      "软件 $software_total · 官方 Release $release_total · 运行影响 $effect_total"
   fi
 
   ui_section "安装入口与权限" "accent"

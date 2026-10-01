@@ -75,7 +75,7 @@ valid_firewall_source() {
 }
 
 valid_service_name() {
-  [[ "${1:-}" =~ ^[a-zA-Z0-9@_.:-]+$ ]]
+  [[ "${1:-}" =~ ^[a-zA-Z0-9][a-zA-Z0-9@_.:-]*$ ]]
 }
 
 valid_package_name() {
@@ -102,6 +102,17 @@ valid_nice_value() {
 valid_network_target() {
   local target="${1:-}"
   [[ "$target" =~ ^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,252}$ || "$target" =~ ^[a-fA-F0-9:]+$ ]]
+}
+
+valid_http_url() {
+  local value="${1:-}" authority
+  [[ "${#value}" -le 2048 && "$value" != *[[:space:]]* && "$value" != *[[:cntrl:]]* ]] || return 1
+  [[ "$value" == http://* || "$value" == https://* ]] || return 1
+  authority="${value#*://}"
+  authority="${authority%%/*}"
+  authority="${authority%%\?*}"
+  authority="${authority%%\#*}"
+  [[ -n "$authority" && "$authority" != *@* && "$authority" != -* ]]
 }
 
 valid_network_interface() {

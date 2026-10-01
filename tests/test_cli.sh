@@ -7,10 +7,15 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
 . "$ROOT_DIR/bin/serverctl"
 
 captured=""
+identity_calls=0
 platform_detect() { :; }
+platform_detect_identity() { identity_calls=$((identity_calls + 1)); }
 catalog_install() { captured="$1"; }
 catalog_update() { captured="update:$1"; }
 catalog_print() { captured="list:${1:-}"; }
+software_catalog_menu() { captured="software-menu"; }
+catalog_record() { [[ "$1" == "jq" ]] && printf 'jq|CLI|jq|JSON|jq|' ; }
+catalog_item_menu() { captured="software:$1"; }
 catalog_sources_view() { captured="sources"; }
 catalog_official_updates_view() { captured="official-updates:$1"; }
 security_exposure_analysis() { captured="exposure:$1"; }
@@ -31,16 +36,27 @@ backups_cleanup() { captured="backup-cleanup"; }
 process_exists() { return 0; }
 system_process_select() { captured="process:$1"; }
 network_endpoint_probe() { captured="probe:$1:$2"; }
+network_http_diagnose() { captured="http:$1"; }
 network_path_trace() { captured="trace:$1"; }
 network_interface_detail() { captured="interface:$1"; }
 security_auth_activity() { captured="auth-activity:$1"; }
 apps_service_detail() { captured="app:$1"; }
+
+[[ "$(main --version)" == "Server Toolkit $SERVERCTL_VERSION" ]] || {
+  printf 'FAIL: --version 标准选项输出错误\n' >&2
+  exit 1
+}
 
 main install jq --dry-run
 [[ "$captured" == "jq" && "$DRY_RUN" -eq 1 ]] || { printf 'FAIL: 单项安装参数解析错误\n' >&2; exit 1; }
 
 main list python
 [[ "$captured" == "list:python" ]] || { printf 'FAIL: list 参数解析错误\n' >&2; exit 1; }
+
+main software
+[[ "$captured" == "software-menu" ]] || { printf 'FAIL: software 没有进入软件中心\n' >&2; exit 1; }
+main software jq
+[[ "$captured" == "software:jq" ]] || { printf 'FAIL: software ID 没有进入软件详情\n' >&2; exit 1; }
 
 main update jq
 [[ "$captured" == "update:jq" ]] || { printf 'FAIL: update 参数解析错误\n' >&2; exit 1; }
@@ -92,6 +108,9 @@ done
 main probe example.com 443
 [[ "$captured" == "probe:example.com:443" ]] || { printf 'FAIL: probe 命令分发错误\n' >&2; exit 1; }
 
+main http https://example.com/health
+[[ "$captured" == "http:https://example.com/health" ]] || { printf 'FAIL: http 命令分发错误\n' >&2; exit 1; }
+
 main trace example.com
 [[ "$captured" == "trace:example.com" ]] || { printf 'FAIL: trace 命令分发错误\n' >&2; exit 1; }
 
@@ -101,8 +120,12 @@ main interface ens3
 main auth-activity
 [[ "$captured" == "auth-activity:24" ]] || { printf 'FAIL: auth-activity 命令分发错误\n' >&2; exit 1; }
 
+identity_calls=0
 main app nginx
-[[ "$captured" == "app:nginx" ]] || { printf 'FAIL: app 命令没有进入应用专属详情\n' >&2; exit 1; }
+[[ "$captured" == "app:nginx" && "$identity_calls" -eq 1 ]] || {
+  printf 'FAIL: app 命令没有先初始化平台身份再进入应用详情\n' >&2
+  exit 1
+}
 
 if (main app unknown-app >/dev/null 2>&1); then
   printf 'FAIL: app 命令接受了未知应用 ID\n' >&2

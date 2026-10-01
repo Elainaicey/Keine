@@ -18,7 +18,8 @@ system_triage_result() {
 
 system_triage_report() {
   local failed_units updates recent_errors oom_count root_free inode_percent memory_percent
-  local listeners=0 docker_unhealthy=0 docker_restarting=0 snapshots=() protected=0 snapshot
+  local listeners=0 docker_installed=0 docker_ready=0 docker_unhealthy=0 docker_restarting=0
+  local snapshots=() protected=0 snapshot
   TRIAGE_PASS=0; TRIAGE_WARN=0; TRIAGE_FAIL=0
   platform_detect
   failed_units="$(systemctl --failed --no-legend 2>/dev/null | grep -c . || true)"
@@ -34,9 +35,13 @@ system_triage_report() {
   if declare -F security_exposure_listener_rows >/dev/null; then
     listeners="$(security_exposure_listener_rows 2>/dev/null | grep -c . || true)"
   fi
-  if command_exists docker && docker info >/dev/null 2>&1; then
-    docker_unhealthy="$(docker ps -q --filter health=unhealthy 2>/dev/null | grep -c . || true)"
-    docker_restarting="$(docker ps -q --filter status=restarting 2>/dev/null | grep -c . || true)"
+  if command_exists docker; then
+    docker_installed=1
+    if runtime_with_timeout 5 docker info >/dev/null 2>&1; then
+      docker_ready=1
+      docker_unhealthy="$(docker ps -q --filter health=unhealthy 2>/dev/null | grep -c . || true)"
+      docker_restarting="$(docker ps -q --filter status=restarting 2>/dev/null | grep -c . || true)"
+    fi
   fi
   mapfile -t snapshots < <(backup_snapshots)
   for snapshot in "${snapshots[@]}"; do
@@ -108,8 +113,10 @@ system_triage_report() {
   fi
   if (( docker_unhealthy + docker_restarting > 0 )); then
     system_triage_result fail "Docker：$docker_unhealthy 个 unhealthy，$docker_restarting 个 restarting"
-  elif command_exists docker; then
+  elif (( docker_ready == 1 )); then
     system_triage_result pass "Docker 未检测到 unhealthy 或 restarting 容器"
+  elif (( docker_installed == 1 )); then
+    system_triage_result warn "Docker Daemon 在 5 秒内不可用" "检查 docker.service 状态或 Socket 权限"
   fi
 
   ui_section "排查结论" "accent"

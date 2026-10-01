@@ -27,11 +27,11 @@ fi
 . "$ROOT_DIR/src/core/validation.sh"
 . "$ROOT_DIR/src/core/ui.sh"
 . "$ROOT_DIR/src/core/platform.sh"
+. "$ROOT_DIR/src/core/changes.sh"
 . "$ROOT_DIR/src/core/backup.sh"
 . "$ROOT_DIR/src/features/software.sh"
 . "$ROOT_DIR/src/features/software/releases.sh"
-. "$ROOT_DIR/src/features/software/oh-my-zsh.sh"
-. "$ROOT_DIR/src/features/software/prompts.sh"
+. "$ROOT_DIR/src/features/terminal.sh"
 . "$ROOT_DIR/src/features/software/catalog.sh"
 . "$ROOT_DIR/src/features/dashboard.sh"
 . "$ROOT_DIR/src/features/system.sh"
@@ -42,19 +42,23 @@ fi
 . "$ROOT_DIR/src/features/apps.sh"
 . "$ROOT_DIR/src/features/backups.sh"
 . "$ROOT_DIR/src/features/maintenance.sh"
+. "$ROOT_DIR/src/features/recovery.sh"
+. "$ROOT_DIR/src/integrations.sh"
+. "$ROOT_DIR/src/core/navigation.sh"
 
 usage() {
   printf 'Server Toolkit %s\n\n' "$SERVERCTL_VERSION"
   cat <<'EOF'
 用法：
   serverctl                       打开交互控制台
-  serverctl status                显示系统仪表盘
+  serverctl status                显示一次性只读运维总览
   serverctl doctor                检查运行环境与项目完整性
   serverctl triage                运行只读故障快速排查
   serverctl updates               查看系统软件包更新清单
   serverctl storage               显示只读存储概览
   serverctl swap                  打开 Swap 生命周期管理
   serverctl process PID           查看并管理一个进程
+  serverctl software [ID]         打开软件中心或指定软件详情
   serverctl list [关键词]         查询软件目录
   serverctl sources               按维护来源浏览软件
   serverctl official-updates      检查已安装官方 Release 更新
@@ -65,6 +69,7 @@ usage() {
   serverctl ports                 查看监听端口
   serverctl dns [域名]            诊断系统 DNS 解析
   serverctl probe HOST PORT       探测目标 TCP 端口
+  serverctl http URL              诊断 HTTP/HTTPS HEAD 状态、TLS 与耗时
   serverctl trace HOST            查看目标链路路径
   serverctl interface IFACE       查看一个网络接口详情
   serverctl system                打开系统管理中心
@@ -81,6 +86,11 @@ usage() {
   serverctl app ID                打开一个已安装应用的专属详情
   serverctl compose PROJECT       管理一个现有 Docker Compose 项目
   serverctl backups               打开备份与恢复中心
+  serverctl terminal              终端框架与提示符一键切换
+  serverctl warp                  管理原生 WARP / wgcf 隧道
+  serverctl recovery              配置快照与项目变更撤销
+  serverctl changes               查看与撤销项目记录的修改
+  serverctl project               项目维护、更新与卸载
   serverctl backup-delete SNAPSHOT
                                   删除一个明确选择的项目快照
   serverctl backup-cleanup        按保留数量或天数清理历史快照
@@ -92,6 +102,7 @@ usage() {
 选项：
   --dry-run                       预览修改命令
   --no-color                      禁用颜色
+  -V, --version                   显示版本
   -h, --help                      显示帮助
 
 工具仅在命令运行期间工作，不创建后台监控或自动任务。修改动作始终需要人工确认；
@@ -100,37 +111,7 @@ EOF
 }
 
 main_menu() {
-  platform_detect
-  local choice
-  while true; do
-    ui_banner
-    ui_context "$OS_NAME · $ARCH · ${MEMORY_MB} MB RAM · load $LOAD_AVERAGE"
-    ui_section "观察与诊断" "primary"
-    ui_item 1 "系统仪表盘" "先了解资源、服务与更新状态"
-    ui_item 2 "系统管理" "故障排查、进程、软件包、存储与基础设置"
-    ui_item 3 "网络与端口" "连通性、目标诊断、监听端口与 BBR"
-    ui_item 4 "安全中心" "安全审计、UFW、SSH 与登录防护"
-    ui_item 5 "服务与日志" "systemd 服务、Journal、启动错误与操作记录"
-    ui_section "软件与数据" "accent"
-    ui_item 6 "软件管理" "多来源搜索、版本、完整性、安装、更新与移除"
-    ui_item 7 "应用与容器" "Docker、Web、数据库和缓存服务"
-    ui_item 8 "备份与恢复" "查看并恢复配置备份"
-    ui_item 0 "退出"
-    ui_note "面向单 root VPS；所有检查按需运行，系统修改会展示影响并再次确认。"
-    choice="$(read_input "请选择" "1")"
-    case "$choice" in
-      1) dashboard_show; pause ;;
-      2) system_menu ;;
-      3) network_menu ;;
-      4) security_menu ;;
-      5) services_menu ;;
-      6) software_catalog_menu ;;
-      7) apps_menu ;;
-      8) backups_menu ;;
-      0) return 0 ;;
-      *) warn "未知选项：$choice"; pause ;;
-    esac
-  done
+  navigation_menu
 }
 
 main() {
@@ -148,6 +129,7 @@ main() {
         # shellcheck disable=SC2034
         NO_COLOR=1
         ;;
+      -V|--version) printf 'Server Toolkit %s\n' "$SERVERCTL_VERSION"; return 0 ;;
       -h|--help|help) runtime_init; usage; return 0 ;;
       --*) die "未知选项：$1" ;;
       *) if [[ "$command_set" -eq 0 ]]; then command="$1"; command_set=1; else arguments+=("$1"); fi ;;
@@ -159,7 +141,6 @@ main() {
     menu) ((${#arguments[@]}==0)) || die "menu 不接受参数"; main_menu ;;
     status)
       ((${#arguments[@]} == 0)) || die "status 不接受参数"
-      platform_detect
       dashboard_show
       ;;
     doctor)
@@ -172,12 +153,12 @@ main() {
       ;;
     updates)
       ((${#arguments[@]} == 0)) || die "updates 不接受参数"
-      platform_detect
+      platform_detect_identity
       system_package_health 0
       ;;
     storage)
       ((${#arguments[@]} == 0)) || die "storage 不接受参数"
-      platform_detect
+      platform_detect_identity
       system_disk_usage 0
       ;;
     swap)
@@ -192,52 +173,66 @@ main() {
       ;;
     list)
       ((${#arguments[@]} <= 1)) || die "list 最多接受一个关键词"
-      platform_detect
+      platform_detect_identity
       catalog_print "${arguments[0]:-}"
+      ;;
+    software)
+      ((${#arguments[@]} <= 1)) || die "software 最多接受一个软件 ID"
+      platform_detect_identity
+      if ((${#arguments[@]} == 0)); then
+        software_catalog_menu
+      else
+        catalog_record "${arguments[0]}" >/dev/null 2>&1 || die "未知软件 ID：${arguments[0]}"
+        catalog_item_menu "${arguments[0]}"
+      fi
       ;;
     sources)
       ((${#arguments[@]} == 0)) || die "sources 不接受参数"
-      platform_detect
+      platform_detect_identity
       catalog_sources_view
       ;;
     official-updates)
       ((${#arguments[@]} == 0)) || die "official-updates 不接受参数"
-      platform_detect
+      platform_detect_identity
       catalog_official_updates_view 0
       ;;
     exposure)
       ((${#arguments[@]} == 0)) || die "exposure 不接受参数"
-      platform_detect
+      platform_detect_identity
       security_exposure_analysis 0
       ;;
     install)
       ((${#arguments[@]} == 1)) || die "install 一次只能接受一个软件 ID"
-      platform_detect
+      platform_detect_identity
       catalog_install "${arguments[0]}"
       ;;
     update)
       ((${#arguments[@]} == 1)) || die "update 一次只能接受一个软件 ID"
-      platform_detect
+      platform_detect_identity
       catalog_update "${arguments[0]}"
       ;;
     remove)
       ((${#arguments[@]} == 1)) || die "remove 一次只能接受一个软件 ID"
-      platform_detect
+      platform_detect_identity
       catalog_remove "${arguments[0]}"
       ;;
     ports)
       ((${#arguments[@]} == 0)) || die "ports 不接受参数"
-      platform_detect
+      platform_detect_identity
       network_list_ports
       ;;
     dns)
       ((${#arguments[@]} <= 1)) || die "dns 最多接受一个域名"
-      platform_detect
+      platform_detect_identity
       network_dns_diagnose "${arguments[0]:-}"
       ;;
     probe)
       ((${#arguments[@]} == 2)) || die "probe 需要目标和 TCP 端口"
       network_endpoint_probe "${arguments[0]}" "${arguments[1]}"
+      ;;
+    http)
+      ((${#arguments[@]} == 1)) || die "http 需要且只接受一个完整 URL"
+      network_http_diagnose "${arguments[0]}"
       ;;
     trace)
       ((${#arguments[@]} == 1)) || die "trace 需要且只接受一个目标"
@@ -250,17 +245,17 @@ main() {
       ;;
     system)
       ((${#arguments[@]} == 0)) || die "system 不接受参数"
-      platform_detect
+      platform_detect_identity
       system_menu
       ;;
     network)
       ((${#arguments[@]} == 0)) || die "network 不接受参数"
-      platform_detect
+      platform_detect_identity
       network_menu
       ;;
     security)
       ((${#arguments[@]} == 0)) || die "security 不接受参数"
-      platform_detect
+      platform_detect_identity
       security_menu
       ;;
     auth-activity)
@@ -269,7 +264,7 @@ main() {
       ;;
     services)
       ((${#arguments[@]} == 0)) || die "services 不接受参数"
-      platform_detect
+      platform_detect_identity
       services_menu
       ;;
     service)
@@ -294,11 +289,12 @@ main() {
       ;;
     apps)
       ((${#arguments[@]} == 0)) || die "apps 不接受参数"
-      platform_detect
+      platform_detect_identity
       apps_menu
       ;;
     app)
       ((${#arguments[@]} == 1)) || die "app 需要且只接受一个应用 ID"
+      platform_detect_identity
       record="$(apps_service_record_by_id "${arguments[0]}" 2>/dev/null || true)"
       [[ -n "$record" ]] || die "未知应用 ID：${arguments[0]}"
       service="$(apps_service_unit "${arguments[0]}")"
@@ -307,13 +303,20 @@ main() {
       ;;
     compose)
       ((${#arguments[@]} == 1)) || die "compose 需要且只接受一个项目名称"
-      platform_detect
+      platform_detect_identity
       docker_compose_manage "${arguments[0]}"
       ;;
     backups)
       ((${#arguments[@]} == 0)) || die "backups 不接受参数"
-      platform_detect
+      platform_detect_identity
       backups_menu
+      ;;
+    terminal|warp|recovery|changes|project)
+      ((${#arguments[@]} == 0)) || die "$command 不接受参数"
+      case "$command" in
+        terminal) terminal_menu ;; warp) warp_menu ;; recovery) recovery_menu ;;
+        changes) recovery_changes_menu ;; project) toolkit_menu ;;
+      esac
       ;;
     backup-delete)
       ((${#arguments[@]} == 1)) || die "backup-delete 需要且只接受一个快照编号"

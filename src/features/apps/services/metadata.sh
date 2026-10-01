@@ -1,17 +1,10 @@
 #!/usr/bin/env bash
 
+APPS_SERVICE_CATALOG="${SERVER_TOOLKIT_APPS_CATALOG:-${CONFIG_DIR:-$ROOT_DIR/config}/apps.tsv}"
+
 apps_service_catalog() {
-  cat <<'EOF'
-docker|Docker|docker.service|docker|docker-ce|容器引擎
-nginx|Nginx|nginx.service|nginx|nginx|Web 服务
-caddy|Caddy|caddy.service|caddy|caddy|Web 服务
-apache|Apache|apache2.service|apache|apache2|Web 服务
-redis|Redis|redis-server.service|redis|redis-server|缓存与数据
-memcached|Memcached|memcached.service|memcached|memcached|缓存
-postgresql|PostgreSQL|postgresql.service|postgresql|postgresql|数据库
-mariadb|MariaDB|mariadb.service|mariadb|mariadb-server|数据库
-x-ui|3x-ui|x-ui.service|||代理面板
-EOF
+  [[ -r "$APPS_SERVICE_CATALOG" ]] || return 1
+  awk -F '|' '!/^#/ && NF == 6' "$APPS_SERVICE_CATALOG"
 }
 
 apps_service_record() {
@@ -42,10 +35,12 @@ apps_service_config_paths() {
     nginx) printf '%s\n' /etc/nginx/nginx.conf /etc/nginx/conf.d /etc/nginx/sites-enabled ;;
     caddy) printf '%s\n' /etc/caddy/Caddyfile /etc/caddy ;;
     apache) printf '%s\n' /etc/apache2/apache2.conf /etc/apache2/sites-enabled /etc/apache2/mods-enabled ;;
+    haproxy) printf '%s\n' /etc/haproxy/haproxy.cfg /etc/haproxy ;;
     redis) printf '%s\n' /etc/redis/redis.conf /etc/redis ;;
     memcached) printf '%s\n' /etc/memcached.conf ;;
     postgresql) printf '%s\n' /etc/postgresql ;;
     mariadb) printf '%s\n' /etc/mysql/mariadb.conf.d /etc/mysql/my.cnf ;;
+    mosquitto) printf '%s\n' /etc/mosquitto/mosquitto.conf /etc/mosquitto/conf.d ;;
     x-ui) printf '%s\n' /etc/x-ui ;;
     *) return 1 ;;
   esac
@@ -57,19 +52,21 @@ apps_service_data_paths() {
     nginx) printf '%s\n' /var/log/nginx ;;
     caddy) printf '%s\n' /var/lib/caddy /var/log/caddy ;;
     apache) printf '%s\n' /var/log/apache2 ;;
+    haproxy) printf '%s\n' /var/lib/haproxy /var/log/haproxy.log ;;
     redis) printf '%s\n' /var/lib/redis /var/log/redis ;;
     memcached) printf '%s\n' /var/log/memcached.log ;;
     postgresql) printf '%s\n' /var/lib/postgresql /var/log/postgresql ;;
     mariadb) printf '%s\n' /var/lib/mysql /var/log/mysql ;;
+    mosquitto) printf '%s\n' /var/lib/mosquitto /var/log/mosquitto ;;
     x-ui) printf '%s\n' /etc/x-ui/x-ui.db ;;
     *) return 1 ;;
   esac
 }
 
 apps_service_config_validation_supported() {
-  case "$1" in nginx|caddy|apache|docker) return 0 ;; *) return 1 ;; esac
+  case "$1" in nginx|caddy|apache|haproxy|docker) return 0 ;; *) return 1 ;; esac
 }
 
 apps_service_reload_supported() {
-  case "$1" in nginx|caddy|apache) return 0 ;; *) return 1 ;; esac
+  case "$1" in nginx|caddy|apache|haproxy) return 0 ;; *) return 1 ;; esac
 }

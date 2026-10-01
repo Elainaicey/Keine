@@ -26,6 +26,9 @@ file|基础|file|识别文件类型与内容格式|file|
 less|基础|less|分页浏览文本与命令输出|less|
 man-db|基础|man-db|系统手册页查询工具|man-db|
 locales|基础|Locales|系统语言与区域设置数据|locales|
+bash-completion|基础|Bash Completion|为 Bash 提供可扩展的命令补全|bash-completion|
+dos2unix|基础|dos2unix|转换 Unix 与 Windows 文本换行格式|dos2unix|
+moreutils|基础|moreutils|补充 sponge、ts、chronic 等 Unix 实用工具|moreutils|
 ripgrep|命令行|ripgrep|高速文本搜索工具，优先使用官方稳定版|ripgrep|official_release
 fd|命令行|fd|现代文件查找工具，优先使用官方稳定版|fd-find|official_release
 bat|命令行|bat|带语法高亮的文件查看器，优先使用官方稳定版|bat|official_release
@@ -35,7 +38,7 @@ zoxide|命令行|zoxide|学习使用习惯的智能目录跳转工具||official_
 fastfetch|命令行|Fastfetch|快速展示系统和硬件信息的现代工具||official_release
 tree|命令行|tree|以树形显示目录|tree|
 neovim|命令行|Neovim|现代 Vim 编辑器|neovim|
-shellcheck|命令行|ShellCheck|Shell 脚本静态分析工具|shellcheck|
+shellcheck|命令行|ShellCheck|Shell 脚本静态分析工具，来自官方稳定版|shellcheck|official_release
 git-lfs|命令行|Git LFS|Git 大文件存储扩展|git-lfs|
 ag|命令行|The Silver Searcher|面向代码的高速文本搜索工具|silversearcher-ag|
 parallel|命令行|GNU Parallel|并行执行批量命令|parallel|
@@ -43,20 +46,8 @@ entr|命令行|entr|文件变化时自动运行命令|entr|
 direnv|命令行|direnv|按目录加载开发环境变量|direnv|
 aria2|命令行|aria2|多协议并行下载工具|aria2|
 httpie|命令行|HTTPie|面向人类的 HTTP 命令行客户端|httpie|
-zsh|终端美化|Zsh|可扩展的交互式命令行 Shell|zsh|
-oh-my-zsh|终端美化|Oh My Zsh|Zsh 配置框架，提供主题、插件与更新能力||oh_my_zsh
-starship|终端美化|Starship|快速、跨 Shell、可高度定制的现代提示符||starship_prompt
-oh-my-posh|终端美化|Oh My Posh|跨平台、多主题的可定制提示符引擎||oh_my_posh_prompt
-spaceship|终端美化|Spaceship Prompt|面向 Zsh 的轻量、强大且可定制提示符||spaceship_prompt
-zsh-autosuggestions|终端美化|Zsh Autosuggestions|根据历史命令提供灰色自动建议|zsh-autosuggestions|
-zsh-syntax-highlighting|终端美化|Zsh Syntax Highlighting|为输入中的命令和参数提供语法高亮|zsh-syntax-highlighting|
-powerline|终端美化|Powerline|为 Shell 与终端应用提供状态栏|powerline|
-fonts-powerline|终端美化|Powerline Fonts|提供 Powerline 状态栏所需字体|fonts-powerline|
-figlet|终端美化|FIGlet|在终端生成大型字符标题|figlet|
-lolcat|终端美化|lolcat|为终端文本输出添加彩虹渐变色|lolcat|
-cowsay|终端美化|cowsay|生成经典的终端字符画消息|cowsay|
-fortune|终端美化|fortune|显示随机短句的终端小工具|fortune-mod|
-neofetch|终端美化|Neofetch|以字符画展示系统与硬件信息|neofetch|
+lazygit|命令行|Lazygit|交互式 Git 终端界面，来自项目官方 Release||official_release
+git-delta|命令行|Delta|为 Git diff 提供语法高亮与更清晰的差异展示||official_release
 mtr|网络|mtr|网络链路诊断工具|mtr-tiny|
 traceroute|网络|traceroute|路由跟踪工具|traceroute|
 whois|网络|whois|域名和 IP 信息查询|whois|
@@ -80,6 +71,12 @@ bridge-utils|网络|Bridge Utils|管理 Linux 以太网桥|bridge-utils|
 vlan|网络|VLAN|配置 802.1Q VLAN 网络接口|vlan|
 bmon|网络|bmon|实时网络带宽监控与统计工具|bmon|
 vnstat|网络|vnStat|持久化记录网卡流量统计|vnstat|
+nethogs|网络|NetHogs|按进程查看实时网络带宽占用|nethogs|
+ipcalc|网络|ipcalc|计算 IPv4 网络、掩码和地址范围|ipcalc|
+ngrep|网络|ngrep|按文本或正则表达式检查网络数据包|ngrep|
+swaks|网络|Swaks|SMTP 协议测试和邮件投递诊断工具|swaks|
+proxychains4|网络|ProxyChains|通过代理链运行网络客户端|proxychains4|
+sshfs|网络|SSHFS|通过 SSH 挂载远程文件系统（需系统允许 FUSE）|sshfs|
 sysstat|监控|sysstat|sar 和 iostat 性能统计工具|sysstat|
 iotop|监控|iotop|磁盘 IO 监控工具|iotop|
 iftop|监控|iftop|实时网络流量监控|iftop|
@@ -95,6 +92,7 @@ lm-sensors|监控|lm-sensors|硬件传感器读取工具|lm-sensors|
 inotify-tools|监控|inotify-tools|文件系统事件监控工具|inotify-tools|
 needrestart|监控|needrestart|检查更新后需要重启的服务与会话|needrestart|
 logwatch|监控|Logwatch|汇总并分析系统日志报告|logwatch|
+fio|监控|fio|存储 I/O 基准测试工具（运行测试会产生磁盘负载）|fio|
 rclone|备份|rclone|云存储同步工具|rclone|
 restic|备份|restic|加密增量备份工具|restic|
 borgbackup|备份|BorgBackup|去重备份工具|borgbackup|
@@ -109,6 +107,7 @@ clamav|安全|ClamAV|开源恶意软件扫描引擎|clamav|
 rkhunter|安全|Rootkit Hunter|检查常见 Rootkit 与可疑系统变化|rkhunter|
 chkrootkit|安全|chkrootkit|扫描常见 Rootkit 痕迹|chkrootkit|
 pass|安全|pass|基于 GnuPG 的命令行密码管理器|pass|
+age|安全|age|简单、现代的文件加密工具|age|
 gcc|开发|GCC|C 编译器|gcc|
 gpp|开发|G++|C++ 编译器|g++|
 make|开发|Make|经典构建工具|make|
@@ -127,6 +126,13 @@ libtool|开发|GNU Libtool|管理可移植共享库构建|libtool|
 meson|开发|Meson|现代化的高性能构建系统|meson|
 hyperfine|开发|hyperfine|支持统计分析的命令行基准测试工具||official_release
 just|开发|just|面向项目命令的现代任务运行器||official_release
+gh|开发|GitHub CLI|官方稳定版 GitHub 仓库与协作管理工具|gh|official_release
+tig|开发|tig|Git 仓库历史与差异的终端浏览器|tig|
+yamllint|开发|yamllint|YAML 语法与风格检查工具|yamllint|
+shfmt|开发|shfmt|Shell 脚本格式化工具|shfmt|
+universal-ctags|开发|Universal Ctags|为多种语言生成代码符号索引|universal-ctags|
+ccache|开发|ccache|缓存编译结果以缩短重复构建时间|ccache|
+actionlint|开发|actionlint|GitHub Actions 工作流静态检查工具||official_release
 python|运行时|Python 3|Python 3 解释器|python3|
 pip|运行时|pip|Python 包管理器|python3-pip|
 python-venv|运行时|Python venv|Python 虚拟环境支持|python3-venv|
@@ -156,6 +162,8 @@ memcached|服务|Memcached|内存对象缓存服务|memcached|
 dnsmasq|服务|dnsmasq|轻量 DNS 缓存与 DHCP 服务|dnsmasq|
 bind9|服务|BIND 9|权威与递归 DNS 服务器|bind9|
 certbot|服务|Certbot|Let's Encrypt ACME 证书客户端|certbot|
+certbot-nginx|服务|Certbot Nginx 插件|使用 Nginx 完成 ACME 证书验证与部署|python3-certbot-nginx|
+certbot-apache|服务|Certbot Apache 插件|使用 Apache 完成 ACME 证书验证与部署|python3-certbot-apache|
 lighttpd|服务|Lighttpd|轻量级 Web 服务器|lighttpd|
 vsftpd|服务|vsftpd|注重安全的 FTP 服务器|vsftpd|
 samba|服务|Samba|SMB/CIFS 文件与打印共享服务|samba|
@@ -167,3 +175,4 @@ docker|容器|Docker Engine|从 Docker 官方仓库安装 Engine 和 Compose||do
 podman|容器|Podman|无守护进程 OCI 容器引擎|podman|
 buildah|容器|Buildah|构建 OCI 容器镜像|buildah|
 skopeo|容器|Skopeo|检查和复制容器镜像|skopeo|
+lazydocker|容器|Lazydocker|以终端界面查看和管理 Docker 资源||official_release

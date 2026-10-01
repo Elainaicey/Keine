@@ -1,0 +1,36 @@
+# id|runtime|units|scheduler|network|note
+man-db|scheduled|man-db.timer|timer-or-cron|none|定期维护手册页索引，具体调度方式取决于发行版
+iperf3|service|iperf3.service|none|tcp-listener|仅在安装交互或系统配置启用服务端模式后监听端口
+nftables|boot-hook|nftables.service|none|none|安装会提供开机规则恢复单元；是否加载规则取决于服务状态与系统配置
+vnstat|service|vnstat.service|none|none|后台采集网卡计数器，用于保留跨重启流量历史
+sysstat|service+scheduled|sysstat.service,sysstat-collect.timer,sysstat-summary.timer|timer-or-cron|none|按发行版配置周期采集并汇总系统性能数据
+atop|service+scheduled|atop.service,atop-rotate.timer|timer-or-cron|none|后台记录性能快照并定期轮换历史文件
+smartmontools|service|smartmontools.service|none|none|smartd 可持续检查受支持磁盘，是否启动取决于硬件与系统配置
+logwatch|scheduled|-|cron|none|通常通过每日任务汇总系统日志
+lynis|scheduled|lynis.service,lynis.timer|timer|none|Debian 与 Ubuntu 软件包通常提供每日安全审计定时器，可按需停用
+ufw|boot-hook|ufw.service|none|none|启用防火墙后会在开机时恢复持久规则，单纯安装不会开放或封锁端口
+fail2ban|service|fail2ban.service|none|none|持续分析日志并按规则动态调整防火墙
+auditd|service|auditd.service|none|none|持续收集 Linux 审计事件并写入审计日志
+clamav|service|clamav-freshclam.service|none|outbound|安装推荐组件时可能持续更新病毒库，不会启用扫描守护进程
+rkhunter|scheduled|-|cron|none|发行版可能安装周期性 Rootkit 检查任务，可在系统配置中关闭
+chkrootkit|scheduled|-|cron|none|发行版可能安装周期性 Rootkit 检查任务，可在系统配置中关闭
+php-fpm|service|-|none|local-socket|启动版本化的 phpX.Y-fpm.service FastCGI 进程池，通常使用本地 Unix Socket
+nginx|service|nginx.service|none|tcp-listener|安装后通常启动 Web 服务并监听发行版默认 HTTP 端口
+caddy|service|caddy.service|none|tcp-udp-listener|官方包通常启动 Web 服务，HTTP/3 配置还可能使用 UDP
+redis|service|redis-server.service|none|tcp-listener|安装后通常启动数据库服务，默认绑定范围由发行版配置决定
+postgresql|service|postgresql.service|none|tcp-listener|安装后通常创建并启动本地数据库集群
+postgresql-contrib|service|postgresql.service|none|tcp-listener|版本化扩展元包会依赖 PostgreSQL 服务器，并可能创建和启动本地数据库集群
+mariadb|service|mariadb.service|none|tcp-listener|安装后通常启动数据库服务，监听范围由默认配置决定
+apache|service|apache2.service|none|tcp-listener|安装后通常启动 Web 服务并监听发行版默认 HTTP 端口
+haproxy|service|haproxy.service|none|tcp-listener|有效配置启用后会按代理规则监听一个或多个端口
+memcached|service|memcached.service|none|tcp-listener|安装后通常启动缓存服务，绑定范围由发行版配置决定
+dnsmasq|service|dnsmasq.service|none|tcp-udp-listener|安装后可能立即占用 DNS 端口，并可按配置提供 DHCP
+bind9|service|named.service|none|tcp-udp-listener|安装后通常启动 DNS 服务并监听 TCP 与 UDP 53 端口
+certbot|scheduled|certbot.timer|timer|outbound|发行版通常提供证书续期定时器，执行时访问 ACME 服务
+certbot-nginx|scheduled|certbot.timer|timer|outbound|依赖 Certbot 并可能启用证书续期定时器，签发或续期时访问 ACME 服务
+certbot-apache|scheduled|certbot.timer|timer|outbound|依赖 Certbot 并可能启用证书续期定时器，签发或续期时访问 ACME 服务
+lighttpd|service|lighttpd.service|none|tcp-listener|安装后通常启动轻量 Web 服务
+vsftpd|service|vsftpd.service|none|tcp-listener|安装后通常启动 FTP 服务，暴露范围取决于监听配置
+samba|service|smbd.service,nmbd.service|none|tcp-udp-listener|安装后可能启动 SMB 与 NetBIOS 服务并监听多个端口
+mosquitto|service|mosquitto.service|none|tcp-listener|安装后通常启动 MQTT Broker，默认绑定范围由发行版配置决定
+docker|service|docker.service,docker.socket,containerd.service|none|local-socket|官方包通常启动 Docker 与 containerd，并创建本地管理 Socket

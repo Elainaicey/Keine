@@ -1,0 +1,5 @@
+# id|name|kind|handler|project|description
+oh-my-zsh|Oh My Zsh|framework|oh_my_zsh|https://github.com/ohmyzsh/ohmyzsh|Zsh 框架与默认主题
+starship|Starship|prompt|starship|https://github.com/starship/starship|简洁、快速的跨 Shell 提示符
+oh-my-posh|Oh My Posh|prompt|oh-my-posh|https://github.com/JanDeDobbeleer/oh-my-posh|多主题提示符引擎
+spaceship|Spaceship|prompt|spaceship|https://github.com/spaceship-prompt/spaceship-prompt|轻量 Zsh 提示符

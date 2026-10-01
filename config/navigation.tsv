@@ -1,0 +1,11 @@
+# number|id|section|title|handler|hint
+1|overview|主机与运行|运维总览|dashboard_menu|关键状态、关注事项与快捷操作
+2|system|主机与运行|系统管理|system_menu|资源、进程、存储与基础设置
+3|network|主机与运行|网络与连接|network_menu|接口、端口、诊断与原生 WARP
+4|security|主机与运行|安全与访问|security_menu|SSH、UFW、Fail2ban 与证书
+5|services|主机与运行|服务与日志|services_menu|已有 systemd 服务与 Journal
+6|software|工具与应用|软件与下载|software_catalog_menu|官方发行下载和系统软件包
+7|apps|工具与应用|应用与容器|apps_menu|应用资产、Docker 与 Compose
+8|terminal|工具与应用|终端与外观|terminal_menu|框架、提示符与配置切换
+9|recovery|项目与数据|恢复与撤销|recovery_menu|配置快照、变更记录与冲突处理
+10|toolkit|项目与数据|项目与扩展|toolkit_menu|环境、自更新与可撤销卸载

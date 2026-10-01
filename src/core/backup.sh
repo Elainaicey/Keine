@@ -73,6 +73,7 @@ backup_set_protection() {
 
 backup_file() {
   local source="$1"
+  if declare -F changes_prepare_file >/dev/null; then changes_prepare_file "$source" || return 1; fi
   [[ -e "$source" || -L "$source" ]] || return 0
   safe_toolkit_path "$BACKUP_ROOT" || { warn "备份根目录不安全：$BACKUP_ROOT"; return 1; }
   [[ ! -L "$BACKUP_ROOT" ]] || { warn "备份根目录不能是符号链接：$BACKUP_ROOT"; return 1; }

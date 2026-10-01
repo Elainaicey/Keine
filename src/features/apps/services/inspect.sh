@@ -22,6 +22,9 @@ apps_service_binary_version() {
     apache)
       command_exists apache2 && version="$(apache2 -v 2>/dev/null | head -n 1 || true)"
       ;;
+    haproxy)
+      command_exists haproxy && version="$(haproxy -v 2>/dev/null | head -n 1 || true)"
+      ;;
     redis)
       command_exists redis-server && version="$(redis-server --version 2>/dev/null | head -n 1 || true)"
       ;;
@@ -33,6 +36,9 @@ apps_service_binary_version() {
       ;;
     mariadb)
       if command_exists mariadb; then version="$(mariadb --version 2>/dev/null | head -n 1 || true)"; fi
+      ;;
+    mosquitto)
+      command_exists mosquitto && version="$(mosquitto -h 2>&1 | head -n 1 || true)"
       ;;
   esac
   [[ -n "$version" ]] || return 1
@@ -53,9 +59,10 @@ apps_service_version() {
 }
 
 apps_service_pids() {
-  local service="$1" control_group pid_file pid
+  local service="$1" control_group pid_file pid snapshot
   valid_service_name "$service" || return 1
-  control_group="$(systemctl show "$service" -p ControlGroup --value 2>/dev/null || true)"
+  snapshot="$(unit_properties_snapshot "$service" ControlGroup MainPID || true)"
+  control_group="$(unit_snapshot_value "$snapshot" ControlGroup 2>/dev/null || true)"
   if [[ -n "$control_group" && "$control_group" == /* && "$control_group" != *'/../'* &&
     -d "/sys/fs/cgroup$control_group" ]]; then
     while IFS= read -r pid_file; do
@@ -64,7 +71,7 @@ apps_service_pids() {
       done <"$pid_file"
     done < <(find "/sys/fs/cgroup$control_group" -type f -name cgroup.procs -print 2>/dev/null)
   else
-    pid="$(systemctl show "$service" -p MainPID --value 2>/dev/null || true)"
+    pid="$(unit_snapshot_value "$snapshot" MainPID 2>/dev/null || true)"
     [[ "$pid" =~ ^[1-9][0-9]*$ ]] && printf '%s\n' "$pid"
   fi
 }
@@ -110,7 +117,7 @@ apps_service_data_existing_count() {
 }
 
 apps_service_configuration_view() {
-  local app_id="$1" label path found=0
+  local app_id="$1" label path file found=0 listed=0
   label="$(apps_service_label "$app_id")"
   ui_page "$label / 配置资产" "只读展示声明路径和最多两层配置文件"
   while IFS= read -r path; do
@@ -120,12 +127,17 @@ apps_service_configuration_view() {
     elif [[ -d "$path" && ! -L "$path" ]]; then
       found=$((found + 1))
       ui_status "$path" "目录" "neutral"
-      find "$path" -maxdepth 2 -type f -printf '    %p\n' 2>/dev/null | sort | sed -n '1,80p'
+      while IFS= read -r -d '' file; do
+        (( listed >= 80 )) && break
+        printf '    %b◇%b %s\n' "$MUTED" "$NC" "$(terminal_safe_text "$file")"
+        listed=$((listed + 1))
+      done < <(find "$path" -maxdepth 2 -type f -print0 2>/dev/null | sort -z)
     else
       ui_status "$path" "不存在" "muted"
     fi
   done < <(apps_service_config_paths "$app_id")
   (( found > 0 )) || ui_empty "没有找到已声明的配置路径"
+  (( listed < 80 )) || ui_hint "配置文件较多，仅显示前 80 项。"
   ui_note "页面不会显示配置内容，避免在终端中暴露密码、令牌或证书私钥。"
 }
 

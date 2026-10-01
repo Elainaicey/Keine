@@ -1,0 +1,2 @@
+# id|name|backend|probe|handler|description
+warp|Cloudflare WARP|native-cli|warp-cli|warp_menu|官方客户端与已有 wgcf 隧道的原生管理

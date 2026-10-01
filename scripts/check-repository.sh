@@ -115,6 +115,26 @@ for path in paths:
         if line.endswith((" ", "\t")):
             failures.append(f"尾随空白：{path.as_posix()}:{number}")
 
+    repository_path = path.as_posix()
+    if (
+        path.suffix == ".sh" or repository_path == "bin/serverctl"
+    ) and (
+        repository_path == "install.sh"
+        or repository_path.startswith(("scripts/", "src/"))
+    ):
+        logical_shell = re.sub(r"\\\n[ \t]*", " ", text)
+        curl_command_pattern = re.compile(
+            r"(?:^|[;&|()]|\$\()\s*"
+            r"(?:(?:if|elif|while|until)\s+)?!?\s*"
+            r"curl\s+(?!--disable(?:\s|$))"
+        )
+        for number, line in enumerate(logical_shell.splitlines(), 1):
+            if curl_command_pattern.search(line):
+                failures.append(
+                    f"curl 网络调用必须以 --disable 作为首个参数："
+                    f"{repository_path}:{number}"
+                )
+
     suffix = path.suffix.lower()
     if suffix == ".md":
         if not any(line.startswith("# ") for line in text.splitlines()):
@@ -149,11 +169,89 @@ for path in paths:
                 failures.append(f"工作流缺少顶层 {key}：{path.as_posix()}")
 
     elif suffix == ".tsv":
+        rows: list[tuple[int, list[str]]] = []
         for number, line in enumerate(text.splitlines(), 1):
             if line.startswith("#") or not line:
                 continue
-            if len(line.split("|")) != 6:
-                failures.append(f"软件目录字段数不是 6：{path.as_posix()}:{number}")
+            fields = line.split("|")
+            if len(fields) != 6:
+                failures.append(f"声明式目录字段数不是 6：{path.as_posix()}:{number}")
+                continue
+            rows.append((number, fields))
+        if path.as_posix() in {"config/navigation.tsv", "config/terminal.tsv", "config/integrations.tsv"}:
+            identifiers: set[str] = set()
+            handlers = {
+                "config/navigation.tsv": {"dashboard_menu", "system_menu", "network_menu", "security_menu", "services_menu", "software_catalog_menu", "apps_menu", "terminal_menu", "recovery_menu", "toolkit_menu"},
+                "config/terminal.tsv": {"oh_my_zsh", "starship", "oh-my-posh", "spaceship"},
+                "config/integrations.tsv": {"warp_menu"},
+            }
+            numbers: set[str] = set()
+            for number, fields in rows:
+                identifier = fields[1] if path.name == "navigation.tsv" else fields[0]
+                handler = fields[4] if path.name != "terminal.tsv" else fields[3]
+                if identifier in identifiers or not re.fullmatch(r"[a-z0-9][a-z0-9-]*", identifier):
+                    failures.append(f"注册 ID 重复或无效：{path.as_posix()}:{number}")
+                identifiers.add(identifier)
+                if not all(fields) or handler not in handlers[path.as_posix()]:
+                    failures.append(f"注册字段或执行白名单无效：{path.as_posix()}:{number}")
+                if path.name == "navigation.tsv":
+                    if fields[0] in numbers or not re.fullmatch(r"[1-9][0-9]?", fields[0]):
+                        failures.append(f"导航编号重复或无效：{number}")
+                    numbers.add(fields[0])
+                elif path.name == "terminal.tsv" and not fields[4].startswith("https://github.com/"):
+                    failures.append(f"终端项目来源无效：{number}")
+        elif path.as_posix() == "config/apps.tsv":
+            app_ids: set[str] = set()
+            app_units: set[str] = set()
+            for number, fields in rows:
+                app_id, name, unit, catalog_id, package, category = fields
+                if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", app_id):
+                    failures.append(f"应用 ID 无效：{path.as_posix()}:{number}")
+                if app_id in app_ids:
+                    failures.append(f"应用 ID 重复：{app_id}")
+                app_ids.add(app_id)
+                if not name or not unit.endswith(".service") or not category:
+                    failures.append(f"应用必填字段无效：{path.as_posix()}:{number}")
+                if unit in app_units:
+                    failures.append(f"应用 systemd Unit 重复：{unit}")
+                app_units.add(unit)
+                if catalog_id and not re.fullmatch(r"[a-z0-9][a-z0-9-]*", catalog_id):
+                    failures.append(f"应用软件目录 ID 无效：{path.as_posix()}:{number}")
+                if package and not re.fullmatch(r"[a-z0-9][a-z0-9+.-]*", package):
+                    failures.append(f"应用系统包名无效：{path.as_posix()}:{number}")
+        elif path.as_posix() == "config/software-effects.tsv":
+            software_ids = {
+                line.split("|", 1)[0]
+                for line in Path("config/software.tsv").read_text(encoding="utf-8").splitlines()
+                if line and not line.startswith("#")
+            }
+            effect_ids: set[str] = set()
+            runtime_values = {"service", "scheduled", "service+scheduled", "boot-hook"}
+            scheduler_values = {"none", "timer", "cron", "timer-or-cron"}
+            network_values = {
+                "none", "local-socket", "tcp-listener", "tcp-udp-listener", "outbound"
+            }
+            unit_pattern = re.compile(
+                r"[A-Za-z0-9@_.-]+\.(?:service|socket|timer)"
+                r"(?:,[A-Za-z0-9@_.-]+\.(?:service|socket|timer))*"
+            )
+            for number, fields in rows:
+                effect_id, runtime, units, scheduler, network, note = fields
+                if effect_id in effect_ids:
+                    failures.append(f"软件运行影响 ID 重复：{effect_id}")
+                effect_ids.add(effect_id)
+                if effect_id not in software_ids:
+                    failures.append(f"软件运行影响引用未知 ID：{effect_id}")
+                if runtime not in runtime_values:
+                    failures.append(f"软件运行形态无效：{path.as_posix()}:{number}")
+                if units != "-" and not unit_pattern.fullmatch(units):
+                    failures.append(f"软件运行影响 Unit 无效：{path.as_posix()}:{number}")
+                if scheduler not in scheduler_values:
+                    failures.append(f"软件调度方式无效：{path.as_posix()}:{number}")
+                if network not in network_values:
+                    failures.append(f"软件网络行为无效：{path.as_posix()}:{number}")
+                if not note:
+                    failures.append(f"软件运行影响说明为空：{path.as_posix()}:{number}")
 
 if failures:
     for failure in failures:

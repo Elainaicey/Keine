@@ -7,7 +7,31 @@ IFS=$'\n\t'
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)"
 . "$ROOT_DIR/src/core/runtime.sh"
 . "$ROOT_DIR/src/core/validation.sh"
+. "$ROOT_DIR/src/core/platform.sh"
 . "$ROOT_DIR/src/features/services.sh"
+
+UNIT_SNAPSHOT_ARGS_FILE="$(mktemp)"
+trap 'rm -f -- "$UNIT_SNAPSHOT_ARGS_FILE"' EXIT
+systemctl() {
+  printf '%s\n' "$@" >"$UNIT_SNAPSHOT_ARGS_FILE"
+  printf '%s\n' 'Description=Example=a=b' 'MainPID=321'
+}
+snapshot="$(unit_properties_snapshot nginx.service Description MainPID)"
+expected_snapshot_args="$(printf '%s\n' show --no-pager -p Description -p MainPID nginx.service)"
+[[ "$(<"$UNIT_SNAPSHOT_ARGS_FILE")" == "$expected_snapshot_args" ]] || {
+  printf 'FAIL: systemctl 多属性快照参数顺序错误\n' >&2
+  exit 1
+}
+[[ "$(unit_snapshot_value "$snapshot" Description)" == 'Example=a=b' &&
+  "$(unit_snapshot_value "$snapshot" MainPID)" == '321' ]] || {
+  printf 'FAIL: systemctl 多属性快照解析错误\n' >&2
+  exit 1
+}
+if unit_properties_snapshot '../nginx.service' MainPID >/dev/null 2>&1 ||
+  unit_properties_snapshot nginx.service 'Main-PID' >/dev/null 2>&1; then
+  printf 'FAIL: systemctl 多属性快照接受了不安全参数\n' >&2
+  exit 1
+fi
 
 [[ "$(services_format_cpu_time 60000000000)" == "1.0 分钟" ]] || {
   printf 'FAIL: 服务 CPU 时间格式化错误\n' >&2
@@ -21,6 +45,15 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
   printf 'FAIL: 服务 Drop-in 路径摘要错误\n' >&2
   exit 1
 }
+property_snapshot=$'MainPID=123\nResult=success\n'
+[[ "$(unit_snapshot_value "$property_snapshot" MainPID)" == 123 ]] || {
+  printf 'FAIL: systemd 属性快照读取错误\n' >&2
+  exit 1
+}
+if unit_snapshot_value "$property_snapshot" '../Result' >/dev/null 2>&1; then
+  printf 'FAIL: systemd 属性读取接受了危险字段名\n' >&2
+  exit 1
+fi
 
 DRY_RUN=1
 captured=""
@@ -43,10 +76,8 @@ fi
 
 DRY_RUN=0
 systemctl() {
-  if [[ "$1" == "show" && "$4" == "Type" ]]; then
-    printf 'oneshot\n'
-  elif [[ "$1" == "show" && "$4" == "Result" ]]; then
-    printf 'success\n'
+  if [[ "$1" == "show" ]]; then
+    printf '%s\n' 'Type=oneshot' 'Result=success'
   else
     return 1
   fi

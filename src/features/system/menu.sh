@@ -3,7 +3,7 @@
 system_menu() {
   local choice
   while true; do
-    ui_page "系统管理" "面向单 root VPS 的诊断、资源、基础设置与项目维护"
+    ui_page "系统管理" "诊断、资源与系统基础设置"
     ui_context "所有检查均为当前快照；修改操作逐项确认，不创建后台任务。"
     ui_section "诊断与资源" "primary"
     ui_item 1 "故障快速排查" "资源、失败服务、日志、暴露面、容器与备份"
@@ -17,11 +17,6 @@ system_menu() {
     ui_item 8 "修改主机名"
     ui_item 9 "修改时区"
     ui_item 10 "时间同步" "NTP 状态与同步服务控制"
-    ui_section "项目维护" "primary"
-    ui_item 11 "关于本项目" "版本、安装路径与数据目录"
-    ui_item 12 "运行环境与项目检查" "入口、依赖、模块、权限与升级残留"
-    ui_item 13 "检查并更新项目" "比较远端版本后使用原子替换"
-    ui_item 14 "卸载项目" "保留或彻底清除项目自身数据"
     ui_item 0 "返回"
     choice="$(read_input "请选择" "0")"
     case "$choice" in
@@ -35,10 +30,6 @@ system_menu() {
       8) system_set_hostname || true ;;
       9) system_set_timezone || true ;;
       10) system_time_sync || true ;;
-      11) toolkit_about ;;
-      12) toolkit_doctor || true ;;
-      13) toolkit_self_update || true ;;
-      14) toolkit_uninstall || true ;;
       0) return 0 ;;
       *) warn "未知选项：$choice"; continue ;;
     esac

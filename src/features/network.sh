@@ -4,4 +4,5 @@
 . "$ROOT_DIR/src/features/network/overview.sh"
 . "$ROOT_DIR/src/features/network/tuning.sh"
 . "$ROOT_DIR/src/features/network/diagnostics.sh"
+. "$ROOT_DIR/src/features/network/http.sh"
 . "$ROOT_DIR/src/features/network/menu.sh"

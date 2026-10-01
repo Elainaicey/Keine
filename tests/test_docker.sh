@@ -39,6 +39,20 @@ docker() {
   fi
 }
 
+DOCKER_TIMEOUT_FILE="$test_root/docker-timeout"
+command_exists() { [[ "$1" == docker ]]; }
+runtime_with_timeout() {
+  printf '%s:%s:%s' "$1" "$2" "$3" >"$DOCKER_TIMEOUT_FILE"
+  shift
+  "$@"
+}
+docker_require || { printf 'FAIL: Docker 测试替身没有被识别\n' >&2; exit 1; }
+docker_daemon_ready || { printf 'FAIL: Docker Daemon 短时探测失败\n' >&2; exit 1; }
+[[ "$(<"$DOCKER_TIMEOUT_FILE")" == '5:docker:info' ]] || {
+  printf 'FAIL: Docker Daemon 探测没有设置 5 秒超时\n' >&2
+  exit 1
+}
+
 context_output="$(docker_compose_context edge-proxy)"
 [[ "$context_output" == "$test_root"$'\n'"$test_root/compose.yml" ]] || {
   printf 'FAIL: Compose 项目上下文解析错误\n' >&2

@@ -19,6 +19,12 @@ apps_service_config_validate() {
       command_exists apache2ctl || { warn "没有找到 apache2ctl 命令。"; return 1; }
       apache2ctl configtest || { warn "Apache 配置检查失败。"; return 1; }
       ;;
+    haproxy)
+      command_exists haproxy || { warn "没有找到 haproxy 命令。"; return 1; }
+      config=/etc/haproxy/haproxy.cfg
+      [[ -f "$config" ]] || { warn "没有找到 HAProxy 配置：$config"; return 1; }
+      haproxy -c -f "$config" || { warn "HAProxy 配置检查失败。"; return 1; }
+      ;;
     docker)
       command_exists dockerd || { warn "没有找到 dockerd 命令。"; return 1; }
       config=/etc/docker/daemon.json
@@ -33,88 +39,24 @@ apps_service_config_validate() {
   ui_success "$label 配置检查通过"
 }
 
-apps_service_runtime_check() {
-  local app_id="$1" output
-  case "$app_id" in
-    docker)
-      command_exists docker && docker info >/dev/null 2>&1
-      ;;
-    nginx)
-      command_exists nginx && nginx -t >/dev/null 2>&1
-      ;;
-    caddy)
-      command_exists caddy && [[ -f /etc/caddy/Caddyfile ]] &&
-        caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1
-      ;;
-    apache)
-      command_exists apache2ctl && apache2ctl configtest >/dev/null 2>&1
-      ;;
-    redis)
-      command_exists redis-cli || return 2
-      if command_exists timeout; then
-        output="$(timeout 4 redis-cli -h 127.0.0.1 ping 2>/dev/null || true)"
-      else
-        output="$(redis-cli -h 127.0.0.1 ping 2>/dev/null || true)"
-      fi
-      [[ "$output" == "PONG" || "$output" == *"NOAUTH"* ]]
-      ;;
-    postgresql)
-      command_exists pg_isready || return 2
-      pg_isready -q -t 3
-      ;;
-    *) return 2 ;;
-  esac
-}
-
-apps_service_health() {
-  local app_id="$1" label service state enabled listeners recent_errors runtime_status
-  label="$(apps_service_label "$app_id")"
-  service="$(apps_service_unit "$app_id")"
-  state="$(service_state "$service")"
-  enabled="$(systemctl is-enabled "$service" 2>/dev/null || true)"
-  enabled="${enabled:-disabled}"
-  listeners="$(apps_service_listener_count "$service")"
-  recent_errors="$(journalctl -u "$service" --since "-1 hour" -p err --no-pager 2>/dev/null | grep -c . || true)"
-  ui_page "$label / 运行健康" "systemd、应用响应、监听端口与最近错误"
-  if [[ "$state" == "active" ]]; then
-    ui_check pass "systemd 服务处于 active"
-  else
-    ui_check fail "systemd 服务状态为 $state"
-  fi
-  if apps_service_runtime_check "$app_id"; then
-    runtime_status=0
-    ui_check pass "应用级只读检查通过"
-  else
-    runtime_status=$?
-    if [[ "$runtime_status" -eq 2 ]]; then
-      ui_check warn "该应用没有可安全执行的无认证运行检查"
-    else
-      ui_check fail "应用级只读检查失败"
-    fi
-  fi
-  if [[ "$listeners" =~ ^[0-9]+$ ]] && (( listeners > 0 )); then
-    ui_check pass "关联到 $listeners 个监听套接字"
-  else
-    ui_check warn "没有通过 systemd cgroup 关联到监听套接字"
-  fi
-  if [[ "$recent_errors" =~ ^[0-9]+$ ]] && (( recent_errors > 0 )); then
-    ui_check warn "最近 1 小时有 $recent_errors 条 err 级日志"
-  else
-    ui_check pass "最近 1 小时没有 err 级日志"
-  fi
-  ui_kv "开机启动" "$enabled"
-  ui_note "检查仅在打开页面时运行一次，不会创建定时任务或后台监控。"
+apps_service_lifecycle_action() {
+  local app_id="$1" verb="$2" service
+  case "$verb" in start|stop|restart|enable|disable) ;; *) warn "不支持的应用生命周期操作：$verb"; return 1 ;; esac
+  service="$(apps_service_unit "$app_id")" || { warn "未知应用：$app_id"; return 1; }
+  service_exists "$service" || { warn "应用服务未安装：$service"; return 1; }
+  services_apply_action "$service" "$verb"
 }
 
 apps_service_reload() {
-  local app_id="$1" label service state can_reload exec_reload
+  local app_id="$1" label service state can_reload exec_reload snapshot
   apps_service_reload_supported "$app_id" || { warn "该应用未声明安全 reload 流程。"; return 1; }
   label="$(apps_service_label "$app_id")"
   service="$(apps_service_unit "$app_id")"
   state="$(service_state "$service")"
   [[ "$state" == "active" ]] || { warn "$label 当前未运行，不能 reload。"; return 1; }
-  can_reload="$(systemctl show "$service" -p CanReload --value 2>/dev/null || true)"
-  exec_reload="$(systemctl show "$service" -p ExecReload --value 2>/dev/null || true)"
+  snapshot="$(unit_properties_snapshot "$service" CanReload ExecReload || true)"
+  can_reload="$(unit_snapshot_value "$snapshot" CanReload 2>/dev/null || true)"
+  exec_reload="$(unit_snapshot_value "$snapshot" ExecReload 2>/dev/null || true)"
   if [[ "$can_reload" != "yes" && -z "$exec_reload" ]]; then
     warn "$service 没有声明 systemd reload 能力。"
     return 1

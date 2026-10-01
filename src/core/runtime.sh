@@ -44,16 +44,36 @@ runtime_locale() {
 
 audit() {
   local message="$*"
+  if [[ "$message" != action=backup* ]] && declare -F changes_commit_pending >/dev/null; then
+    changes_commit_pending || { warn "变更状态记录失败；撤销前需要核实当前资源。"; return 1; }
+  fi
   [[ "${EUID}" -eq 0 && "$DRY_RUN" -eq 0 ]] || return 0
   mkdir -p "$(dirname "$AUDIT_LOG")" 2>/dev/null || return 0
   printf '%s user=%s pid=%s %s\n' "$(date -Is)" "${SUDO_USER:-root}" "$$" "$message" >>"$AUDIT_LOG" 2>/dev/null || true
 }
 
 run() {
+  local result=0
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf '%b[预览]%b' "$BLUE" "$NC"
     printf ' %q' "$@"
     printf '\n'
+  else
+    if declare -F changes_before_command >/dev/null; then changes_before_command "$@" || return 1; fi
+    "$@" || result=$?
+    if declare -F changes_after_command >/dev/null; then changes_after_command "$@" || return 1; fi
+    # 即使命令失败也记录已发生的部分变更，不依赖最终成功审计。
+    if declare -F changes_commit_pending >/dev/null; then changes_commit_pending || return 1; fi
+    return "$result"
+  fi
+}
+
+runtime_with_timeout() {
+  local seconds="${1:-}"
+  shift || return 1
+  [[ "$seconds" =~ ^[1-9][0-9]*$ && $# -gt 0 ]] || return 1
+  if command_exists timeout; then
+    timeout "$seconds" "$@"
   else
     "$@"
   fi
@@ -87,13 +107,19 @@ pause() {
 }
 
 runtime_error() {
-  local line="$1" command="$2" status="$3"
-  error "操作失败（状态 $status，行 $line）：$command"
-  audit "result=failed status=$status line=$line command=$(printf '%q' "$command")"
+  local line="$1" status="$2"
+  [[ "$line" =~ ^[0-9]+$ ]] || line="?"
+  [[ "$status" =~ ^[0-9]+$ ]] || status="?"
+  error "操作失败（状态 $status，行 $line）。请结合当前页面提示或最近日志继续定位。"
+  # BASH_COMMAND 未来可能包含口令、令牌或私有路径；错误审计只记录定位所需的
+  # 状态与行号，不把完整命令持久化到磁盘。
+  audit "result=failed status=$status line=$line"
 }
 
 runtime_init() {
   runtime_locale
   runtime_colors
-  trap 'status=$?; runtime_error "$LINENO" "$BASH_COMMAND" "$status"' ERR
+  # 仅入口初始化启用；单独 source 的离线测试不向主机写入变更记录。
+  if declare -F changes_ready >/dev/null && [[ "$EUID" -eq 0 ]]; then CHANGES_ENABLED=1; fi
+  trap 'status=$?; runtime_error "$LINENO" "$status"' ERR
 }

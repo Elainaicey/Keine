@@ -72,6 +72,14 @@ if software_release_parse_latest sample "$TEST_ROOT/bad-url.json" >/dev/null 2>&
 fi
 
 target="$(software_release_target sample)"
+version_fixture="$TEST_ROOT/actionlint-version"
+# shellcheck disable=SC2016
+printf '%s\n' '#!/usr/bin/env bash' '[[ "$1" == "-version" ]] || exit 1' 'printf "1.7.12\\n"' >"$version_fixture"
+chmod 0755 "$version_fixture"
+[[ "$(software_release_version_output actionlint "$version_fixture")" == '1.7.12' ]] || {
+  printf 'FAIL: actionlint 没有使用其官方 -version 参数\n' >&2
+  exit 1
+}
 archive_root="$TEST_ROOT/archive/sample-1.2.3-linux-amd64"
 mkdir -p "$archive_root"
 printf '#!/usr/bin/env sh\nprintf "sample 1.2.3\\n"\n' >"$archive_root/sample"
@@ -83,6 +91,7 @@ SOFTWARE_RELEASE_LATEST_CACHE["sample"]="1.2.3|sample-1.2.3-linux-amd64.tar.gz|$
 package_install() { :; }
 curl() {
   local output=""
+  [[ "$1" == "--disable" ]] || return 1
   while (($# > 0)); do
     if [[ "$1" == "-o" ]]; then output="$2"; shift 2; else shift; fi
   done

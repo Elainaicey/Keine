@@ -224,7 +224,7 @@ security_configure_ssh() {
     return 1
   fi
   if [[ "$new_port" != "$current_port" ]] && command_exists ufw && ufw status 2>/dev/null | grep -q '^Status: active'; then
-    if ! ufw allow "$new_port/tcp"; then
+    if ! run ufw allow "$new_port/tcp"; then
       security_restore_ssh_files "$main_config" "$config" "$config_existed" || warn "SSH 配置回滚失败，请立即检查。"
       warn "无法放行新的 SSH 端口，已恢复配置。"
       return 1

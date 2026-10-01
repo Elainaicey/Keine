@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+
+catalog_browse_rows() {
+  local mode="$1" filter="$2" record
+  case "$mode" in
+    search) catalog_rows "$filter" ;;
+    category) catalog_category_rows "$filter" ;;
+    installed)
+      while IFS= read -r record; do
+        catalog_installed "$record" && printf '%s\n' "$record"
+      done < <(catalog_rows)
+      ;;
+    updates)
+      while IFS= read -r record; do
+        catalog_has_update "$record" && printf '%s\n' "$record"
+      done < <(catalog_rows)
+      ;;
+    source)
+      while IFS= read -r record; do
+        [[ "$(catalog_source_kind "$record")" == "$filter" ]] && printf '%s\n' "$record"
+      done < <(catalog_rows)
+      ;;
+    *) die "未知的软件浏览模式：$mode" ;;
+  esac
+}
+
+catalog_browse_view() {
+  local mode="$1" filter="$2" title="$3" subtitle="$4"
+  local rows=() page=0 page_size=6 total pages start end index shown=0
+  local record id name state_label state_style state current candidate choice filter_preview
+  while true; do
+    catalog_cache_build
+    mapfile -t rows < <(catalog_browse_rows "$mode" "$filter")
+    total="${#rows[@]}"
+    if (( total == 0 )); then
+      ui_page "$title" "$subtitle"
+      ui_empty "当前条件下没有软件条目"
+      pause
+      return 0
+    fi
+    pages=$(((total + page_size - 1) / page_size))
+    (( page < pages )) || page=$((pages - 1))
+    start=$((page * page_size))
+    end=$((start + page_size))
+    (( end <= total )) || end="$total"
+    ui_page "$title" "$subtitle"
+    if [[ "$mode" == "search" ]]; then
+      filter_preview="$(terminal_safe_text "$filter")"
+      (( ${#filter_preview} <= 40 )) || filter_preview="${filter_preview:0:39}…"
+      ui_context "搜索词：$filter_preview"
+    fi
+    ui_context "共 $total 项 · 第 $((page + 1))/$pages 页 · 页内编号打开详情"
+    ui_section "软件条目" "primary"
+    shown=0
+    for (( index=start; index<end; index++ )); do
+      record="${rows[$index]}"
+      IFS='|' read -r id _ name _ <<<"$record"
+      current="$(catalog_installed_version "$record")"
+      candidate="$(catalog_candidate_version "$record")"
+      state="$(catalog_state "$record" "$candidate")"
+      IFS='|' read -r state_label state_style <<<"$(catalog_state_info "$state")"
+      ui_state_item "$((index - start + 1))" "$id" "$state_label" "$state_style" "$name"
+      printf '         %b当前 %s  ·  候选 %s%b\n' "$MUTED" "$current" "$candidate" "$NC"
+      shown=$((shown + 1))
+    done
+    ui_section "翻页与选择" "accent"
+    (( page > 0 )) && ui_action P "上一页" "action"
+    (( page + 1 < pages )) && ui_action N "下一页" "action"
+    ui_action 0 "返回" "muted"
+    choice="$(read_input "页内编号 / 软件 ID / N / P / 0" "0")"
+    case "$choice" in
+      0) return 0 ;;
+      N|n) if (( page + 1 < pages )); then page=$((page + 1)); else warn "已经是最后一页。"; pause; fi ;;
+      P|p) if (( page > 0 )); then page=$((page - 1)); else warn "已经是第一页。"; pause; fi ;;
+      *)
+        if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= shown )); then
+          IFS='|' read -r id _ <<<"${rows[$((start + choice - 1))]}"
+          catalog_item_menu "$id"
+        elif catalog_record "$choice" >/dev/null 2>&1; then
+          catalog_item_menu "$choice"
+        else
+          warn "无效编号或软件 ID：$choice"
+          pause
+        fi
+        ;;
+    esac
+  done
+}

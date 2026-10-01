@@ -135,10 +135,10 @@ network_endpoint_probe() {
     ui_note "可在软件中心安装 netcat 后重试；诊断不会自动安装软件。"
     return 1
   fi
-  if nc -z -w 4 "$target" "$port" >/dev/null 2>&1; then
-    ui_check pass "TCP $target:$port 可以建立连接"
+  if nc -z -w 4 "$address" "$port" >/dev/null 2>&1; then
+    ui_check pass "TCP $target ($address):$port 可以建立连接"
   else
-    ui_check fail "TCP $target:$port 无法建立连接"
+    ui_check fail "TCP $target ($address):$port 无法建立连接"
     ui_note "可能原因包括服务未监听、目标防火墙拒绝、链路过滤或超时。"
     return 1
   fi

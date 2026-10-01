@@ -65,6 +65,14 @@ software_release_target() {
   printf '%s/%s' "$SOFTWARE_RELEASE_BIN_DIR" "$command"
 }
 
+software_release_version_output() {
+  local id="$1" target="$2"
+  case "$id" in
+    actionlint) "$target" -version 2>&1 ;;
+    *) "$target" --version 2>&1 ;;
+  esac
+}
+
 software_release_managed() {
   local id="$1" repository command marker
   marker="$(software_release_marker "$id")" || return 1
@@ -144,7 +152,8 @@ software_release_load_latest() {
     command_exists curl || { warn "缺少 curl，无法查询官方 Release。"; return 1; }
     repository="$(software_release_repository "$id")" || return 1
     response="$(mktemp)" || { warn "无法创建 Release 元数据临时文件。"; return 1; }
-    if ! curl -fsSL --retry 2 --connect-timeout 8 --max-time 30 \
+    if ! curl --disable -fsSL --proto '=https' --proto-redir '=https' \
+      --retry 2 --connect-timeout 8 --max-time 30 \
       --max-filesize 2097152 \
       -H 'Accept: application/vnd.github+json' \
       -H 'X-GitHub-Api-Version: 2022-11-28' \
@@ -199,10 +208,12 @@ software_install_release() {
   command="$(software_release_command "$id")" || return 1
   if [[ -e "$target" || -L "$target" ]]; then
     if ! software_release_managed "$id"; then
-      warn "$target 已存在且不由 Server Toolkit 管理，拒绝覆盖。"
-      return 1
+      [[ "$mode" == adopt && -f "$target" && ! -L "$target" ]] || {
+        warn "$target 是外部安装；请从详情页选择来源切换并确认接管。"; return 1;
+      }
+      backup_file "$target" || return 1
     fi
-    if ! software_release_integrity "$id"; then
+    if software_release_managed "$id" && ! software_release_integrity "$id"; then
       [[ "$mode" == "repair" ]] || { warn "$target 已被修改，拒绝自动覆盖。"; return 1; }
       backup_file "$target" || { warn "无法在修复前备份 $target。"; return 1; }
     fi
@@ -227,7 +238,8 @@ software_install_release() {
   extract="$temporary/extract"
   listing="$temporary/archive.list"
   mkdir -p "$extract" || { rm -rf "$temporary"; warn "无法创建 Release 解压目录。"; return 1; }
-  if ! curl -fL --retry 3 --connect-timeout 10 --max-time 180 --max-filesize 134217728 "$url" -o "$archive"; then
+  if ! curl --disable -fL --proto '=https' --proto-redir '=https' \
+    --retry 3 --connect-timeout 10 --max-time 180 --max-filesize 134217728 "$url" -o "$archive"; then
     rm -rf "$temporary"
     warn "官方 Release 下载失败：$asset"
     return 1
@@ -283,8 +295,11 @@ software_install_release() {
     cp -a "$target" "$previous" || { rm -rf "$temporary"; warn "无法暂存当前版本。"; return 1; }
     had_previous=1
   fi
+  if declare -F changes_prepare_file >/dev/null; then
+    changes_prepare_file "$target" || { rm -rf -- "$temporary"; return 1; }
+  fi
   install -m 0755 "$binary" "$target" || { rm -rf "$temporary"; warn "无法安装 $target。"; return 1; }
-  version_output="$("$target" --version 2>&1 || true)"
+  version_output="$(software_release_version_output "$id" "$target" || true)"
   if ! grep -Fq "$version" <<<"$version_output"; then
     if (( had_previous == 1 )); then install -m 0755 "$previous" "$target" || true; else rm -f "$target"; fi
     rm -rf "$temporary"
@@ -328,6 +343,7 @@ software_remove_release() {
   target="$(software_release_target "$id")" || return 1
   marker="$(software_release_marker "$id")" || return 1
   if [[ "$DRY_RUN" -eq 1 ]]; then info "将删除托管命令 $target 和状态文件 $marker。"; return 0; fi
+  if declare -F changes_prepare_file >/dev/null; then changes_prepare_file "$target" || return 1; fi
   rm -f -- "$target" || { warn "无法删除 $target。"; return 1; }
   rm -f -- "$marker" || { warn "无法删除 $id 的 Release 状态文件。"; return 1; }
   [[ ! -e "$target" && ! -L "$target" ]] || { warn "$target 删除后仍然存在。"; return 1; }

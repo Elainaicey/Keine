@@ -32,4 +32,16 @@ if network_endpoint_probe 'host;reboot' 443 >/dev/null 2>&1 ||
   exit 1
 fi
 
+getent() { printf '203.0.113.5 STREAM example.com\n'; }
+ip() { printf '203.0.113.5 via 192.0.2.1 dev eth0\n'; }
+nc() { [[ "$4" == "203.0.113.5" && "$5" == "443" ]]; }
+command_exists() { [[ "$1" == "nc" ]]; }
+ui_page() { :; }
+ui_check() { printf '%s\n' "$2"; }
+result="$(network_endpoint_probe example.com 443)"
+grep -Fq 'TCP example.com (203.0.113.5):443 可以建立连接' <<<"$result" || {
+  printf 'FAIL: TCP 握手没有使用路由检查过的解析地址\n' >&2
+  exit 1
+}
+
 printf 'PASS: network diagnostics\n'

@@ -7,11 +7,21 @@ IFS=$'\n\t'
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)"
 CONFIG_DIR="$ROOT_DIR/config"
 SOFTWARE_CATALOG="$CONFIG_DIR/software.tsv"
+CATALOG_TEST_ROOT="$(mktemp -d)"
+trap '[[ "$CATALOG_TEST_ROOT" == /tmp/* ]] && rm -rf -- "$CATALOG_TEST_ROOT"' EXIT
+SERVER_TOOLKIT_APT_SOURCES_DIR="$CATALOG_TEST_ROOT/sources"
+SERVER_TOOLKIT_APT_KEYRING_DIR="$CATALOG_TEST_ROOT/keyrings"
+SERVER_TOOLKIT_SHARE_KEYRING_DIR="$CATALOG_TEST_ROOT/share-keyrings"
+OS_ID=debian
+OS_NAME='Debian test'
+OS_CODENAME=bookworm
+ARCH=amd64
 
 # shellcheck source=../src/core/runtime.sh
 . "$ROOT_DIR/src/core/runtime.sh"
 . "$ROOT_DIR/src/core/ui.sh"
 runtime_colors
+. "$ROOT_DIR/src/features/software.sh"
 
 package_installed() { return 1; }
 package_installed_version() { :; }
@@ -30,6 +40,7 @@ software_release_version() { :; }
 software_release_homepage() { printf 'https://example.com'; }
 software_release_repository() { printf 'owner/repo'; }
 software_release_target() { printf '/usr/local/bin/example'; }
+software_release_command() { printf example; }
 software_target_user() { printf 'tester'; }
 software_target_home() { printf '/home/tester'; }
 software_oh_my_zsh_path() { printf '/home/tester/.oh-my-zsh'; }
@@ -45,11 +56,8 @@ IFS='|' read -r id category _name _description packages handler <<<"$record"
 [[ "$id" == "podman" && "$category" == "容器" && "$packages" == "podman" && -z "$handler" ]] || die "podman 映射错误"
 
 catalog_total="$(catalog_rows | wc -l | tr -d '[:space:]')"
-(( catalog_total >= 168 )) || die "软件目录条目不足：$catalog_total"
-
-record="$(catalog_record oh-my-zsh)"
-IFS='|' read -r id category _name _description packages handler <<<"$record"
-[[ "$id" == "oh-my-zsh" && "$category" == "终端美化" && -z "$packages" && "$handler" == "oh_my_zsh" ]] || die "Oh My Zsh 专用安装器映射错误"
+(( catalog_total > 0 )) || die "软件目录为空"
+if catalog_record oh-my-zsh >/dev/null; then die "终端框架仍混入软件目录"; fi
 
 record="$(catalog_record ripgrep)"
 IFS='|' read -r id category _name _description packages handler <<<"$record"
@@ -63,6 +71,30 @@ grep -Eq '^基础\|[0-9]+$' < <(catalog_categories) || die "分类统计缺少�
 
 duplicates="$(catalog_rows | awk -F '|' '{count[$1]++} END {for (id in count) if (count[id] > 1) print id}')"
 [[ -z "$duplicates" ]] || die "存在重复 ID：$duplicates"
+
+[[ "$(catalog_effect_label docker)" == "后台服务" ]] || die "Docker 运行形态标签错误"
+effect_summary="$(catalog_effect_summary docker)"
+[[ "$effect_summary" == *"本地 Socket"* && "$effect_summary" == *"docker.service"* ]] ||
+  die "Docker 运行影响摘要不完整：$effect_summary"
+catalog_effect_has_persistent_impact docker || die "没有识别 Docker 的持久运行影响"
+if catalog_effect_has_persistent_impact jq; then
+  die "无后台元数据的软件被错误标记为持久运行"
+fi
+effect_total="$(catalog_effect_rows | wc -l | tr -d '[:space:]')"
+(( effect_total >= 35 )) || die "软件运行影响元数据不足：$effect_total"
+catalog_effect_has_persistent_impact lynis || die "Lynis 定时审计影响未声明"
+catalog_effect_has_persistent_impact postgresql-contrib || die "PostgreSQL 扩展的服务依赖影响未声明"
+effect_duplicates="$(catalog_effect_rows | awk -F '|' '{count[$1]++} END {for (id in count) if (count[id] > 1) print id}')"
+[[ -z "$effect_duplicates" ]] || die "软件运行影响 ID 重复：$effect_duplicates"
+while IFS='|' read -r effect_id runtime units scheduler network note; do
+  catalog_record "$effect_id" >/dev/null || die "软件运行影响引用未知 ID：$effect_id"
+  case "$runtime" in service|scheduled|service+scheduled|boot-hook) ;; *) die "运行形态无效：$effect_id" ;; esac
+  [[ "$units" == "-" || "$units" =~ ^[A-Za-z0-9@_.-]+\.(service|socket|timer)(,[A-Za-z0-9@_.-]+\.(service|socket|timer))*$ ]] ||
+    die "运行影响 Unit 无效：$effect_id"
+  case "$scheduler" in none|timer|cron|timer-or-cron) ;; *) die "调度方式无效：$effect_id" ;; esac
+  case "$network" in none|local-socket|tcp-listener|tcp-udp-listener|outbound) ;; *) die "网络行为无效：$effect_id" ;; esac
+  [[ -n "$note" ]] || die "运行影响说明为空：$effect_id"
+done < <(catalog_effect_rows)
 
 while IFS='|' read -r id category name description packages handler; do
   [[ "$id" =~ ^[a-z0-9][a-z0-9-]*$ ]] || die "无效 ID：$id"
@@ -87,26 +119,32 @@ while IFS='|' read -r id repository command amd64_asset arm64_asset homepage; do
   [[ "$handler" == "official_release" ]] || die "Release 元数据没有使用专用 handler：$id"
   release_total=$((release_total + 1))
 done < <(awk -F '|' '!/^#/ && NF == 6' "$CONFIG_DIR/official-releases.tsv")
-(( release_total >= 12 )) || die "官方 Release 条目不足：$release_total"
+(( release_total >= 16 )) || die "官方 Release 条目不足：$release_total"
 
 package_candidate_version() { [[ "$1" == "jq" ]] && printf '(none)' || printf '1.0.0'; }
 record="$(catalog_record jq)"
 [[ "$(catalog_state "$record")" == "unavailable" ]] || die "没有识别当前软件源不可用的普通软件"
 package_candidate_version() { printf '1.0.0'; }
 
-software_oh_my_zsh_installed() { return 0; }
-record="$(catalog_record oh-my-zsh)"
-[[ "$(catalog_state "$record")" == "managed" ]] || die "官方来源软件被错误标记为已经确认最新"
-software_oh_my_zsh_installed() { return 1; }
+record="$(catalog_record docker)"
+package_candidate_version() { [[ "$1" == "docker-ce" ]] && printf '(none)' || printf '1.0.0'; }
+[[ "$(catalog_state "$record")" == "setup" ]] || die "未配置的 Docker 官方仓库没有标记为待配置"
+[[ "$(catalog_candidate_version "$record")" == "安装时获取官方稳定版" ]] || die "Docker 安装前候选版本提示不正确"
+package_candidate_version() { printf '1.0.0'; }
+
 
 captured=""
+operation_events=""
 installed_state=0
-confirm() { return 0; }
-require_root() { :; }
+confirm() { operation_events+="confirm>"; return 0; }
+require_root() { operation_events+="root>"; }
 audit() { :; }
 catalog_installed() { [[ "$installed_state" -eq 1 ]]; }
 catalog_installed_version() { printf '1.0.0'; }
-package_install_latest() { captured="package:$1"; installed_state=1; }
+package_invalidate_index() { operation_events+="invalidate>"; }
+package_update_index() { operation_events+="refresh>"; }
+catalog_apt_plan_render() { operation_events+="plan>"; }
+package_install_latest() { operation_events+="install>"; captured="package:$1"; installed_state=1; }
 software_install_docker() { captured="handler:docker"; installed_state=1; }
 software_install_caddy() { captured="handler:caddy"; installed_state=1; }
 software_install_oh_my_zsh() { captured="handler:oh-my-zsh"; installed_state=1; }
@@ -117,15 +155,15 @@ software_install_release() { captured="handler:release:$1"; installed_state=1; }
 
 catalog_install jq >/dev/null
 [[ "$captured" == "package:jq" ]] || die "普通软件没有精确分发到单个包"
+[[ "$operation_events" == "confirm>root>invalidate>refresh>plan>confirm>install>" ]] ||
+  die "APT 安装没有遵循刷新、预览、最终确认、执行的固定顺序：$operation_events"
+operation_events=""
 installed_state=0
 catalog_install docker >/dev/null
 [[ "$captured" == "handler:docker" ]] || die "Docker 专用安装器分发错误"
 installed_state=0
-catalog_install oh-my-zsh >/dev/null
-[[ "$captured" == "handler:oh-my-zsh" ]] || die "Oh My Zsh 专用安装器分发错误"
-installed_state=0
-catalog_install starship >/dev/null
-[[ "$captured" == "handler:starship" ]] || die "Starship 专用安装器分发错误"
+catalog_install gh >/dev/null
+[[ "$captured" == "handler:release:gh" ]] || die "默认官方直装分发错误"
 
 installed_state=0
 package_install_latest() { return 1; }

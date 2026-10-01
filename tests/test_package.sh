@@ -7,6 +7,21 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
 . "$ROOT_DIR/src/core/runtime.sh"
 . "$ROOT_DIR/src/core/platform.sh"
 
+# package_candidate_version 通过环境限定间接调用该测试桩。
+# shellcheck disable=SC2329
+apt-cache() {
+  if [[ "${LC_ALL:-}" == "C" ]]; then
+    printf '%s\n' '  Candidate: 2.0.0'
+  else
+    printf '%s\n' '  候选版本：2.0.0'
+  fi
+}
+[[ "$(package_candidate_version demo)" == "2.0.0" ]] || {
+  printf 'FAIL: 候选版本解析受当前语言环境影响\n' >&2
+  exit 1
+}
+unset -f apt-cache
+
 updates=0
 captured=()
 # package_install 通过平台模块间接调用该测试桩。

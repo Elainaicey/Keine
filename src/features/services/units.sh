@@ -56,7 +56,7 @@ services_search() {
 }
 
 services_apply_action() {
-  local unit="$1" verb="$2" label unit_type result
+  local unit="$1" verb="$2" label unit_type result snapshot
   valid_service_name "$unit" || { warn "systemd 服务名格式无效。"; return 1; }
   service_exists "$unit" || { warn "没有找到 systemd 服务：$unit"; return 1; }
   case "$verb" in
@@ -73,9 +73,10 @@ services_apply_action() {
   if [[ "$DRY_RUN" -eq 0 ]]; then
     case "$verb" in
       start|restart)
-        unit_type="$(systemctl show "$unit" -p Type --value 2>/dev/null || true)"
+        snapshot="$(unit_properties_snapshot "$unit" Type Result || true)"
+        unit_type="$(unit_snapshot_value "$snapshot" Type 2>/dev/null || true)"
         if [[ "$unit_type" == "oneshot" ]]; then
-          result="$(systemctl show "$unit" -p Result --value 2>/dev/null || true)"
+          result="$(unit_snapshot_value "$snapshot" Result 2>/dev/null || true)"
           [[ "$result" == "success" ]] || { warn "$unit 执行结果不是 success。"; return 1; }
         else
           systemctl is-active --quiet "$unit" || { warn "$unit 操作后仍未运行。"; return 1; }
@@ -112,10 +113,11 @@ services_dependencies_view() {
 }
 
 services_failure_diagnostics() {
-  local service="$1" result exit_code exit_status
-  result="$(systemctl show "$service" -p Result --value 2>/dev/null || true)"
-  exit_code="$(systemctl show "$service" -p ExecMainCode --value 2>/dev/null || true)"
-  exit_status="$(systemctl show "$service" -p ExecMainStatus --value 2>/dev/null || true)"
+  local service="$1" result exit_code exit_status snapshot
+  snapshot="$(unit_properties_snapshot "$service" Result ExecMainCode ExecMainStatus || true)"
+  result="$(unit_snapshot_value "$snapshot" Result 2>/dev/null || true)"
+  exit_code="$(unit_snapshot_value "$snapshot" ExecMainCode 2>/dev/null || true)"
+  exit_status="$(unit_snapshot_value "$snapshot" ExecMainStatus 2>/dev/null || true)"
   ui_page "服务诊断 / $service" "退出结果、状态码与本次启动的 warning 以上日志"
   ui_panel_begin "退出信息"
   ui_panel_kv "Result" "${result:-—}" "$([[ "$result" == "success" ]] && printf '%s' "$GREEN" || printf '%s' "$RED")"
@@ -128,7 +130,7 @@ services_failure_diagnostics() {
 
 services_select() {
   local service="${1:-}" action state enabled description substate main_pid restarts started
-  local memory tasks cpu_time result exit_status fragment dropins state_color
+  local memory tasks cpu_time result exit_status fragment dropins state_color snapshot
   if [[ -z "$service" ]]; then
     ui_hint "输入完整 systemd 服务名，例如 nginx.service 或 ssh.service。"
     service="$(read_input "服务名" "")"
@@ -140,18 +142,21 @@ services_select() {
     state="$(service_state "$service")"
     enabled="$(systemctl is-enabled "$service" 2>/dev/null || true)"
     enabled="${enabled:-disabled}"
-    description="$(systemctl show "$service" -p Description --value 2>/dev/null || true)"
-    substate="$(systemctl show "$service" -p SubState --value 2>/dev/null || true)"
-    main_pid="$(systemctl show "$service" -p MainPID --value 2>/dev/null || true)"
-    restarts="$(systemctl show "$service" -p NRestarts --value 2>/dev/null || true)"
-    started="$(systemctl show "$service" -p ActiveEnterTimestamp --value 2>/dev/null || true)"
-    memory="$(systemctl show "$service" -p MemoryCurrent --value 2>/dev/null || true)"
-    tasks="$(systemctl show "$service" -p TasksCurrent --value 2>/dev/null || true)"
-    cpu_time="$(systemctl show "$service" -p CPUUsageNSec --value 2>/dev/null || true)"
-    result="$(systemctl show "$service" -p Result --value 2>/dev/null || true)"
-    exit_status="$(systemctl show "$service" -p ExecMainStatus --value 2>/dev/null || true)"
-    fragment="$(systemctl show "$service" -p FragmentPath --value 2>/dev/null || true)"
-    dropins="$(systemctl show "$service" -p DropInPaths --value 2>/dev/null || true)"
+    snapshot="$(unit_properties_snapshot "$service" Description SubState MainPID NRestarts \
+      ActiveEnterTimestamp MemoryCurrent TasksCurrent CPUUsageNSec Result ExecMainStatus \
+      FragmentPath DropInPaths || true)"
+    description="$(unit_snapshot_value "$snapshot" Description 2>/dev/null || true)"
+    substate="$(unit_snapshot_value "$snapshot" SubState 2>/dev/null || true)"
+    main_pid="$(unit_snapshot_value "$snapshot" MainPID 2>/dev/null || true)"
+    restarts="$(unit_snapshot_value "$snapshot" NRestarts 2>/dev/null || true)"
+    started="$(unit_snapshot_value "$snapshot" ActiveEnterTimestamp 2>/dev/null || true)"
+    memory="$(unit_snapshot_value "$snapshot" MemoryCurrent 2>/dev/null || true)"
+    tasks="$(unit_snapshot_value "$snapshot" TasksCurrent 2>/dev/null || true)"
+    cpu_time="$(unit_snapshot_value "$snapshot" CPUUsageNSec 2>/dev/null || true)"
+    result="$(unit_snapshot_value "$snapshot" Result 2>/dev/null || true)"
+    exit_status="$(unit_snapshot_value "$snapshot" ExecMainStatus 2>/dev/null || true)"
+    fragment="$(unit_snapshot_value "$snapshot" FragmentPath 2>/dev/null || true)"
+    dropins="$(unit_snapshot_value "$snapshot" DropInPaths 2>/dev/null || true)"
     case "$state" in active) state_color="$GREEN" ;; failed) state_color="$RED" ;; *) state_color="$YELLOW" ;; esac
     ui_page "服务管理 / $service" "状态、资源、退出结果、依赖、日志与生命周期"
     ui_panel_begin "服务信息"

@@ -1,5 +1,42 @@
 #!/usr/bin/env bash
 
+catalog_repair_repository() {
+  local id="$1" record _id category name _description _packages handler status
+  record="$(catalog_record "$id")" || { warn "软件目录中没有 '$id'。"; return 1; }
+  IFS='|' read -r _id category name _description _packages handler <<<"$record"
+  software_official_repository_handler "$handler" || { warn "$name 不使用项目官方 APT 仓库。"; return 1; }
+  status="$(software_repository_status "$handler")"
+  [[ "$status" != "unsafe" ]] || {
+    warn "$name 仓库路径包含符号链接，必须先人工核实，工具不会自动覆盖。"
+    return 1
+  }
+  ui_page "修复软件来源 / $name" "$id · $category"
+  ui_panel_begin "变更摘要"
+  ui_panel_kv "当前状态" "$(software_repository_status_label "$status")" "$(catalog_repository_status_color "$status")"
+  ui_panel_kv "官方地址" "$(software_repository_uri "$handler")" "$CYAN"
+  ui_panel_kv "软件源" "$(software_repository_source_file "$handler")"
+  ui_panel_kv "签名密钥" "$(software_repository_key_file "$handler")"
+  ui_panel_kv "结果验证" "刷新 APT 索引并检查候选版本"
+  ui_panel_end
+  ui_note "现有普通文件会先进入配置快照；不会安装、移除或更新软件包。"
+  confirm "验证并按需修复 $name 官方仓库？" || return 0
+  require_root
+  case "$handler" in
+    docker_official) software_prepare_docker_repository 1 || return 1 ;;
+    caddy_official) software_prepare_caddy_repository 1 || return 1 ;;
+  esac
+  catalog_cache_invalidate
+  audit "action=software-repository-repair id=$id previous=$status"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    info "$name 官方仓库修复预览完成。"
+  elif [[ "$(software_repository_status "$handler")" == "configured" ]]; then
+    ui_success "$name 官方仓库配置与候选版本验证通过。"
+  else
+    warn "$name 官方仓库修复后仍未通过状态验证。"
+    return 1
+  fi
+}
+
 catalog_switch_source() {
   local id="$1" record _id category name description packages handler current candidate
   record="$(catalog_record "$id")" || { warn "软件目录中没有 '$id'。"; return 1; }
@@ -31,12 +68,13 @@ catalog_switch_source() {
     ui_panel_kv "命令路径" "$(software_release_target "$id")"
     ui_panel_kv "完整性" "GitHub SHA-256 digest"
     ui_panel_end
-    ui_note "系统包会保留；官方命令安装到 /usr/local/bin 并优先于 /usr/bin，可随时切回。"
+    ui_note "系统包会保留；官方命令安装到 /usr/local/bin。若同路径已有外部普通文件，确认后先备份再接管；符号链接不覆盖。"
     confirm "切换到项目官方稳定版？" || return 0
     require_root
-    software_install_release "$id" || return 1
+    software_install_release "$id" adopt || return 1
     current="distribution"
   fi
+  catalog_cache_invalidate
   audit "action=software-source-switch id=$id from=$current"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     info "$name 来源切换预览完成。"
@@ -46,7 +84,8 @@ catalog_switch_source() {
 }
 
 catalog_install() {
-  local id="$1" record _id category name description packages handler source_label provider selected_handler choice candidate
+  local id="$1" record _id category name description packages handler source_label selected_handler candidate repository_status
+  local plan_packages=()
   record="$(catalog_record "$id")" || { warn "软件目录中没有 '$id'。"; return 1; }
   IFS='|' read -r _id category name description packages handler <<<"$record"
   if catalog_installed "$record"; then
@@ -54,38 +93,12 @@ catalog_install() {
       catalog_switch_source "$id"
       return
     fi
-    if provider="$(catalog_prompt_provider "$handler" 2>/dev/null)"; then
-      software_prompt_active "$provider" && { info "$name 已经安装并处于启用状态。"; return 0; }
-      ui_page "启用提示符 / $name" "$id · $category"
-      ui_note "该操作只切换 Server Toolkit 托管的活动提示符，不卸载其他引擎。"
-      confirm "将 $name 设为当前 Zsh 提示符？" || return 0
-      require_root
-      software_activate_prompt "$provider" || { warn "$name 启用失败。"; return 1; }
-      audit "action=prompt-activate id=$id"
-      ui_success "$name 已启用；重新进入 Zsh 后生效。"
-      return 0
-    fi
     info "$name 已经安装。"
     return 0
   fi
   catalog_available "$record" || { warn "当前平台没有可用的 $name 安装来源。"; return 1; }
   selected_handler="$handler"
-  if [[ "$handler" == "official_release" && -n "$packages" ]]; then
-    candidate="$(package_candidate_version "$packages")"
-    if [[ -n "$candidate" && "$candidate" != "(none)" ]]; then
-      ui_page "选择软件来源 / $name" "$id · 可在安装后随时切换"
-      ui_action 1 "项目官方稳定版" "success" "GitHub Release · SHA-256 校验 · 推荐"
-      ui_action 2 "发行版稳定版" "action" "$packages · $candidate · 系统兼容优先"
-      ui_action 0 "取消" "muted"
-      choice="$(read_input "请选择来源" "1")"
-      case "$choice" in
-        1) selected_handler="official_release" ;;
-        2) selected_handler="" ;;
-        0) return 0 ;;
-        *) warn "未知来源选项：$choice"; return 1 ;;
-      esac
-    fi
-  fi
+  # 独立工具默认直装官方稳定版；系统软件包仅作为详情页的显式备选。
   ui_page "安装软件 / $name" "$id · $category"
   ui_panel_begin "变更摘要"
   ui_panel_kv "软件" "$name" "$CYAN"
@@ -98,6 +111,12 @@ catalog_install() {
     ui_panel_kv "官方项目" "$(software_release_repository "$id")"
     ui_panel_kv "命令路径" "$(software_release_target "$id")"
     ui_panel_kv "完整性" "GitHub Release SHA-256 digest"
+  elif software_official_repository_handler "$selected_handler"; then
+    repository_status="$(software_repository_status "$selected_handler")"
+    ui_panel_kv "仓库状态" "$(software_repository_status_label "$repository_status")" \
+      "$(catalog_repository_status_color "$repository_status")"
+    ui_panel_kv "目标版本" "$(catalog_candidate_version "$record")" "$GREEN"
+    ui_panel_kv "配置方式" "安装时按需创建签名与 stable 仓库"
   else
     if [[ -z "$selected_handler" ]]; then
       candidate="$(package_candidate_version "$packages")"
@@ -106,31 +125,44 @@ catalog_install() {
     fi
     ui_panel_kv "目标版本" "${candidate:-—}" "$GREEN"
   fi
-  if [[ "$selected_handler" == "oh_my_zsh" ]]; then
-    ui_panel_kv "安装用户" "$(software_target_user)" "$CYAN"
-    ui_panel_kv "目标目录" "$(software_oh_my_zsh_path)"
-    ui_panel_kv "必要依赖" "zsh + git"
-  elif catalog_prompt_provider "$selected_handler" >/dev/null 2>&1; then
-    ui_panel_kv "安装用户" "$(software_target_user)" "$CYAN"
-    ui_panel_kv "配置文件" "$(software_target_home "$(software_target_user)")/.zshrc"
-    ui_panel_kv "提示" "安装后会切换为当前提示符；其他已安装提示符保留"
-  elif [[ -n "$packages" && "$selected_handler" != "official_release" ]]; then
+  if [[ -n "$packages" && "$selected_handler" != official_release ]]; then
     ui_panel_kv "系统包" "$packages"
   fi
   ui_panel_end
-  confirm "确认安装 $name？" || { warn "已取消。"; return 0; }
-  require_root
+  if catalog_effect_has_persistent_impact "$id"; then
+    ui_callout warn "安装后可能出现：$(catalog_effect_summary "$id")" \
+      "$(catalog_effect_note "$id")；Server Toolkit 自身仍只在调用期间运行。"
+  else
+    ui_note "未声明额外后台服务或计划任务；安装过程仍以 APT 实际事务为准。"
+  fi
+  if [[ -z "$selected_handler" ]]; then
+    ui_note "事务预览会先刷新 APT 索引；确认后的安装沿用同一份索引，不会再次改变计划。"
+    confirm "刷新索引并生成 $name 的安装事务预览？" || { warn "已取消。"; return 0; }
+    require_root
+    package_invalidate_index
+    package_update_index || return 1
+    catalog_cache_invalidate
+    candidate="$(package_candidate_version "$packages")"
+    [[ -n "$candidate" && "$candidate" != "(none)" ]] || {
+      warn "刷新索引后，软件源不再提供 $packages 的候选版本。"
+      return 1
+    }
+    ui_status "刷新后候选版本" "$packages · $candidate" "primary"
+    mapfile -t plan_packages < <(catalog_apt_target_packages install "$selected_handler" "$packages")
+    catalog_apt_plan_render install "${plan_packages[@]}" || return 1
+    confirm "按以上 APT 事务安装 $name？" || { warn "已取消。"; return 0; }
+  else
+    confirm "确认安装 $name？" || { warn "已取消。"; return 0; }
+    require_root
+  fi
   case "$selected_handler" in
     docker_official) software_install_docker || return 1 ;;
     caddy_official) software_install_caddy || return 1 ;;
-    oh_my_zsh) software_install_oh_my_zsh || return 1 ;;
-    starship_prompt) software_install_starship || return 1 ;;
-    oh_my_posh_prompt) software_install_oh_my_posh || return 1 ;;
-    spaceship_prompt) software_install_spaceship || return 1 ;;
     official_release) software_install_release "$id" || return 1 ;;
     "") package_install_latest "$packages" || return 1 ;;
     *) die "未知安装器：$selected_handler" ;;
   esac
+  catalog_cache_invalidate
   audit "action=software-install id=$id source=$(printf '%q' "$source_label")"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     info "$name 安装预览完成。"
@@ -141,12 +173,19 @@ catalog_install() {
 }
 
 catalog_update() {
-  local id="$1" record _id category name description packages handler installed candidate provider latest
+  local id="$1" record _id category name description packages handler installed candidate latest repository_status distribution_docker=0
+  local plan_packages=()
   record="$(catalog_record "$id")" || { warn "软件目录中没有 '$id'。"; return 1; }
   IFS='|' read -r _id category name description packages handler <<<"$record"
   catalog_installed "$record" || { warn "$name 尚未安装，请先执行安装。"; return 1; }
   installed="$(catalog_installed_version "$record")"
   candidate="$(catalog_candidate_version "$record")"
+  if [[ "$handler" == "docker_official" ]] && package_installed docker.io && ! package_installed docker-ce; then
+    distribution_docker=1
+  fi
+  if software_official_repository_handler "$handler" && (( distribution_docker == 0 )); then
+    repository_status="$(software_repository_status "$handler")"
+  fi
   if [[ "$handler" == "official_release" ]] && software_release_managed "$id"; then
     ui_page "检查官方更新 / $name" "$id · 项目官方 GitHub Release"
     ui_panel_begin "官方稳定通道"
@@ -161,6 +200,7 @@ catalog_update() {
     software_release_load_latest "$id" || return 1
     latest="$SOFTWARE_RELEASE_LATEST_VERSION"
     software_update_release "$id" || return 1
+    catalog_cache_invalidate
     audit "action=software-update id=$id source=official-release from=$installed to=$latest"
     if [[ "$DRY_RUN" -eq 1 ]]; then
       info "$name 官方更新预览完成。"
@@ -171,59 +211,42 @@ catalog_update() {
     fi
     return 0
   elif [[ "$handler" == "official_release" ]]; then
+    if [[ -z "$packages" ]] || ! package_installed "$packages"; then
+      catalog_switch_source "$id"
+      return
+    fi
     handler=""
     candidate="$(package_candidate_version "$packages")"
-  fi
-  if provider="$(catalog_prompt_provider "$handler" 2>/dev/null)"; then
-    ui_page "更新提示符 / $name" "$id · $category"
-    ui_panel_begin "官方更新"
-    ui_panel_kv "安装用户" "$(software_target_user)" "$CYAN"
-    ui_panel_kv "当前版本" "$installed" "$WHITE"
-    ui_panel_kv "更新来源" "$candidate" "$YELLOW"
-    ui_panel_end
-    confirm "检查并更新 $name？" || return 0
-    require_root
-    software_update_prompt "$provider" || { warn "$name 更新失败。"; return 1; }
-    if [[ "$DRY_RUN" -eq 0 ]]; then
-      catalog_installed "$record" || { warn "$name 更新后未通过状态验证。"; return 1; }
-    fi
-    audit "action=software-update id=$id from=$installed"
-    ui_success "$name 已检查官方更新：$(catalog_installed_version "$record")"
-    return 0
-  fi
-  if [[ "$handler" == "oh_my_zsh" ]]; then
-    ui_page "更新软件 / $name" "$id · $category"
-    ui_panel_begin "官方 Git 更新"
-    ui_panel_kv "安装用户" "$(software_target_user)" "$CYAN"
-    ui_panel_kv "当前提交" "$installed" "$WHITE"
-    ui_panel_kv "跟踪分支" "$candidate" "$YELLOW"
-    ui_panel_kv "目标目录" "$(software_oh_my_zsh_path)"
-    ui_panel_end
-    ui_note "更新将调用 Oh My Zsh 官方 tools/upgrade.sh，并拒绝来源不明的仓库。"
-    confirm "检查并更新 $name？" || return 0
-    require_root
-    software_update_oh_my_zsh || { warn "$name 更新失败。"; return 1; }
-    if [[ "$DRY_RUN" -eq 0 ]]; then
-      catalog_installed "$record" || { warn "$name 更新后未通过状态验证。"; return 1; }
-    fi
-    audit "action=software-update id=$id from=$installed"
-    if [[ "$DRY_RUN" -eq 1 ]]; then
-      info "$name 更新预览完成。"
-    else
-      ui_success "$name 已检查官方更新：$(catalog_installed_version "$record")"
-    fi
-    return 0
   fi
   ui_page "检查更新 / $name" "$id · $category"
   ui_panel_begin "本地索引"
   ui_panel_kv "当前版本" "$installed" "$WHITE"
   ui_panel_kv "候选版本" "$candidate" "$YELLOW"
+  if software_official_repository_handler "$handler" && (( distribution_docker == 0 )); then
+    ui_panel_kv "仓库状态" "$(software_repository_status_label "$repository_status")" \
+      "$(catalog_repository_status_color "$repository_status")"
+  fi
   ui_panel_end
-  ui_note "候选版本来自本机 APT 索引；更新前会先刷新仓库元数据。"
-  confirm "刷新软件索引并检查 $name？" || return 0
+  if software_official_repository_handler "$handler" && (( distribution_docker == 0 )); then
+    ui_note "检查前会验证官方仓库；配置缺失或不完整时会先备份并修复。"
+    confirm "验证官方仓库并检查 $name 更新？" || return 0
+  else
+    ui_note "候选版本来自本机 APT 索引；更新前会先刷新仓库元数据。"
+    confirm "刷新软件索引并检查 $name？" || return 0
+  fi
   require_root
-  package_invalidate_index
-  package_update_index || return 1
+  case "$handler" in
+    docker_official)
+      if (( distribution_docker == 1 )); then
+        package_invalidate_index; package_update_index || return 1
+      else
+        software_prepare_docker_repository || return 1
+      fi
+      ;;
+    caddy_official) software_prepare_caddy_repository || return 1 ;;
+    *) package_invalidate_index; package_update_index || return 1 ;;
+  esac
+  catalog_cache_invalidate
   installed="$(catalog_installed_version "$record")"
   candidate="$(catalog_candidate_version "$record")"
   ui_page "更新软件 / $name" "$id · $category"
@@ -235,17 +258,18 @@ catalog_update() {
     ui_success "$name 已经是当前软件仓库中的最新版本。"
     return 0
   fi
+  mapfile -t plan_packages < <(catalog_apt_target_packages update "$handler" "$packages")
+  if ((${#plan_packages[@]} > 0)); then
+    catalog_apt_plan_render update "${plan_packages[@]}" || return 1
+  fi
   confirm "将 $name 更新到 $candidate？" || { warn "已取消。"; return 0; }
   case "$handler" in
     docker_official) software_update_docker || return 1 ;;
     caddy_official) software_update_caddy || return 1 ;;
-    oh_my_zsh) software_update_oh_my_zsh || return 1 ;;
-    starship_prompt) software_update_prompt starship || return 1 ;;
-    oh_my_posh_prompt) software_update_prompt oh-my-posh || return 1 ;;
-    spaceship_prompt) software_update_prompt spaceship || return 1 ;;
     "") package_upgrade "$packages" || return 1 ;;
     *) die "未知安装器：$handler" ;;
   esac
+  catalog_cache_invalidate
   if [[ "$DRY_RUN" -eq 0 ]]; then
     catalog_installed "$record" || { warn "$name 更新后未通过状态验证。"; return 1; }
   fi
@@ -259,9 +283,15 @@ catalog_update() {
 
 catalog_remove() {
   local id="$1" record _id category name description packages handler release_managed=0
+  local plan_packages=()
   record="$(catalog_record "$id")" || { warn "软件目录中没有 '$id'。"; return 1; }
   IFS='|' read -r _id category name description packages handler <<<"$record"
   catalog_installed "$record" || { info "$name 未安装。"; return 0; }
+  if [[ "$handler" == official_release ]] && ! software_release_managed "$id" &&
+    { [[ -z "$packages" ]] || ! package_installed "$packages"; }; then
+    warn "$name 属于外部安装。可从来源切换确认接管，但不能直接删除原程序。"
+    return 1
+  fi
   ui_page "移除软件 / $name" "$id · $category"
   ui_panel_begin "变更摘要"
   ui_panel_kv "软件" "$name" "$CYAN"
@@ -274,34 +304,24 @@ catalog_remove() {
       ui_panel_kv "完整性" "$(software_release_integrity "$id" && printf '正常' || printf '异常')"
     fi
     [[ -z "$packages" ]] || ui_panel_kv "底层系统包" "$packages"
-  elif [[ "$handler" == "oh_my_zsh" ]]; then
-    ui_panel_kv "安装用户" "$(software_target_user)" "$CYAN"
-    ui_panel_kv "目标目录" "$(software_oh_my_zsh_path)"
-  elif catalog_prompt_provider "$handler" >/dev/null 2>&1; then
-    ui_panel_kv "安装用户" "$(software_target_user)" "$CYAN"
-    ui_panel_kv "配置文件" "$(software_target_home "$(software_target_user)")/.zshrc"
   else
     ui_panel_kv "系统包" "${packages:-由官方安装器管理}"
   fi
   ui_panel_end
   if [[ "$handler" == "official_release" ]]; then
     ui_danger "将移除 Server Toolkit 托管的官方命令；如同时安装了对应系统包，也会一并移除。"
-  elif [[ "$handler" == "oh_my_zsh" ]]; then
-    ui_danger "将移除官方框架目录和 Server Toolkit 托管的 .zshrc 配置块；保留其他用户配置、Zsh、Git 与默认 Shell。"
-  elif catalog_prompt_provider "$handler" >/dev/null 2>&1; then
-    ui_danger "只移除当前提示符的托管文件和活动配置块；其他提示符与用户配置保持不变。"
   else
     ui_danger "只移除软件包，不删除它的数据目录和配置文件。"
+  fi
+  mapfile -t plan_packages < <(catalog_apt_target_packages remove "$handler" "$packages")
+  if ((${#plan_packages[@]} > 0)); then
+    catalog_apt_plan_render remove "${plan_packages[@]}" || return 1
   fi
   confirm "确认移除 $name？" || { warn "已取消。"; return 0; }
   require_root
   case "$handler" in
     docker_official) software_remove_docker || return 1 ;;
     caddy_official) software_remove_caddy || return 1 ;;
-    oh_my_zsh) software_remove_oh_my_zsh || return 1 ;;
-    starship_prompt) software_remove_prompt starship || return 1 ;;
-    oh_my_posh_prompt) software_remove_prompt oh-my-posh || return 1 ;;
-    spaceship_prompt) software_remove_prompt spaceship || return 1 ;;
     official_release)
       if (( release_managed == 1 )); then software_remove_release "$id" || return 1; fi
       if [[ -n "$packages" ]]; then package_remove "$packages" || return 1; fi
@@ -309,6 +329,7 @@ catalog_remove() {
     "") package_remove "$packages" || return 1 ;;
     *) die "未知安装器：$handler" ;;
   esac
+  catalog_cache_invalidate
   if [[ "$DRY_RUN" -eq 0 ]] && catalog_installed "$record"; then
     warn "$name 移除后仍能被检测到；为避免误报，操作未标记为成功。"
     return 1

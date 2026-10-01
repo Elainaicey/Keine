@@ -26,6 +26,7 @@ Server Toolkit 面向由单一 root 管理员维护的 Linux VPS，提供从状�
 项目不追求无边界地收集脚本，而是遵循以下约束：
 
 - **清晰分层**：系统能力优先于软件与应用，Docker 等独立应用归入应用中心。
+- **状态驱动**：运维总览把当前异常与关注项关联到既有领域入口，不复制第二套实现。
 - **单项操作**：软件一次安装、更新或移除一个条目，不提供套餐、全选和隐式依赖组合。
 - **人工确认**：不存在 `--yes`、profiles 或无人值守系统修改。
 - **完全按需**：命令退出后不保留项目进程，不创建 Cron、systemd Timer 或后台监控。
@@ -54,21 +55,24 @@ serverctl
 控制台主导航按系统依赖层级排列：
 
 ```text
-系统仪表盘 → 系统管理 → 网络与端口 → 安全中心
-            → 服务与日志 → 软件管理 → 应用与容器 → 备份与恢复
+运维总览 → 系统管理 → 网络与端口 → 安全中心
+          → 服务与日志 → 软件管理 → 应用与容器 → 备份与恢复
 ```
 
 ## 功能矩阵
 
 | 中心 | 能力 |
 | --- | --- |
-| **系统仪表盘** | 主机环境、负载、内存/Swap/磁盘进度、systemd、TCP 监听、软件更新、Docker、UFW、Fail2ban 与时间同步状态 |
+| **运维总览** | 响应式关键指标、内存/Swap/磁盘进度、服务与更新、TCP/Docker、UFW/Fail2ban/时间同步、恢复准备度和状态驱动的关注事项；可直接进入排障、更新、暴露面、服务与备份 |
 | **系统管理** | 故障快速排查、资源压力、进程、内核与重启状态、软件包健康、APT 安全更新、依赖修复、存储分析、Swap、时间设置，以及运行环境和项目完整性检查 |
-| **网络与端口** | 接口地址与单接口下钻、路由与策略规则、DNS 诊断、IPv4/IPv6 连通性、TCP 端点探测、mtr/traceroute 链路、套接字压力、网卡错误、连接会话、监听端口、BBR 与地址优先级 |
+| **网络与端口** | 接口地址与单接口下钻、路由与策略规则、DNS 诊断、IPv4/IPv6 连通性、TCP 端点探测、HTTP/HTTPS HEAD 状态与阶段耗时、mtr/traceroute 链路、套接字压力、监听端口、BBR 与地址优先级 |
 | **安全中心** | 扩展安全基线、公网暴露分析、SSH 登录活动与失败来源聚合、Fail2ban/UFW 来源处置、UFW 生命周期与批量规则、SSH 配置/会话/密钥、安全向导、Fail2ban Jail 管理及 TLS 证书检查 |
 | **服务与日志** | failed/active 服务浏览、资源与退出结果、正反依赖、启动关键链、失败诊断、经验证的 service 生命周期，以及 Journal 条件查询、完整性验证、按时间/容量维护、内核警告和操作审计 |
-| **软件管理** | 168 个单项软件；按分类、来源、安装状态、ID、名称和用途浏览；发行版仓库与项目官方渠道分层管理；版本检查、来源切换、SHA-256 完整性、修复、安装、更新与移除 |
-| **应用与容器** | Docker、Web、数据库、缓存和 3x-ui 的版本、运行健康、PID、重启次数、关联监听、配置/数据资产、日志与 systemd 生命周期；支持官方配置检查、检查通过后的安全 reload，以及跳转到单项软件更新；Docker 另提供容器、Compose、网络、安全清理和可校验卷备份 |
+| **软件管理** | 177 个单项软件；官方直装、原生安装识别、APT 事务预览、运行影响提示；分类与分页浏览、版本、来源、完整性、安装与更新 |
+| **终端与外观** | Oh My Zsh、Starship、Oh My Posh、Spaceship 独立管理；安装并切换、复用原生引擎、恢复初始配置 |
+| **原生集成** | 官方 WARP 客户端、已有 wgcf/WireGuard 隧道；连接、断开、systemd 生命周期与日志 |
+| **恢复与项目维护** | 配置快照、首次修改记录、冲突检测、单项或整体撤销、更新与三种卸载模式 |
+| **应用与容器** | 11 类应用服务的分组资产视图、版本、运行健康、资源、PID、重启次数、关联监听、配置/数据资产、日志和详情页直接生命周期控制；支持官方配置检查、安全 reload 与单项软件更新；Docker 另提供容器、Compose、网络、安全清理和可校验卷备份 |
 | **备份与恢复** | 自动配置快照、手动 `/etc` 文件快照、备注与保护、完整性校验、当前配置差异、总占用统计、单项删除、保留最近 N 份、按创建天数清理与单文件恢复 |
 
 系统组件精确映射一个 Debian/Ubuntu 软件包；Docker 与 Caddy 使用项目官方 APT 仓库，Oh My Zsh 与提示符使用经过验证的官方渠道。适合独立分发的 CLI 使用项目 GitHub Release，安装器只接受 `latest` 稳定版、精确架构资产和 GitHub API 提供的 SHA-256 digest。
@@ -78,19 +82,23 @@ serverctl
 ### 查询与导航
 
 ```bash
-serverctl status                 # 系统仪表盘
+serverctl status                 # 一次性只读运维总览
 serverctl doctor                 # 运行环境、项目文件和权限完整性检查
-serverctl triage                # 只读故障快速排查
+serverctl triage                 # 只读故障快速排查
 serverctl updates                # 系统软件包更新清单
 serverctl storage                # 只读存储概览
 serverctl swap                   # Swap 状态与生命周期管理
 serverctl process 1234           # 查看并管理指定 PID
+serverctl software               # 进入分页软件中心
+serverctl software jq            # 直接打开 jq 的管理详情
 serverctl sources                # 按维护来源浏览软件
 serverctl official-updates       # 检查已托管官方 Release 更新
 serverctl exposure               # 分析公网监听、进程、容器与 UFW
 serverctl ports                  # 监听端口
 serverctl dns example.com        # DNS 解析器与记录诊断
 serverctl probe example.com 443  # DNS、路由与 TCP 握手探测
+serverctl http https://example.com/health
+                                # HTTP HEAD 状态、重定向、TLS 与请求阶段耗时
 serverctl trace example.com      # mtr/traceroute 链路路径
 serverctl interface ens3         # 单个网络接口详情
 serverctl system                 # 系统管理中心
@@ -110,31 +118,45 @@ serverctl backup-delete SNAPSHOT # 删除一个明确选择的项目快照
 serverctl backup-cleanup         # 交互式清理历史配置快照
 serverctl about                  # 版本和安装路径
 serverctl version                # 版本号
+serverctl --version              # 标准版本选项
 serverctl self-update            # 检查并原子更新项目自身
+serverctl uninstall              # 卸载程序或彻底清除项目数据
 ```
+
+`serverctl http URL` 发起一次纯前台 HEAD 诊断请求，只接受不含凭据的 `http://` 或 `https://` URL。请求最多跟随 8 次 HTTP/HTTPS 重定向，连接超时为 5 秒、总超时为 20 秒；不会下载响应体、保存 Cookie 或创建后台任务，只展示经过终端字符清理的有限响应头。少数端点不支持 HEAD，返回 405/501 并不表示普通 GET 请求不可用。该命令用于即时定位 DNS、连接、TLS、首字节和应用状态问题，不是浏览器、内容下载器或持续可用性监控。
 
 ### 软件管理
 
 ```bash
 serverctl list                   # 完整软件目录
 serverctl list python            # 按关键词查询
+serverctl software               # 分页浏览软件中心
+serverctl software jq            # 直接打开软件详情
 serverctl install jq             # 安装一个软件
 serverctl update jq              # 更新一个已安装软件
 serverctl remove jq              # 移除一个软件
-serverctl install oh-my-zsh      # 为 root 安装 Oh My Zsh
-serverctl install starship       # 安装并启用 Starship 提示符
-serverctl install oh-my-posh     # 安装并切换到 Oh My Posh
-serverctl install ripgrep        # 选择官方稳定版或发行版软件包
+serverctl terminal              # 独立终端外观中心，安装或一键切换
+serverctl warp                  # 原生 WARP / wgcf 管理
+serverctl recovery              # 配置快照与变更撤销
+serverctl changes               # 查看与撤销已记录修改
+serverctl project               # 工具更新、诊断与卸载
+serverctl install ripgrep        # 默认从上游官方下载稳定版
 serverctl update ripgrep         # 检查并更新当前安装来源
 ```
 
-`install`、`update` 与 `remove` 只接受一个软件 ID。APT 软件在执行点刷新索引，并安装当前系统软件源与 APT 优先级策略选出的最新候选版本；安装后会重新读取 dpkg 版本进行验证。这里的“最新”不表示绕过发行版软件源强制安装上游测试版。软件中心不会批量更新整个系统；所有实际修改仍需人工确认。
+`install`、`update` 与 `remove` 只接受一个软件 ID。交互式软件中心将搜索、分类、已安装、待更新与来源结果按 6 项一页展示，可用页内编号或软件 ID 进入详情；`list` 仍可输出完整目录用于终端查询。软件列表会为当前页面一次性批量读取 dpkg、候选版本与更新状态，避免随着目录增长重复启动大量查询进程。发行版仓库条目的 APT 安装，以及可模拟的 APT 更新/移除，会在确认前显示新增、更新、联带移除和空间影响；安装或更新计划若意外包含移除项会被阻止。执行后仍会重新读取 dpkg 版本验证结果。
+
+软件详情还会展示已声明的运行影响。Web、数据库、容器、安全与历史采集类软件可能由发行版安装脚本启动自身服务、Timer/Cron 或监听端口；这不代表 Server Toolkit 创建了后台组件。未声明运行影响的条目也以 APT 最终事务为准，项目不会代替用户自动禁用上游服务或修改防火墙。
+
+Docker 与 Caddy 在首次安装前不要求仓库已经存在：详情页会显示“待配置”，确认安装后才创建官方签名和稳定仓库。Docker 迁移会先验证仓库及全部必需组件候选版本，再移除冲突包，避免上游不可用时先破坏现有运行时。来源诊断可按需检查软件源、签名密钥格式、系统代号、架构与候选版本；文件检查显示“结构完整”不代替 APT 的签名身份验证，安装或更新刷新索引时仍由 APT 完成信任校验。若上游轮换密钥导致刷新失败，可从详情页强制重新获取官方仓库文件。配置不完整时会先备份再修复；检测到符号链接形式的仓库路径时会停止覆盖并要求人工核实。已有发行版 `docker.io` 安装仍沿用原来源更新，不会被静默迁移到 `docker-ce`。
 
 ### 应用服务管理
 
-应用中心识别 Docker、Nginx、Caddy、Apache、Redis、Memcached、PostgreSQL、MariaDB 与 3x-ui。每个已安装应用都有独立详情页，汇总软件版本、systemd 状态、主进程、重启次数、进程关联监听，以及固定配置和数据路径。
+应用中心通过声明式 [`config/apps.tsv`](config/apps.tsv) 识别 Docker、Nginx、Caddy、Apache、HAProxy、Redis、Memcached、PostgreSQL、MariaDB、Mosquitto 与 3x-ui。清单按容器、Web、缓存、数据库、消息和代理领域分组；未安装且具有软件目录映射的条目只进入对应单项安装流程。
 
-Nginx、Caddy、Apache 与 Docker 可调用各自的官方只读配置检查；Nginx、Caddy 与 Apache 只有在配置检查通过且 systemd 声明 reload 能力后，才允许重新加载。应用详情还可进入对应的软件条目检查候选版本和来源。3x-ui 没有声明可验证的安装来源，因此项目不会猜测下载地址或自动升级。
+每个已安装应用都有独立详情页，汇总软件版本、候选版本、systemd 状态、资源、主进程、重启次数、执行结果、进程关联监听，以及固定配置和数据路径。启动、停止、重启和开机策略可在详情页直接执行，并统一复用带确认与结果验证的 systemd 生命周期。
+
+Nginx、Caddy、Apache、HAProxy 与 Docker 可调用各自的官方只读配置检查；Nginx、Caddy、Apache 与 HAProxy 只有在配置检查通过且 systemd 声明 reload 能力后，才允许重新加载。运行健康页综合服务状态、应用响应、监听、最近错误、重启次数和资源快照，并给出明确结论。应用详情还可进入对应的软件条目检查候选版本和来源。3x-ui 没有声明可验证的安装来源，因此项目不会猜测下载地址或自动升级。
 
 健康检查、日志查询和数据占用统计均由用户手动触发一次。整个 Server Toolkit 都不会创建监控进程、Cron、systemd Timer，不会周期扫描目录，也不会隐式开放防火墙端口。配置资产页只列出路径和文件名，不输出配置内容；数据占用只在用户明确进入该页面时对声明路径运行一次 `du`。
 
@@ -148,13 +170,19 @@ Nginx、Caddy、Apache 与 Docker 可调用各自的官方只读配置检查；N
 | 项目官方 Git 仓库 | Oh My Zsh、Spaceship 等框架或主题 | 验证远端地址，只允许 fast-forward 或官方升级流程 |
 | 项目官方安装渠道 | Starship、Oh My Posh 等专用安装器 | 固定官方 URL、独立状态标记和安装后版本验证 |
 
-官方 Release 当前覆盖 ripgrep、fd、bat、fzf、eza、zoxide、Fastfetch、bottom、dust、duf、hyperfine 与 just。对于同时存在发行版包的条目，安装时可以选择来源，详情页可随时切换；切换到官方版时保留底层系统包，并在 `/usr/local/bin` 部署优先命令。移除软件会清理工具明确管理的官方命令及对应系统包。
+18 个官方 Release 条目覆盖 ripgrep、fd、bat、fzf、eza、zoxide、Fastfetch、bottom、dust、duf、hyperfine、just、Lazygit、Delta、Lazydocker、actionlint、GitHub CLI 与 ShellCheck。这些独立工具默认直接下载上游稳定版，发行版软件包只作为显式备选。系统组件、共享库与未实现独立安装适配的服务继续使用系统或厂商签名渠道，不混用未经验证的源码安装。
+
+现有发行版包与外部命令会被识别。切换到官方版时保留底层系统包；同路径外部普通文件必须明确确认并备份后才接管，符号链接不覆盖。只观察或切换配置不意味着拥有外部软件，删除前仍验证来源与所有权。
 
 每个官方二进制都会记录版本、仓库、资产名称、资产 digest、命令路径和二进制 SHA-256。更新或删除前会重新验证本机文件；检测到人为修改时自动操作会停止，可在详情页选择“修复官方安装”，先备份现有命令再部署可信版本。
 
-Oh My Zsh 安装到 `SUDO_USER` 对应的 `~/.oh-my-zsh`（直接以 root 登录时为 `/root/.oh-my-zsh`），使用官方 Git 仓库并在修改前备份已有 `.zshrc`。是否切换默认 Shell 会单独询问；卸载仅删除经校验的官方仓库和工具托管的配置块，保留 Zsh、Git、其他用户配置与默认 Shell。
+### 终端与原生集成
 
-提示符中心提供 Starship、Oh My Posh 与 Spaceship Prompt。同一时间只激活一个由工具托管的提示符；安装另一个提示符会安全替换 `.zshrc` 中的活动配置块，但保留其他已安装引擎。对已经安装但未启用的提示符再次执行 `install ID` 即可切换。检测到用户自行维护的提示符初始化代码时会拒绝覆盖。图标显示依赖 SSH 客户端终端启用 Nerd Font。
+`serverctl terminal` 提供独立的框架和提示符管理。选择项目后可安装并切换，已存在的受支持原生引擎会直接复用；自动整理可识别的单行初始化语句与 `ZSH_THEME`，保留其他自定义内容。首次修改前保存 `.zshrc` 原始状态，恢复操作保留引擎、还原配置；复杂自定义函数或条件初始化仍需人工检查。登录 Shell 切换是独立确认操作，不随主题切换隐式执行。Nerd Font 应安装在 SSH 客户端终端，不给 VPS 下载无用途字体包。
+
+Oh My Zsh 使用官方 Git 仓库；Starship 与 Oh My Posh 使用官方安装器，Spaceship 使用官方 Git。外部已有的 Oh My Zsh 只复用配置，不自动升级或删除其仓库。移除随机字符画、彩虹文本、重复系统信息和已不维护主题等低价值目录条目，终端项目不再混入软件中心。
+
+`serverctl warp` 不依赖项目安装标记，识别 `warp-cli` 与 `/etc/wireguard/` 下的 WARP/wgcf 配置。官方客户端提供连接、断开与服务管理；wgcf 使用原生 `wg-quick@` 生命周期。不会展示私钥、创建注册、切换协议、删除外部配置或接管未知第三方脚本。路由变更可能影响 SSH，操作前应保留服务商控制台。接口依据 [Cloudflare Linux 文档](https://developers.cloudflare.com/warp-client/get-started/linux/) 与 [WireGuard 原生单元](https://github.com/WireGuard/wireguard-tools/blob/master/src/systemd/wg-quick%40.service)。
 
 相关上游：[Starship](https://github.com/starship/starship)、[Oh My Posh](https://github.com/JanDeDobbeleer/oh-my-posh)、[Spaceship Prompt](https://github.com/spaceship-prompt/spaceship-prompt)。Powerlevel10k 因上游已明确进入有限支持状态，暂不纳入正式托管目录。
 
@@ -163,9 +191,11 @@ Oh My Zsh 安装到 `SUDO_USER` 对应的 `~/.oh-my-zsh`（直接以 root 登录
 ```bash
 serverctl --dry-run
 serverctl --dry-run install docker
+serverctl --no-color status
+serverctl --help
 ```
 
-`--dry-run` 展示将执行的系统命令，不写入配置、不安装软件，也不创建审计记录。
+`--dry-run` 展示将执行的系统命令，不写入配置、不安装软件，也不创建审计记录。`--no-color` 用于日志采集或不支持 ANSI 色彩的终端；`-h` / `--help` 显示完整命令摘要。
 
 ## 安全模型
 
@@ -183,7 +213,7 @@ serverctl --dry-run install docker
 | 防火墙 | 启用 UFW 前保留当前 SSH 端口；其他端口必须显式添加 |
 | 来源处置 | 只接受登录失败清单中的明确 IP；拒绝阻止当前 SSH 来源，UFW 持续拒绝与 Fail2ban 临时封禁分开展示 |
 | 审计 | root 修改记录到 `/var/log/server-toolkit/actions.log` |
-| 官方 Release | 只接受项目 GitHub Release、支持的 CPU 架构和有效 SHA-256 digest；不覆盖未托管的 `/usr/local/bin` 文件 |
+| 官方 Release | 校验上游、架构与 SHA-256；外部普通文件仅在明确确认并备份后接管，拒绝覆盖符号链接 |
 | 安装升级 | 解压前检查源码归档路径、类型与体积，在同一父目录暂存并原子替换；失败时恢复上一安装目录 |
 | 卸载 | 只删除能够确认属于项目的路径，不猜测性删除业务软件或系统设置 |
 
@@ -201,6 +231,7 @@ serverctl --dry-run install docker
 | 操作审计 | `/var/log/server-toolkit/actions.log` |
 | 项目状态 | `/var/lib/server-toolkit` |
 | 官方 Release 状态 | `/var/lib/server-toolkit/software-releases` |
+| 可撤销变更与初始状态 | `/var/lib/server-toolkit/changes` |
 
 安装器会将实际安装路径写入 `config/installation.conf`，以确保自定义路径也能被正确升级和卸载。
 
@@ -215,32 +246,43 @@ server-toolkit/
 │   └── serverctl                # CLI、参数解析与顶层导航
 ├── config/
 │   ├── software.tsv             # 声明式单项软件目录
+│   ├── navigation.tsv           # 顶层分组、顺序与动作注册
+│   ├── terminal.tsv             # 独立终端框架与提示符
+│   ├── integrations.tsv         # 原生适配器注册
+│   ├── apps.tsv                 # 应用、systemd Unit、软件来源与类别映射
+│   ├── software-effects.tsv     # 软件自身服务、调度与网络影响声明
 │   └── official-releases.tsv    # 官方 Release、架构资产与项目主页
 ├── docs/                        # 设计、变更记录与发布文档
 ├── scripts/
 │   ├── install.sh               # 安装、原子升级与卸载
-│   └── check.sh                 # 本地和 CI 检查入口
+│   ├── check-repository.sh      # 全文件分类、格式与元数据验证
+│   ├── check-shell.sh           # Bash 语法与逐文件 ShellCheck
+│   ├── check-tests.sh           # 离线单元和 CLI 冒烟测试
+│   └── release-check.sh         # 发布前聚合门禁
 ├── src/
-│   ├── core/                    # 运行时、输入校验、UI、平台与备份
+│   ├── core/                    # 运行时、UI、平台、导航、备份与可逆变更
+│   ├── integrations/            # 原生软件适配器；不依赖安装所有权
 │   └── features/
+│       ├── dashboard.sh         # 运维总览领域入口
+│       ├── dashboard/           # 状态采集、关注事项、响应式视图与快捷导航
 │       ├── apps/
 │       │   ├── services.sh      # 应用服务领域入口
-│       │   ├── services/        # 元数据、资产检查、安全操作与菜单
+│       │   ├── services/        # 元数据、资产、健康、操作、总览、详情与菜单
 │       │   ├── docker.sh        # Docker 领域入口
 │       │   └── docker/          # 资产、Compose、容器、卷备份与菜单
 │       ├── maintenance/         # 项目安装与文件完整性检查
 │       ├── network.sh           # 网络领域入口
-│       ├── network/             # 概览、调优、接口、端点、链路、套接字与菜单
+│       ├── network/             # 概览、HTTP/端点、接口、链路、套接字、调优与菜单
 │       ├── security.sh          # 安全中心入口
 │       ├── security/            # 基线、登录活动、暴露分析、Fail2ban、证书、防火墙与 SSH
 │       ├── services.sh          # 服务中心入口
 │       ├── services/            # 服务概览、Journal、Unit 与审计
 │       ├── software/
 │       │   ├── catalog.sh       # 软件目录模块入口
-│       │   ├── catalog/         # 查询、展示、写操作与交互页面
-│       │   ├── oh-my-zsh.sh     # Oh My Zsh 安装、更新与安全移除
-│       │   ├── prompts.sh       # 现代提示符安装、切换与生命周期
+│       │   ├── catalog/         # 状态缓存、查询、事务预览、运行影响、分页浏览、写操作与页面
 │       │   └── releases.sh      # GitHub Release 校验、安装、修复与来源管理
+│       ├── terminal/            # 框架、提示符与切换界面
+│       ├── recovery.sh          # 变更检查、恢复与冲突处理
 │       ├── system/
 │       │   ├── diagnostics.sh   # 单次资源压力与重启状态
 │       │   ├── menu.sh          # root-only 系统管理导航
@@ -296,8 +338,11 @@ serverctl uninstall
 
 1. **仅卸载程序**：删除程序目录和项目命令入口，保留日志与配置快照。
 2. **彻底清除项目数据**：额外删除项目日志、配置快照、Docker 卷备份和状态目录。
+3. **撤销已记录修改并卸载**：先恢复原始配置和原生设置、移除项目新增资源与软件包，通过后再清除项目；发现冲突或恢复失败则保留工具和记录。
 
-通过 Server Toolkit 安装的软件，以及主机名、SSH、UFW、Swap 等系统状态不会被自动删除或猜测性回滚。需要恢复配置时，应先从备份中心选择明确快照。
+前两种模式不撤销系统修改。第三种只对本版开始记录的变更生效：配置文件、官方命令、终端目录、主机名、时区、NTP、root Shell、BBR、受控服务状态、可识别的 WARP 连接，以及 APT 新增软件包。新增包撤销先模拟依赖事务，若会删除原有包或包后来被外部升级则停止；不运行自动清理。
+
+不能保证任意主机“像从未安装过”：旧版本未记录的改动、原有软件升级或删除、数据库/容器业务数据、安装脚本未声明的副作用、网络活动和系统日志不自动逆转。外部修改过的资源会保留并报告冲突；可选择保留资源并解除对应记录。变更记录不是普通历史备份，删除恢复记录即失去对应原始状态。
 
 ## 开发
 
@@ -318,5 +363,5 @@ Server Toolkit 依据 [MIT License](LICENSE) 开放源代码。你可以自由�
 ---
 
 <div align="center">
-  <sub>Server Toolkit 0.3.0 · Built for deliberate VPS operations</sub>
+  <sub>Server Toolkit 0.4.0 · Built for deliberate VPS operations</sub>
 </div>

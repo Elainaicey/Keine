@@ -1,0 +1,12 @@
+# id|name|systemd unit|software catalog id|system package|category
+docker|Docker|docker.service|docker|docker-ce|容器引擎
+nginx|Nginx|nginx.service|nginx|nginx|Web 服务
+caddy|Caddy|caddy.service|caddy|caddy|Web 服务
+apache|Apache|apache2.service|apache|apache2|Web 服务
+haproxy|HAProxy|haproxy.service|haproxy|haproxy|Web 服务
+redis|Redis|redis-server.service|redis|redis-server|缓存与数据
+memcached|Memcached|memcached.service|memcached|memcached|缓存与数据
+postgresql|PostgreSQL|postgresql.service|postgresql|postgresql|数据库
+mariadb|MariaDB|mariadb.service|mariadb|mariadb-server|数据库
+mosquitto|Mosquitto|mosquitto.service|mosquitto|mosquitto|消息服务
+x-ui|3x-ui|x-ui.service|||代理面板
