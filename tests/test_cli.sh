@@ -38,6 +38,11 @@ process_exists() { return 0; }
 system_process_select() { captured="process:$1"; }
 network_endpoint_probe() { captured="probe:$1:$2"; }
 network_http_diagnose() { captured="http:$1"; }
+network_dns_menu() { captured='dns-config'; }
+network_proxy_menu() { captured='proxy'; }
+network_proxy_check() { captured="proxy-check:$1"; }
+network_tuning_menu() { captured='net-tuning'; }
+network_tuning_adapter_menu() { captured='tuning-adapters'; }
 network_path_trace() { captured="trace:$1"; }
 network_interface_detail() { captured="interface:$1"; }
 security_auth_activity() { captured="auth-activity:$1"; }
@@ -116,6 +121,13 @@ main probe example.com 443
 
 main http https://example.com/health
 [[ "$captured" == "http:https://example.com/health" ]] || { printf 'FAIL: http 命令分发错误\n' >&2; exit 1; }
+for node_command in dns-config proxy net-tuning tuning-adapters; do
+  main "$node_command"
+  [[ "$captured" == "$node_command" ]] || { printf 'FAIL: 节点配置命令分发错误\n' >&2; exit 1; }
+done
+main proxy-check https://example.com
+[[ "$captured" == 'proxy-check:https://example.com' ]] || { printf 'FAIL: 代理验证命令分发错误\n' >&2; exit 1; }
+if (main proxy-check 'file:///etc/passwd' >/dev/null 2>&1); then printf 'FAIL: 代理请求接受了文件协议\n' >&2; exit 1; fi
 
 main trace example.com
 [[ "$captured" == "trace:example.com" ]] || { printf 'FAIL: trace 命令分发错误\n' >&2; exit 1; }

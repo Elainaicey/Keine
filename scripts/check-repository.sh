@@ -183,7 +183,7 @@ for path in paths:
             handlers = {
                 "config/navigation.tsv": {"dashboard_menu", "system_menu", "network_menu", "security_menu", "services_menu", "software_catalog_menu", "apps_menu", "terminal_menu", "recovery_menu", "toolkit_menu"},
                 "config/terminal.tsv": {"oh_my_zsh", "starship", "oh-my-posh", "spaceship"},
-                "config/integrations.tsv": {"warp_menu"},
+                "config/integrations.tsv": {"warp_menu", "network_tuning_adapter_menu"},
             }
             numbers: set[str] = set()
             for number, fields in rows:
@@ -200,6 +200,24 @@ for path in paths:
                     numbers.add(fields[0])
                 elif path.name == "terminal.tsv" and not fields[4].startswith("https://github.com/"):
                     failures.append(f"终端项目来源无效：{number}")
+        elif path.as_posix() == "config/network-tuning.tsv":
+            allowed_keys = {
+                "net.ipv4.tcp_mtu_probing", "net.ipv4.tcp_fastopen",
+                "net.ipv4.tcp_keepalive_time", "net.ipv4.tcp_keepalive_intvl",
+                "net.ipv4.tcp_keepalive_probes", "net.core.rmem_max", "net.core.wmem_max",
+            }
+            tuning_keys: set[str] = set()
+            for number, fields in rows:
+                key, label, minimum, maximum, reference, description = fields
+                if key not in allowed_keys or key in tuning_keys:
+                    failures.append(f"网络参数键重复或不在白名单：{path.as_posix()}:{number}")
+                tuning_keys.add(key)
+                if not label or not description:
+                    failures.append(f"网络参数说明为空：{path.as_posix()}:{number}")
+                if not all(re.fullmatch(r"[0-9]{1,9}", value) for value in (minimum, maximum, reference)):
+                    failures.append(f"网络参数范围必须为整数：{path.as_posix()}:{number}")
+                elif not int(minimum) <= int(reference) <= int(maximum):
+                    failures.append(f"网络参数参考值不在范围内：{path.as_posix()}:{number}")
         elif path.as_posix() == "config/apps.tsv":
             app_ids: set[str] = set()
             app_units: set[str] = set()

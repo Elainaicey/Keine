@@ -19,6 +19,7 @@ required=(
   .github/SECURITY.md
   docs/CHANGELOG.md
   docs/DESIGN.md
+  docs/NETWORK-ADAPTERS.md
   bin/serverctl
   config/apps.tsv
   config/software.tsv
@@ -68,6 +69,12 @@ required=(
   src/features/system/storage.sh
   src/features/system/triage.sh
   src/features/network/diagnostics.sh
+  src/features/network/configuration.sh
+  src/features/network/dns.sh
+  src/features/network/proxy.sh
+  src/features/network/parameters.sh
+  src/integrations/network-tuning.sh
+  config/network-tuning.tsv
   src/features/network/http.sh
   src/features/network/overview.sh
   src/features/network/tuning.sh

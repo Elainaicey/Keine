@@ -1,0 +1,8 @@
+# sysctl key|label|minimum|maximum|reference value|description
+net.ipv4.tcp_mtu_probing|TCP MTU 探测|0|2|1|0 关闭，1 检测黑洞后启用，2 始终探测；不更改接口 MTU
+net.ipv4.tcp_fastopen|TCP Fast Open|0|3|1|0 关闭，1 客户端，2 服务端，3 两者；应用也必须支持
+net.ipv4.tcp_keepalive_time|Keepalive 空闲时间|60|7200|600|单位秒；只影响启用了 SO_KEEPALIVE 的连接
+net.ipv4.tcp_keepalive_intvl|Keepalive 探测间隔|10|300|30|单位秒；只有应用启用 Keepalive 才生效
+net.ipv4.tcp_keepalive_probes|Keepalive 探测次数|1|15|5|达到探测失败上限后连接关闭
+net.core.rmem_max|接收缓冲上限|16384|16777216|4194304|单位字节；上限不等于预分配，较大值仍可能增加并发内存压力
+net.core.wmem_max|发送缓冲上限|16384|16777216|4194304|单位字节；应用请求与协议行为共同决定实际使用量

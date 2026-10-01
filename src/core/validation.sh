@@ -29,6 +29,7 @@ valid_firewall_rule_spec() {
 valid_ipv4_address() {
   local value="${1:-}" part
   local parts=()
+  [[ "$value" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || return 1
   IFS='.' read -r -a parts <<<"$value"
   ((${#parts[@]} == 4)) || return 1
   for part in "${parts[@]}"; do
@@ -40,6 +41,8 @@ valid_ipv6_address() {
   local value="${1:-}" left right part
   local left_parts=() right_parts=() parts=()
   [[ -n "$value" && "$value" =~ ^[0-9a-fA-F:]+$ ]] || return 1
+  [[ "$value" != :* || "$value" == ::* ]] || return 1
+  [[ "$value" != *: || "$value" == *:: ]] || return 1
   if [[ "$value" == *::* ]]; then
     right="${value#*::}"
     [[ "$right" != *::* ]] || return 1

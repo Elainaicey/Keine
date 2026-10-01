@@ -30,11 +30,13 @@ bin/serverctl
 ├── src/core/changes/{packages,settings}.sh
 ├── src/core/navigation.sh
 ├── src/integrations/warp.sh
+├── src/integrations/network-tuning.sh
 ├── config/navigation.tsv
 ├── config/terminal.tsv
 ├── config/integrations.tsv
 ├── src/features/network.sh
-├── src/features/network/{overview,diagnostics,http,tuning,menu}.sh
+├── src/features/network/{configuration,dns,proxy,parameters,overview,diagnostics,http,tuning,menu}.sh
+├── config/network-tuning.tsv
 ├── src/features/system.sh
 ├── src/features/system/diagnostics.sh
 ├── src/features/system/menu.sh
@@ -98,6 +100,10 @@ Server Toolkit 必须保持前台、按需、短生命周期运行。运行时�
 故障快速排查保持只读，面向正在发生的问题组织资源、失败服务、近期错误、监听面、容器和恢复能力；后续动作只能跳转到既有领域入口，不再建立第二套“健康巡检”平行导航。
 
 网络深度诊断只接受经过白名单校验的接口名、目标和端口。接口页面不得提供可能中断当前 SSH 的 up/down 操作；端点探测、链路路径和套接字压力必须明确单次快照与持续监控的边界，缺少 Netcat、mtr 等可选工具时不得静默安装。
+
+网络配置的共用事务位于 `network/configuration.sh`：验证普通文件和规范化父路径、记录首次基线、原子替换、应用验证以及失败补偿。恢复记录在运行验证通过前不得删除。DNS 必须调用识别到的原生后端，未知生成文件不接管；SOCKS 只提供显式 curl 客户端配置，凭据不进入命令参数、审计或预览。
+
+网络参数由六字段 `config/network-tuning.tsv` 声明键、标签、上下限、参考值和说明，执行键另由代码白名单限制。只对项目独立文件中的键执行 `sysctl -w`，不运行 `sysctl --system` 重新加载第三方配置。写入前检查所有原始记录和外部冲突；文件与运行值成组撤销，失败时保留恢复记录并尝试补偿。设置记录使用便携目录名并独立保存逻辑键，兼容已有记录。第三方入口遵守 [网络调优适配契约](NETWORK-ADAPTERS.md)，不提供任意 URL 执行器。
 
 用户提供的 HTTP 诊断 URL 只能使用 `http://` 或 `https://`，不得包含凭据、空白或控制字符。curl 调用必须使用固定参数和 `--` 参数终止符，显式限制可用协议与重定向协议，并设置重定向次数、连接超时和总超时；诊断仅发送纯前台 HEAD 请求，不下载响应体、不持久化 Cookie，也不创建后台进程。展示的 URL、错误和响应头必须先移除终端控制字符。HTTP 405/501 只能说明端点不支持 HEAD，不能据此判断 GET 不可用；该功能只表示一次请求的可观测结果，不能承诺端点持续可用。
 

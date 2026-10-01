@@ -129,6 +129,12 @@ toolkit_doctor() {
     src/features/system/settings.sh
     src/features/system/menu.sh
     src/features/network.sh
+    src/features/network/configuration.sh
+    src/features/network/dns.sh
+    src/features/network/proxy.sh
+    src/features/network/parameters.sh
+    src/integrations/network-tuning.sh
+    config/network-tuning.tsv
     src/features/network/diagnostics.sh
     src/features/network/http.sh
     src/features/network/overview.sh

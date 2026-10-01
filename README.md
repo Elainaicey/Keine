@@ -65,7 +65,7 @@ serverctl
 | --- | --- |
 | **运维总览** | 响应式关键指标、内存/Swap/磁盘进度、服务与更新、TCP/Docker、UFW/Fail2ban/时间同步、恢复准备度和状态驱动的关注事项；可直接进入排障、更新、暴露面、服务与备份 |
 | **系统管理** | 当前发行版系统更新、事务预览、来源检查、故障排查、资源压力、进程、内核与重启状态、软件包健康、hold、依赖修复、存储、Swap 与时间设置 |
-| **网络与端口** | 接口地址与单接口下钻、路由与策略规则、DNS 诊断、IPv4/IPv6 连通性、TCP 端点探测、HTTP/HTTPS HEAD 状态与阶段耗时、mtr/traceroute 链路、套接字压力、监听端口、BBR 与地址优先级 |
+| **网络与端口** | 系统 DNS 切换与恢复、SOCKS5 出站配置与验证、可撤销内核参数和第三方调优适配入口；接口、路由、连通性、TCP/HTTP 诊断、链路路径、套接字压力、监听端口、BBR 与地址优先级 |
 | **安全中心** | 扩展安全基线、公网暴露分析、SSH 登录活动与失败来源聚合、Fail2ban/UFW 来源处置、UFW 生命周期与批量规则、SSH 配置/会话/密钥、安全向导、Fail2ban Jail 管理及 TLS 证书检查 |
 | **服务与日志** | failed/active 服务浏览、资源与退出结果、正反依赖、启动关键链、失败诊断、经验证的 service 生命周期，以及 Journal 条件查询、完整性验证、按时间/容量维护、内核警告和操作审计 |
 | **软件管理** | 280 个单项软件、15 个用途分类；官方直装、原生安装识别、APT 事务预览、运行影响提示；分类与分页浏览、版本、来源、完整性、安装与更新 |
@@ -97,6 +97,12 @@ serverctl official-updates       # 检查已托管官方 Release 更新
 serverctl exposure               # 分析公网监听、进程、容器与 UFW
 serverctl ports                  # 监听端口
 serverctl dns example.com        # DNS 解析器与记录诊断
+serverctl dns-config             # 系统 DNS 配置、验证与恢复
+serverctl proxy                  # 连接已有 SOCKS5 代理的配置中心
+serverctl proxy-check https://example.com
+                                # 显式使用代理的一次性连通验证
+serverctl net-tuning             # 可撤销的网络参数、BBR 与地址优先级
+serverctl tuning-adapters        # 第三方调优适配状态与持久参数来源
 serverctl probe example.com 443  # DNS、路由与 TCP 握手探测
 serverctl http https://example.com/health
                                 # HTTP HEAD 状态、重定向、TLS 与请求阶段耗时
@@ -180,6 +186,23 @@ Nginx、Caddy、Apache、HAProxy 与 Docker 可调用各自的官方只读配置
 现有发行版包与外部命令会被识别。切换到官方版时保留底层系统包；同路径外部普通文件必须明确确认并备份后才接管，符号链接不覆盖。只观察或切换配置不意味着拥有外部软件，删除前仍验证来源与所有权。
 
 每个官方二进制都会记录版本、仓库、资产名称、资产 digest、命令路径和二进制 SHA-256。更新或删除前会重新验证本机文件；检测到人为修改时自动操作会停止，可在详情页选择“修复官方安装”，先备份现有命令再部署可信版本。
+
+### 节点主机网络配置
+
+`serverctl dns-config` 识别 systemd-resolved、resolvconf 或普通 `resolv.conf`，提供公共 DNS 和最多三个自定义 IPv4/IPv6 地址。配置通过原生后端加载，并使用系统解析器验证；应用失败时回退，恢复时保留外部修改冲突。不会破坏生成文件的符号链接、锁定 `resolv.conf` 或停用网络管理器。NetworkManager、Netplan 等未适配后端只提供诊断，不强行覆盖。系统 DNS 不等于 Xray、sing-box 等节点软件内部 DNS。[systemd-resolved 配置文档](https://manpages.debian.org/bookworm/systemd-resolved/resolved.conf.5.en.html)
+
+`serverctl proxy` 管理连接已有 SOCKS5 代理的客户端配置，可选择本机解析目标域名或交给代理解析，并支持隐藏输入认证密码。配置保存到 root 专用的 `/etc/server-toolkit-socks.conf`，不写入全局代理变量、不修改路由、不开放监听，也不接管 SSH、APT 或节点软件的出站设置。显式使用方式：
+
+```bash
+serverctl proxy-check https://example.com
+curl --config /etc/server-toolkit-socks.conf https://example.com
+```
+
+SOCKS 认证信息在该文件中以明文保存，权限为 `0600`；配置快照和原始记录也应视为敏感数据。SOCKS5 不是加密隧道，公网连接应使用可信的加密传输。验证只发送一次限时 HEAD 请求，HTTP 错误状态与代理连接失败分别处理。[curl 代理选项](https://curl.se/docs/manpage.html)
+
+`serverctl net-tuning` 提供 TCP MTU 探测、Fast Open、Keepalive 和收发缓冲上限的逐项设置，另保留原生 BBR 与 IPv4 优先级入口。界面显示当前值、范围、单位与适用条件，不套用一键激进模板；Keepalive 和 Fast Open 仍取决于应用支持，缓冲上限不等于预分配内存。项目只应用自己的参数，并同时记录文件和首次修改前的运行值；撤销不猜测默认值，也不删除第三方配置。[Linux 内核网络参数](https://docs.kernel.org/networking/ip-sysctl.html)
+
+`serverctl tuning-adapters` 为后续第三方调优提供注册入口与参数来源查询。当前没有选定上游，不下载或执行外部脚本；未知脚本的内核、路由和配置改动不在自动撤销承诺内。适配要求见 [网络调优适配契约](docs/NETWORK-ADAPTERS.md)。所有新增能力仍保持前台按需运行，没有定时监控或自动任务。
 
 ### 终端与原生集成
 

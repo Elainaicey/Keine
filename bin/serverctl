@@ -69,6 +69,11 @@ usage() {
   serverctl remove ID             移除一个软件
   serverctl ports                 查看监听端口
   serverctl dns [域名]            诊断系统 DNS 解析
+  serverctl dns-config             配置或恢复主机系统 DNS
+  serverctl proxy                  配置与管理已有 SOCKS5 出站代理
+  serverctl proxy-check URL        使用保存的代理验证 HTTP/HTTPS 请求
+  serverctl net-tuning             管理可撤销的原生网络参数
+  serverctl tuning-adapters        第三方调优适配预留与参数来源检查
   serverctl probe HOST PORT       探测目标 TCP 端口
   serverctl http URL              诊断 HTTP/HTTPS HEAD 状态、TLS 与耗时
   serverctl trace HOST            查看目标链路路径
@@ -231,6 +236,19 @@ main() {
       ((${#arguments[@]} <= 1)) || die "dns 最多接受一个域名"
       platform_detect_identity
       network_dns_diagnose "${arguments[0]:-}"
+      ;;
+    dns-config|proxy|net-tuning|tuning-adapters)
+      ((${#arguments[@]} == 0)) || die "$command 不接受参数"
+      platform_detect_identity
+      case "$command" in
+        dns-config) network_dns_menu ;; proxy) network_proxy_menu ;;
+        net-tuning) network_tuning_menu ;; tuning-adapters) network_tuning_adapter_menu ;;
+      esac
+      ;;
+    proxy-check)
+      ((${#arguments[@]} == 1)) || die "proxy-check 需要一个 HTTP / HTTPS URL"
+      valid_http_url "${arguments[0]}" || die "URL 格式无效"
+      network_proxy_check "${arguments[0]}"
       ;;
     probe)
       ((${#arguments[@]} == 2)) || die "probe 需要目标和 TCP 端口"

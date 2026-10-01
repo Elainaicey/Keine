@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
 . "$ROOT_DIR/src/integrations/warp.sh"
+. "$ROOT_DIR/src/integrations/network-tuning.sh"
 
 integration_dispatch() {
   # 声明式注册不等于执行授权；适配器仍必须写入明确白名单。
-  case "$1" in warp) warp_menu ;; *) warn "尚未实现的原生适配器：$1"; return 1 ;; esac
+  case "$1" in warp) warp_menu ;; network-tuning) network_tuning_adapter_menu ;; *) warn "尚未实现的原生适配器：$1"; return 1 ;; esac
 }
 
 integrations_menu() {

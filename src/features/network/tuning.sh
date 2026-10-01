@@ -1,87 +1,50 @@
 #!/usr/bin/env bash
 
+NETWORK_BBR_FILE="${SERVER_TOOLKIT_BBR_FILE:-/etc/sysctl.d/98-server-toolkit-bbr.conf}"
+
+network_bbr_apply_file() {
+  [[ -f "$NETWORK_BBR_FILE" ]] || return 0
+  if ! grep -Eq '^net.core.default_qdisc[[:space:]]*=[[:space:]]*fq$' "$NETWORK_BBR_FILE" ||
+    ! grep -Eq '^net.ipv4.tcp_congestion_control[[:space:]]*=[[:space:]]*bbr$' "$NETWORK_BBR_FILE"; then return 1; fi
+  network_sysctl_apply_values net.core.default_qdisc=fq net.ipv4.tcp_congestion_control=bbr
+}
+
 network_enable_bbr() {
-  local available current
+  local available current payload
   available="$(sysctl -n net.ipv4.tcp_available_congestion_control 2>/dev/null || true)"
   current="$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null || printf '未知')"
-  ui_page "启用 BBR" "检查内核能力并写入独立 sysctl 配置"
-  [[ "$available" == *bbr* ]] || warn "将尝试加载 BBR 内核模块。"
-  confirm "启用 BBR 拥塞控制？" || return 0; require_root
-  if [[ "$available" != *bbr* ]] && command_exists modprobe; then
+  ui_page "启用 BBR" "原生内核能力、独立持久配置与完整基线恢复"
+  if [[ -e "$NETWORK_BBR_FILE" ]] && ! grep -Fqx '# Managed by Server Toolkit' "$NETWORK_BBR_FILE"; then
+    warn "目标文件不属于项目，拒绝覆盖。"; return 1
+  fi
+  ui_hint "只设置拥塞算法与默认队列；不更换内核、不重建当前网卡队列，也不加载第三方 sysctl 文件。"
+  confirm "启用 BBR，并记录当前拥塞算法与默认队列？" || return 0
+  require_root
+  if [[ " $available " != *" bbr "* ]] && command_exists modprobe; then
     run modprobe tcp_bbr || true
-    if [[ "$DRY_RUN" -ne 1 ]]; then
-      available="$(sysctl -n net.ipv4.tcp_available_congestion_control 2>/dev/null || true)"
-    fi
+    (( DRY_RUN == 1 )) || available="$(sysctl -n net.ipv4.tcp_available_congestion_control 2>/dev/null || true)"
   fi
-  [[ "$DRY_RUN" -eq 1 || "$available" == *bbr* ]] || { warn "当前内核无法启用 BBR。"; return 1; }
-  local config=/etc/sysctl.d/98-server-toolkit-bbr.conf temporary=""
-  backup_file "$config" || { warn "无法备份 BBR 配置。"; return 1; }
-  if [[ "$DRY_RUN" -eq 1 ]]; then info "将写入 $config。"; else
-    temporary="$(mktemp)" || { warn "无法创建 BBR 配置临时文件。"; return 1; }
-    if ! {
-      printf '# Managed by Server Toolkit\n'
-      printf '# Previous: %s\n' "$current"
-      printf 'net.core.default_qdisc = fq\n'
-      printf 'net.ipv4.tcp_congestion_control = bbr\n'
-    } >"$temporary"; then
-      rm -f "$temporary"
-      warn "无法生成 BBR 配置。"
-      return 1
-    fi
-    install -m 0644 "$temporary" "$config" || { rm -f "$temporary"; warn "无法安装 BBR 配置。"; return 1; }
-    rm -f "$temporary"
-  fi
-  run sysctl --system || { warn "应用 sysctl 配置失败。"; return 1; }
-  if [[ "$DRY_RUN" -eq 0 && "$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null || true)" != "bbr" ]]; then
-    warn "应用配置后拥塞控制算法仍不是 BBR。"
-    return 1
-  fi
+  [[ "$DRY_RUN" == 1 || " $available " == *" bbr "* ]] || { warn "当前内核不支持 BBR。"; return 1; }
+  payload="$(printf '# Managed by Server Toolkit\n# Previous: %s\nnet.core.default_qdisc = fq\nnet.ipv4.tcp_congestion_control = bbr\n' "$current")"
+  network_config_write "$NETWORK_BBR_FILE" 0644 "$payload" network_bbr_apply_file || return 1
   audit "action=enable-bbr previous=$current"
-  ui_success "BBR 已启用"
+  ui_success "BBR 配置操作完成。"
 }
 
 network_restore_bbr() {
-  local config=/etc/sysctl.d/98-server-toolkit-bbr.conf available previous fallback=""
-  [[ -f "$config" ]] || { warn "没有检测到 Server Toolkit 管理的 BBR 配置。"; return 1; }
-  grep -Fq '# Managed by Server Toolkit' "$config" || {
-    warn "$config 不属于 Server Toolkit，拒绝删除。"
-    return 1
-  }
-  available="$(sysctl -n net.ipv4.tcp_available_congestion_control 2>/dev/null || true)"
-  previous="$(sed -n 's/^# Previous: //p' "$config" | head -n 1)"
-  if [[ -n "$previous" && " $available " == *" $previous "* ]]; then
-    fallback="$previous"
-  elif [[ " $available " == *" cubic "* ]]; then
-    fallback=cubic
-  elif [[ " $available " == *" reno "* ]]; then
-    fallback=reno
-  else
-    fallback="$(awk '{print $1}' <<<"$available")"
+  if [[ ! -d "$(changes_file_entry "$NETWORK_BBR_FILE")" ||
+    ! -d "$(changes_root)/settings/bbr" || ! -d "$(changes_root)/settings/qdisc" ]]; then
+    warn "此 BBR 配置没有完整的初始基线，不能猜测原始算法与队列；请先核实历史快照。"; return 1
   fi
-  [[ -n "$fallback" ]] || { warn "无法确定可用的拥塞控制算法。"; return 1; }
-  ui_danger "将删除工具管理的 BBR 持久化配置，并把当前算法切换为 $fallback。"
-  confirm "恢复系统拥塞控制设置？" || return 0
-  require_root
-  backup_file "$config" || { warn "无法备份 BBR 配置。"; return 1; }
-  run rm -f -- "$config" || { warn "无法移除托管 BBR 配置。"; return 1; }
-  run sysctl -w "net.ipv4.tcp_congestion_control=$fallback" || {
-    warn "无法切换拥塞控制算法；原配置已保存在项目备份中。"
-    return 1
-  }
-  if [[ "$DRY_RUN" -eq 0 && "$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null || true)" != "$fallback" ]]; then
-    warn "当前拥塞控制算法未切换到 $fallback。"
-    return 1
-  fi
-  audit "action=restore-congestion-control value=$fallback"
-  ui_success "已移除托管 BBR 配置，当前算法为 $fallback"
+  network_sysctl_restore_group "$NETWORK_BBR_FILE" net.core.default_qdisc net.ipv4.tcp_congestion_control
 }
 
 network_bbr_manage() {
   local current available managed="否" action
   current="$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null || printf '未知')"
   available="$(sysctl -n net.ipv4.tcp_available_congestion_control 2>/dev/null || printf '未知')"
-  if [[ -f /etc/sysctl.d/98-server-toolkit-bbr.conf ]] &&
-    grep -Fq '# Managed by Server Toolkit' /etc/sysctl.d/98-server-toolkit-bbr.conf; then
+  if [[ -f "$NETWORK_BBR_FILE" ]] &&
+    grep -Fq '# Managed by Server Toolkit' "$NETWORK_BBR_FILE"; then
     managed="是"
   fi
   ui_page "BBR 拥塞控制" "查看内核能力、启用 BBR 或恢复托管配置"

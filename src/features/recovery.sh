@@ -12,7 +12,8 @@ recovery_entries() {
   done
   for entry in "$(changes_root)"/settings/*; do
     [[ -d "$entry" && ! -L "$entry" && -f "$entry/before" && -f "$entry/last" ]] || continue
-    printf 'setting|%s|设置|%s\n' "$entry" "${entry##*/}"
+    label="$(changes_setting_key "$entry")" || continue
+    printf 'setting|%s|设置|%s\n' "$entry" "$label"
   done
   for entry in "$(changes_root)"/packages/*; do
     [[ -f "$entry" && ! -L "$entry" ]] || continue
@@ -33,13 +34,23 @@ recovery_reconcile_file() {
   done <"$OFFICIAL_RELEASE_CATALOG"
 }
 
+recovery_restore_file() {
+  local entry="$1" path
+  path="$(<"$entry/path")"
+  case "$path" in
+    "${NETWORK_DNS_RESOLV:-/etc/resolv.conf}"|"${NETWORK_DNS_DROPIN:-/etc/systemd/resolved.conf.d/90-server-toolkit-dns.conf}"|"${NETWORK_DNS_HEAD:-/etc/resolvconf/resolv.conf.d/head}")
+      network_dns_restore_path "$path" ;;
+    *) changes_restore_file "$entry" ;;
+  esac
+}
+
 recovery_preflight() {
   local kind entry label path current failed=0
   while IFS='|' read -r kind entry label path; do
     case "$kind" in
       file) case "$(changes_file_status "$entry")" in ready|unchanged) ;; *) warn "恢复前发现冲突：$path"; failed=1 ;; esac ;;
       setting)
-        current="$(changes_setting_value "${entry##*/}")" || { failed=1; continue; }
+        current="$(changes_setting_value "$(changes_setting_key "$entry")")" || { failed=1; continue; }
         [[ "$current" == "$(<"$entry/last")" || "$current" == "$(<"$entry/before")" ]] || { warn "设置已被其他工具修改：$path"; failed=1; }
         ;;
     esac
@@ -72,7 +83,7 @@ recovery_restore_all() {
       file)
         case "$path" in /etc/ssh/*) ssh_changed=1 ;; /etc/ufw/*|/etc/default/ufw) ufw_changed=1 ;; esac
         backup_file "$path" || { failed=1; continue; }
-        if changes_restore_file "$entry"; then recovery_reconcile_file "$path" || failed=1; else failed=1; fi
+        if recovery_restore_file "$entry"; then recovery_reconcile_file "$path" || failed=1; else failed=1; fi
         ;;
       setting) changes_restore_setting "$entry" || failed=1 ;;
     esac
@@ -128,10 +139,10 @@ recovery_changes_menu() {
           confirm "恢复 $path？" || continue; require_root
           CHANGES_RESTORING=1
           if [[ "$kind" == file ]]; then
-            if changes_restore_file "$entry"; then recovery_reconcile_file "$path" || true; fi
+            if recovery_restore_file "$entry"; then recovery_reconcile_file "$path" || true; fi
           else changes_restore_setting "$entry" || true; fi
           CHANGES_RESTORING=0
-          ui_note "单项配置恢复不自动重载相关服务；可进入对应功能中心验证和加载。"
+          ui_note "系统 DNS 会重新验证并加载；其他单项配置请进入对应功能中心验证和加载。"
           pause
         elif [[ "$choice" == 1 ]]; then
           ui_note "软件包按依赖事务整体撤销，请使用撤销全部。"; pause

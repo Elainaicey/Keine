@@ -127,7 +127,8 @@ changes_file_status() {
 }
 
 changes_restore_file() {
-  local entry="$1" path status parent temporary
+  local entry="$1" retain="${2:-0}" path status parent temporary
+  [[ "$retain" == 0 || "$retain" == 1 ]] || return 1
   status="$(changes_file_status "$entry")"
   [[ "$status" == ready || "$status" == unchanged ]] || { warn "已保留冲突资源：$entry"; return 1; }
   path="$(<"$entry/path")"
@@ -150,7 +151,7 @@ changes_restore_file() {
     fi
     [[ "$(changes_fingerprint "$path")" == "$(<"$entry/before")" ]] || return 1
   fi
-  rm -rf -- "$entry"
+  [[ "$retain" == 1 ]] || rm -rf -- "$entry"
 }
 
 . "$ROOT_DIR/src/core/changes/packages.sh"

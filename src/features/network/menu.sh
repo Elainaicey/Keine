@@ -22,9 +22,11 @@ network_menu() {
     ui_item 12 "链路路径" "使用 mtr 或 traceroute 查看跳点"
     ui_item 13 "套接字压力" "TCP 状态、半连接和内核 Socket 计数"
     ui_section "网络设置" "accent"
-    ui_item 14 "BBR 拥塞控制" "状态、启用与恢复托管配置"
-    ui_item 15 "IP 地址优先级" "IPv4 优先或恢复系统默认"
-    ui_item 16 "原生集成 / WARP" "识别官方客户端及已有 wgcf 隧道"
+    ui_item 14 "系统 DNS 配置" "解析器识别、服务器切换、验证与恢复"
+    ui_item 15 "SOCKS 出站代理" "已有代理、认证、DNS 位置与连接验证"
+    ui_item 16 "可撤销网络参数" "BBR、Keepalive、MTU 探测、缓冲与来源"
+    ui_item 17 "原生 WARP" "识别官方客户端及已有 wgcf 隧道"
+    ui_item 18 "第三方调优适配" "预留入口、参数来源与冲突检查"
     ui_item 0 "返回"
     choice="$(read_input "请选择" "0")"
     case "$choice" in
@@ -41,9 +43,11 @@ network_menu() {
       11) network_http_diagnose "" || true ;;
       12) network_path_trace "" || true ;;
       13) network_socket_pressure || true ;;
-      14) network_bbr_manage || true ;;
-      15) network_set_address_preference || true ;;
-      16) integrations_menu; continue ;;
+      14) network_dns_menu; continue ;;
+      15) network_proxy_menu; continue ;;
+      16) network_tuning_menu; continue ;;
+      17) warp_menu; continue ;;
+      18) network_tuning_adapter_menu; continue ;;
       0) return 0 ;;
       *) warn "未知选项"; continue ;;
     esac
