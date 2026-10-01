@@ -172,8 +172,12 @@ system_update_menu() {
     choice="$(read_input "请选择" "0")"
     case "$choice" in
       1) system_update_apply || true ;;
-      2) system_update_preflight && system_update_sources_check && system_update_simulate && system_update_plan_render || true
-         ui_note "只使用本地索引；实际更新前会重新刷新并生成计划。" ;;
+      2)
+        if system_update_preflight && system_update_sources_check && system_update_simulate; then
+          system_update_plan_render
+          ui_note "只使用本地索引；实际更新前会重新刷新并生成计划。"
+        fi
+        ;;
       3) system_package_updates_view all ;;
       4) system_package_hold_manage || true ;;
       5) system_package_sources_view ;;
