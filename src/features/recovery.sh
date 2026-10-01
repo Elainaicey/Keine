@@ -82,7 +82,6 @@ recovery_restore_all() {
     case "$kind" in
       file)
         case "$path" in /etc/ssh/*) ssh_changed=1 ;; /etc/ufw/*|/etc/default/ufw) ufw_changed=1 ;; esac
-        backup_file "$path" || { failed=1; continue; }
         if recovery_restore_file "$entry"; then recovery_reconcile_file "$path" || failed=1; else failed=1; fi
         ;;
       setting) changes_restore_setting "$entry" || failed=1 ;;
@@ -93,7 +92,7 @@ recovery_restore_all() {
       if sshd -t; then
         if service_exists ssh.service; then systemctl reload ssh.service || failed=1
         elif service_exists sshd.service; then systemctl reload sshd.service || failed=1; fi
-      else warn "SSH 恢复后的配置检查失败；当前配置已另存快照，请先修复。"; failed=1; fi
+      else warn "SSH 恢复后的配置检查失败；请保留当前连接并通过控制台修复。"; failed=1; fi
     fi
     if (( ufw_changed == 1 )) && command_exists ufw; then
       if grep -q '^ENABLED=yes' /etc/ufw/ufw.conf; then ufw reload || failed=1; else ufw disable || failed=1; fi
@@ -161,11 +160,20 @@ recovery_changes_menu() {
 recovery_menu() {
   local choice
   while true; do
-    ui_page "恢复与撤销" "配置快照与项目变更的两种恢复方式"
-    ui_action 1 "配置备份与恢复" "action" "快照、差异、验证、恢复与空间清理"
-    ui_action 2 "项目变更与撤销" "warning" "首次修改前状态、新增资源和冲突处理"
+    ui_page "备份与恢复" "手动配置快照与项目变更撤销"
+    ui_context "不会自动创建历史快照；撤销记录仅保留每项资源的首次原始状态。"
+    ui_action 1 "手动备份管理" "action" "创建快照、恢复文件、差异比较与空间清理"
+    ui_action 2 "Docker 卷备份" "action" "手动归档、验证、恢复与删除业务卷备份"
+    ui_section "撤销项目修改" "warning"
+    ui_action 3 "项目变更与撤销" "warning" "首次修改前状态、新增资源和冲突处理"
     ui_action 0 "返回" "muted"
     choice="$(read_input "请选择" "0")"
-    case "$choice" in 1) backups_menu ;; 2) recovery_changes_menu ;; 0) return 0 ;; *) warn "未知选项" ;; esac
+    case "$choice" in
+      1) backups_menu ;;
+      2) docker_volume_backups_menu ;;
+      3) recovery_changes_menu ;;
+      0) return 0 ;;
+      *) warn "未知选项" ;;
+    esac
   done
 }

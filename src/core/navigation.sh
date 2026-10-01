@@ -10,7 +10,6 @@ navigation_dispatch() {
     services_menu) services_menu ;;
     software_catalog_menu) software_catalog_menu ;;
     apps_menu) apps_menu ;;
-    terminal_menu) terminal_menu ;;
     recovery_menu) recovery_menu ;;
     toolkit_menu) toolkit_menu ;;
     *) warn "菜单没有已注册的执行目标：$1"; return 1 ;;
@@ -29,7 +28,7 @@ navigation_menu() {
     for row in "${rows[@]}"; do
       IFS='|' read -r number _id section title handler hint <<<"$row"
       if [[ "$section" != "$previous" ]]; then
-        case "$section" in 主机与运行) section_style=primary ;; 工具与应用) section_style=accent ;; *) section_style=warning ;; esac
+        case "$section" in 主机管理) section_style=primary ;; 软件与应用) section_style=accent ;; *) section_style=warning ;; esac
         ui_section "$section" "$section_style"; previous="$section"
       fi
       ui_item "$number" "$title" "$hint"

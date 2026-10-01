@@ -211,11 +211,11 @@ software_install_release() {
       [[ "$mode" == adopt && -f "$target" && ! -L "$target" ]] || {
         warn "$target 是外部安装；请从详情页选择来源切换并确认接管。"; return 1;
       }
-      backup_file "$target" || return 1
+      changes_prepare_file "$target" || return 1
     fi
     if software_release_managed "$id" && ! software_release_integrity "$id"; then
       [[ "$mode" == "repair" ]] || { warn "$target 已被修改，拒绝自动覆盖。"; return 1; }
-      backup_file "$target" || { warn "无法在修复前备份 $target。"; return 1; }
+      changes_prepare_file "$target" || { warn "无法登记 $target 的初始状态。"; return 1; }
     fi
   fi
   package_install ca-certificates curl tar gzip || return 1

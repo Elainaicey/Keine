@@ -54,7 +54,7 @@ terminal_menu() {
   local rows=() record id name _kind _handler project description index choice provider installed version action user home shell result
   while true; do
     mapfile -t rows < <(awk -F '|' '!/^#/ && NF==6' "$CONFIG_DIR/terminal.tsv")
-    ui_page "终端与外观" "独立管理框架与提示符；自动识别已有安装"
+    ui_page "系统 / 终端与美化" "默认 Shell、框架与提示符；自动识别已有安装"
     user="$(software_target_user)"; home="$(software_target_home "$user")"
     shell="$(terminal_login_shell "$user" || printf unsupported)"
     ui_kv "登录 Shell" "$shell"

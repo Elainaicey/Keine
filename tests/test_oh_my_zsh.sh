@@ -23,7 +23,6 @@ id() {
   esac
 }
 SUDO_USER=alice
-backup_file() { :; }
 
 [[ "$(software_target_user)" == "alice" ]] || die "没有优先选择 sudo 发起用户"
 [[ "$(software_target_home alice)" == "/home/alice" ]] || die "目标用户主目录解析错误"

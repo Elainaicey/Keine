@@ -41,8 +41,8 @@ software_configure_caddy_repository() {
     warn "Caddy 官方软件源内容与预期不符。"
     return 1
   }
-  backup_file "$key_file" || { rm -f -- "$key_source" "$key_binary" "$list_source"; return 1; }
-  backup_file "$source_file" || { rm -f -- "$key_source" "$key_binary" "$list_source"; return 1; }
+  changes_prepare_file "$key_file" || { rm -f -- "$key_source" "$key_binary" "$list_source"; return 1; }
+  changes_prepare_file "$source_file" || { rm -f -- "$key_source" "$key_binary" "$list_source"; return 1; }
   install -d -m 0755 "$(dirname "$key_file")" "$(dirname "$source_file")" || {
     rm -f -- "$key_source" "$key_binary" "$list_source"; warn "无法创建 Caddy 仓库目录。"; return 1;
   }

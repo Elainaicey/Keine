@@ -84,7 +84,7 @@ network_set_address_preference() {
   confirm "$action？" || return 0
   require_root
   local config=/etc/gai.conf temporary=""
-  backup_file "$config" || { warn "无法备份 $config。"; return 1; }
+  changes_prepare_file "$config" || { warn "无法登记 $config 的初始状态。"; return 1; }
   if [[ "$DRY_RUN" -eq 1 ]]; then info "将更新 $config。"; return 0; fi
   temporary="$(mktemp)" || { warn "无法创建地址优先级临时文件。"; return 1; }
   if [[ -f "$config" ]]; then

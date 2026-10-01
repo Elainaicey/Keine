@@ -68,7 +68,7 @@ catalog_switch_source() {
     ui_panel_kv "命令路径" "$(software_release_target "$id")"
     ui_panel_kv "完整性" "GitHub SHA-256 digest"
     ui_panel_end
-    ui_note "系统包会保留；官方命令安装到 /usr/local/bin。若同路径已有外部普通文件，确认后先备份再接管；符号链接不覆盖。"
+    ui_note "系统包会保留；官方命令安装到 /usr/local/bin。若同路径已有外部普通文件，确认后保存首次原始状态再接管；符号链接不覆盖。"
     confirm "切换到项目官方稳定版？" || return 0
     require_root
     software_install_release "$id" adopt || return 1
@@ -228,7 +228,7 @@ catalog_update() {
   fi
   ui_panel_end
   if software_official_repository_handler "$handler" && (( distribution_docker == 0 )); then
-    ui_note "检查前会验证官方仓库；配置缺失或不完整时会先备份并修复。"
+    ui_note "检查前会验证官方仓库；配置缺失或不完整时会记录首次基线并修复。"
     confirm "验证官方仓库并检查 $name 更新？" || return 0
   else
     ui_note "候选版本来自本机 APT 索引；更新前会先刷新仓库元数据。"

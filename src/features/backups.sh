@@ -128,15 +128,53 @@ backups_metadata() {
 }
 
 backups_create() {
-  local target
-  ui_page "创建配置快照" "手动备份一个 /etc 下的现有配置文件"
-  target="$(read_input "配置文件完整路径" "/etc/hosts")"
-  [[ "$target" == /etc/* && "$target" != *'/../'* && "$target" != */.. ]] || { warn "只允许备份 /etc 下的明确路径。"; return 1; }
-  [[ -f "$target" || -L "$target" ]] || { warn "目标不是现有文件：$target"; return 1; }
-  confirm "备份 $target？" || return 0
+  local target choice entry snapshot result=0
+  local targets=()
+  ui_page "手动创建配置快照" "每次创建独立快照；不会在修改设置时自动备份"
+  ui_action 1 "已托管的配置" "action" "备份当前系统配置与 Shell 启动文件，不复制软件目录"
+  ui_action 2 "常用系统配置" "action" "主机名、hosts、时区、fstab 和 SSH 主配置"
+  ui_action 3 "指定配置文件" "action" "输入一个 /etc 下的完整路径"
+  ui_action 0 "取消" "muted"
+  choice="$(read_input "请选择" "1")"
+  case "$choice" in
+    1)
+      for entry in "$(changes_root)"/files/*; do
+        [[ -d "$entry" && ! -L "$entry" && -f "$entry/path" && ! -L "$entry/path" ]] || continue
+        target="$(<"$entry/path")"
+        case "$target" in /etc/*|*/.bashrc|*/.zshrc|*/.profile|*/.bash_profile|*/.bash_login)
+          [[ "$(changes_file_status "$entry")" != invalid ]] || continue
+          [[ -f "$target" || -L "$target" ]] && targets+=("$target") ;;
+        esac
+      done
+      ;;
+    2)
+      for target in /etc/hostname /etc/hosts /etc/timezone /etc/fstab /etc/ssh/sshd_config; do
+        [[ -f "$target" || -L "$target" ]] && targets+=("$target")
+      done
+      ;;
+    3)
+      target="$(read_input "配置文件完整路径" "/etc/hosts")"
+      [[ "$target" == /etc/* && "$target" != *'/../'* && "$target" != */.. && "$target" != *[[:cntrl:]]* ]] || { warn "只允许备份 /etc 下的明确路径。"; return 1; }
+      [[ -f "$target" || -L "$target" ]] || { warn "目标不是现有文件：$target"; return 1; }
+      targets+=("$target")
+      ;;
+    0) return 0 ;;
+    *) warn "未知选项"; return 1 ;;
+  esac
+  ((${#targets[@]} > 0)) || { ui_empty "没有可备份的配置文件"; return 0; }
+  ui_section "快照文件" "primary"
+  for target in "${targets[@]}"; do ui_kv "配置" "$target"; done
+  ui_hint "只保存当前文件，不创建整机或业务数据备份；快照可能包含凭据。"
+  confirm "创建包含 ${#targets[@]} 个配置文件的快照？" || return 0
   require_root
-  backup_file "$target" || return 1
-  [[ "$DRY_RUN" -eq 1 ]] || ui_success "配置文件已加入快照。"
+  backup_begin
+  snapshot="$(backup_active_snapshot)"
+  for target in "${targets[@]}"; do backup_file "$target" || { result=1; break; }; done
+  # 当前写入会话由 core/backup 的清理保护逻辑消费。
+  # shellcheck disable=SC2034
+  BACKUP_SESSION=""
+  (( result == 0 )) || { warn "快照 $snapshot 未完整创建，请在备份管理中检查或删除。"; return 1; }
+  [[ "$DRY_RUN" -eq 1 ]] || ui_success "已创建手动快照：$snapshot（${#targets[@]} 个文件）。"
 }
 
 backups_verify() {
@@ -284,7 +322,8 @@ backups_restore() {
   printf '\n'; backup_manifest "$snapshot" | nl -ba
   target="$(read_input "要恢复的完整路径" "")"; [[ -n "$target" ]] || return 0
   backup_manifest "$snapshot" | grep -Fxq "$target" || { warn "路径不在该备份清单中。"; return 1; }
-  confirm "从 $snapshot 恢复 $target？当前文件会先备份。" || return 0
+  ui_hint "恢复会覆盖当前文件；若要保留当前版本，请先手动创建快照。"
+  confirm "从 $snapshot 恢复 $target？" || return 0
   require_root
   backup_restore "$snapshot" "$target" || return 1
   [[ "$DRY_RUN" -eq 1 ]] || ui_success "配置文件已恢复。"
@@ -293,30 +332,30 @@ backups_restore() {
 backups_menu() {
   local choice
   while true; do
-    ui_page "备份与恢复" "创建、验证、恢复并管理项目配置快照"
+    ui_page "手动备份管理" "快照仅由你主动创建；日常修改不产生历史快照"
     backups_summary
-    ui_section "查看与验证" "primary"
-    ui_item 1 "列出备份"
-    ui_item 2 "查看备份内容"
-    ui_item 3 "校验备份完整性" "检查清单和所有备份文件"
-    ui_item 4 "与当前配置比较" "恢复前查看文件差异"
-    ui_item 5 "保护与备注" "保护重要快照，并添加简短用途说明"
     ui_section "创建与恢复" "accent"
-    ui_item 6 "创建配置快照" "手动备份一个 /etc 配置文件"
-    ui_item 7 "恢复一个文件"
+    ui_item 1 "创建配置快照" "托管配置、常用配置或指定文件"
+    ui_item 2 "恢复一个文件"
+    ui_section "查看与验证" "primary"
+    ui_item 3 "列出备份"
+    ui_item 4 "查看备份内容"
+    ui_item 5 "校验备份完整性" "检查清单和所有备份文件"
+    ui_item 6 "与当前配置比较" "恢复前查看文件差异"
+    ui_item 7 "保护与备注" "保护重要快照，并添加简短用途说明"
     ui_section "空间管理" "warning"
     ui_item 8 "删除一个快照" "受保护快照必须先取消保护"
     ui_item 9 "清理历史快照" "按数量或天数清理，自动跳过受保护快照"
     ui_item 0 "返回"
     choice="$(read_input "请选择" "0")"
     case "$choice" in
-      1) backups_list ;;
-      2) backups_inspect || true ;;
-      3) backups_verify || true ;;
-      4) backups_compare || true ;;
-      5) backups_metadata || true ;;
-      6) backups_create || true ;;
-      7) backups_restore || true ;;
+      1) backups_create || true ;;
+      2) backups_restore || true ;;
+      3) backups_list ;;
+      4) backups_inspect || true ;;
+      5) backups_verify || true ;;
+      6) backups_compare || true ;;
+      7) backups_metadata || true ;;
       8) backups_delete || true ;;
       9) backups_cleanup || true ;;
       0) return 0 ;;

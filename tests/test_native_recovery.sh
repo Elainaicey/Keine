@@ -86,5 +86,6 @@ if warp_connection_value; then die "异步连接误报为成功"; fi
 
 . "$ROOT_DIR/src/core/navigation.sh"
 if navigation_dispatch 'echo injected' >/dev/null 2>&1; then die "执行了未注册菜单动作"; fi
-[[ "$(awk -F '|' '!/^#/ && NF==6 {total++} END {print total}' "$ROOT_DIR/config/navigation.tsv")" == 10 ]] || die "导航注册不完整"
+[[ "$(awk -F '|' '!/^#/ && NF==6 {total++} END {print total}' "$ROOT_DIR/config/navigation.tsv")" == 9 ]] || die "导航注册不完整"
+if grep -q '|terminal|' "$ROOT_DIR/config/navigation.tsv"; then die "终端仍占用一级导航"; fi
 printf 'PASS: native integration and recovery\n'

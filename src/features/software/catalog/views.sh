@@ -42,7 +42,7 @@ catalog_repository_diagnostics() {
       fi
       ;;
     missing) ui_callout good "尚未配置属于正常安装前状态" "选择安装后，keine 会创建签名和软件源，再获取官方稳定版。" ;;
-    incomplete) ui_callout warn "仓库配置不完整" "安装或修复会先备份现有普通文件，再重新写入可信配置。" ;;
+    incomplete) ui_callout warn "仓库配置不完整" "安装或修复会保存首次原始状态，再写入可信配置；历史快照请手动创建。" ;;
     unsafe) ui_callout bad "仓库路径存在安全风险" "请人工核实并移除符号链接；工具不会自动覆盖。" ;;
   esac
 }
@@ -136,7 +136,7 @@ catalog_item_menu() {
     fi
     if [[ "$handler" == "official_release" ]]; then
       if [[ "$state" == external || ( "$state" != absent && "$state" != unavailable && -n "$packages" ) ]]; then
-        ui_action 4 "切换来源 / 确认接管" "accent" "官方稳定版与现有安装；外部同路径文件先备份"
+        ui_action 4 "切换来源 / 确认接管" "accent" "官方稳定版与现有安装；外部同路径文件保留首次基线"
       else
         ui_action 4 "切换来源" "disabled" "当前没有可切换的第二来源"
       fi
@@ -198,7 +198,7 @@ catalog_item_menu() {
           catalog_repair_repository "$id" || true
         elif [[ "$handler" == "official_release" ]] && software_release_managed "$id"; then
           ui_page "修复官方安装 / $name" "$id · 重新下载并验证官方稳定版"
-          ui_danger "如命令完整性异常，现有文件会先备份，再由通过 SHA-256 校验的官方版本替换。"
+          ui_danger "修复会覆盖命令并保留首次基线；如需保存当前版本，请先手动备份。外部修改冲突不会被覆盖。"
           if confirm "重新安装 $name 的官方稳定版？"; then
             require_root
             if software_repair_release "$id"; then

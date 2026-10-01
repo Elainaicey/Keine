@@ -2,6 +2,13 @@
 
 BACKUP_ROOT="${KEINE_BACKUP_ROOT:-/var/backups/keine}"
 BACKUP_SESSION=""
+BACKUP_SEQUENCE=0
+
+# 只有手动创建快照时开启新会话；配置修改仅使用 changes 的首次基线。
+backup_begin() {
+  BACKUP_SEQUENCE=$((BACKUP_SEQUENCE + 1))
+  BACKUP_SESSION="$BACKUP_ROOT/$(date +%Y%m%d-%H%M%S)-${BASHPID}${BACKUP_SEQUENCE}"
+}
 
 backup_valid_snapshot() {
   [[ "${1:-}" =~ ^[0-9]{8}-[0-9]{6}-[0-9]+$ ]]
@@ -73,11 +80,10 @@ backup_set_protection() {
 
 backup_file() {
   local source="$1"
-  if declare -F changes_prepare_file >/dev/null; then changes_prepare_file "$source" || return 1; fi
-  [[ -e "$source" || -L "$source" ]] || return 0
+  [[ -e "$source" || -L "$source" ]] || { warn "备份文件不存在：$source"; return 1; }
   safe_toolkit_path "$BACKUP_ROOT" || { warn "备份根目录不安全：$BACKUP_ROOT"; return 1; }
   [[ ! -L "$BACKUP_ROOT" ]] || { warn "备份根目录不能是符号链接：$BACKUP_ROOT"; return 1; }
-  [[ -n "$BACKUP_SESSION" ]] || BACKUP_SESSION="$BACKUP_ROOT/$(date +%Y%m%d-%H%M%S)-$$"
+  [[ -n "$BACKUP_SESSION" ]] || backup_begin
   [[ "$BACKUP_SESSION" == "$BACKUP_ROOT/"* && ! -L "$BACKUP_SESSION" ]] || {
     warn "备份会话目录不安全：$BACKUP_SESSION"
     return 1
@@ -86,6 +92,7 @@ backup_file() {
   if [[ "$DRY_RUN" -eq 1 ]]; then info "将备份 $source 到 $destination"; return 0; fi
   [[ ! -e "$destination" && ! -L "$destination" ]] || { info "本次会话已经备份：$source"; return 0; }
   mkdir -p "$(dirname "$destination")" || { warn "无法创建备份目录：$(dirname "$destination")"; return 1; }
+  chmod 0700 "$BACKUP_ROOT" "$BACKUP_SESSION" || return 1
   cp -a "$source" "$destination" || { warn "无法复制备份内容：$source"; return 1; }
   printf '%s\n' "$source" >>"$BACKUP_SESSION/manifest.txt" || {
     rm -rf -- "$destination" 2>/dev/null || true
@@ -224,7 +231,7 @@ backup_restore() {
   source="$BACKUP_ROOT/$snapshot$target"
   backup_manifest "$snapshot" | grep -Fxq "$target" || die "目标不在备份清单中：$target"
   [[ -e "$source" || -L "$source" ]] || die "备份文件不存在：$source"
-  backup_file "$target" || { warn "恢复前无法备份当前文件：$target"; return 1; }
+  if declare -F changes_prepare_file >/dev/null; then changes_prepare_file "$target" || return 1; fi
   if [[ "$DRY_RUN" -eq 1 ]]; then info "将恢复 $source 到 $target"; return 0; fi
   mkdir -p "$(dirname "$target")" || { warn "无法创建恢复目标目录：$(dirname "$target")"; return 1; }
   cp -a "$source" "$target" || { warn "无法恢复文件：$target"; return 1; }

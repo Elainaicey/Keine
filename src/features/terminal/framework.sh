@@ -110,9 +110,9 @@ software_install_oh_my_zsh() {
     software_oh_my_zsh_installed && { info "Oh My Zsh 已经安装。"; return 0; }
     die "目标目录已存在且不是受支持的官方 Oh My Zsh 仓库：$directory"
   fi
-  if declare -F changes_prepare_file >/dev/null; then changes_prepare_file "$directory" directory || return 1; fi
   package_install zsh git || return 1
   info "将为用户 $user 安装 Oh My Zsh 到 $directory。"
+  if declare -F changes_prepare_file >/dev/null; then changes_prepare_file "$directory" directory || return 1; fi
   software_run_as_target "$user" "$home" git clone --depth=1 "$OH_MY_ZSH_REPOSITORY" "$directory" || {
     warn "Oh My Zsh 官方仓库克隆失败。"
     return 1

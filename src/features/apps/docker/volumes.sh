@@ -68,7 +68,7 @@ docker_volume_backup_validate_record() {
 
 docker_volume_helper_ready() {
   docker image inspect "$DOCKER_VOLUME_HELPER_IMAGE" >/dev/null 2>&1 && return 0
-  ui_note "创建卷归档需要 Docker Hub 官方镜像 $DOCKER_VOLUME_HELPER_IMAGE（通常约数 MB）。"
+  ui_note "卷归档与恢复需要 Docker Hub 官方镜像 $DOCKER_VOLUME_HELPER_IMAGE（通常约数 MB）。"
   confirm "现在拉取辅助镜像？" || return 1
   require_root
   run docker pull "$DOCKER_VOLUME_HELPER_IMAGE" || { warn "辅助镜像拉取失败。"; return 1; }
@@ -187,10 +187,10 @@ docker_volume_backup_restore() {
   fi
   record="$DOCKER_VOLUME_BACKUP_ROOT/$backup_id"
   ui_page "恢复 Docker 卷" "$backup_id → $volume"
-  ui_danger "恢复会清空目标卷现有内容；操作前会自动创建一份 pre-restore 安全备份。"
+  ui_danger "恢复会清空目标卷现有内容；不会自动备份，若需保留当前数据请先手动创建卷备份。"
   confirm "确认覆盖 Docker 卷 $volume？" || return 0
   require_root
-  docker_volume_backup_execute "$volume" pre-restore || return 1
+  docker_volume_helper_ready || return 1
   if [[ "$DRY_RUN" -eq 1 ]]; then
     run docker run --rm --read-only \
       --volume "$volume:/target" --volume "$record:/backup:ro" \
@@ -202,7 +202,7 @@ docker_volume_backup_restore() {
     --volume "$volume:/target" --volume "$record:/backup:ro" \
     "$DOCKER_VOLUME_HELPER_IMAGE" sh -c \
     'find /target -mindepth 1 -maxdepth 1 -exec rm -rf -- {} + && tar -xzf /backup/volume.tar.gz -C /target' || {
-      warn "Docker 卷恢复失败；请使用刚创建的 pre-restore 备份人工恢复。"
+      warn "Docker 卷恢复失败，数据可能已部分覆盖；请使用事先手动创建的备份恢复。"
       return 1
     }
   audit "action=docker-volume-restore volume=$volume backup=$backup_id"
@@ -239,7 +239,7 @@ docker_volume_backups_menu() {
     ui_item 1 "列出卷备份"
     ui_item 2 "创建卷备份" "首次使用会询问拉取官方 Alpine 辅助镜像"
     ui_item 3 "校验卷备份" "检查元数据、SHA-256 与归档路径"
-    ui_item 4 "恢复原卷" "先创建安全备份，再覆盖未被运行容器使用的原卷"
+    ui_item 4 "恢复原卷" "覆盖停用的原卷；如需保留当前数据请先手动备份"
     ui_item 5 "删除一个卷备份" "不删除 Docker 卷"
     ui_item 0 "返回"
     choice="$(read_input "请选择" "0")"

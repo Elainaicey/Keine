@@ -74,14 +74,23 @@ terminal_normalize_zshrc() {
   terminal_write_rc "$zshrc" zsh "$payload" "$owner"
 }
 
-terminal_prepare_paths() {
-  local home="$1" path paths _user _home _bin state
-  paths="$(software_prompt_paths)"; IFS='|' read -r _user _home _bin state <<<"$paths"
-  declare -F changes_prepare_file >/dev/null || return 0
-  # 对新建的父目录只登记一次；已有用户目录不会整体接管。
-  for path in "$home/.local" "$home/.local/bin" "$home/.local/share" "${state%/prompts}" "$state"; do
-    if [[ ! -e "$path" ]]; then changes_prepare_file "$path" directory || return 1; fi
+terminal_create_directory() {
+  local user="$1" home="$2" directory="$3" path index
+  local missing=()
+  [[ "$directory" == "$home/"* && "$(readlink -m -- "$directory")" == "$directory" ]] || {
+    warn "终端目录不是安全的用户目录：$directory"; return 1;
+  }
+  path="$directory"
+  while [[ "$path" != "$home" && ! -e "$path" ]]; do
+    missing+=("$path"); path="$(dirname -- "$path")"
   done
+  # 在实际 mkdir 前登记新目录，在 mkdir 后立即提交；不提前消费安装器的记录。
+  if declare -F changes_prepare_file >/dev/null; then
+    for ((index=${#missing[@]}-1; index>=0; index--)); do
+      changes_prepare_file "${missing[$index]}" directory || return 1
+    done
+  fi
+  software_run_as_target "$user" "$home" mkdir -p "$directory"
 }
 
 software_prompt_activate() {
@@ -117,8 +126,8 @@ software_prompt_mark() {
   local provider="$1" user="$2" home="$3" paths _user _home _bin state
   paths="$(software_prompt_paths)"; IFS='|' read -r _user _home _bin state <<<"$paths"
   if [[ "$DRY_RUN" -eq 1 ]]; then return 0; fi
+  terminal_create_directory "$user" "$home" "$state" || return 1
   if declare -F changes_prepare_file >/dev/null; then changes_prepare_file "$state/$provider.managed" || return 1; fi
-  software_run_as_target "$user" "$home" mkdir -p "$state" || { warn "无法创建提示符状态目录。"; return 1; }
   software_run_as_target "$user" "$home" touch "$state/$provider.managed" || { warn "无法写入提示符托管标记。"; return 1; }
 }
 
@@ -135,15 +144,14 @@ software_prompt_download_installer() {
 software_install_starship() {
   local paths user home bin _state installer
   paths="$(software_prompt_paths)"; IFS='|' read -r user home bin _state <<<"$paths"
-  terminal_prepare_paths "$home" || return 1
   [[ ! -e "$bin/starship" ]] || software_prompt_managed starship || die "$bin/starship 已存在且不由 keine 管理。"
-  if declare -F changes_prepare_file >/dev/null; then changes_prepare_file "$bin/starship" || return 1; fi
   package_install curl ca-certificates || return 1
-  software_run_as_target "$user" "$home" mkdir -p "$bin" || { warn "无法创建用户命令目录。"; return 1; }
+  terminal_create_directory "$user" "$home" "$bin" || return 1
   if [[ "$DRY_RUN" -eq 1 ]]; then
     info "将从 Starship 官方安装器部署到 $bin。"
   else
     installer="$(software_prompt_download_installer https://starship.rs/install.sh)" || return 1
+    if declare -F changes_prepare_file >/dev/null && ! changes_prepare_file "$bin/starship"; then rm -f "$installer"; return 1; fi
     software_run_as_target "$user" "$home" sh "$installer" -y -b "$bin" || { rm -f "$installer"; warn "Starship 官方安装器执行失败。"; return 1; }
     rm -f "$installer"
   fi
@@ -154,18 +162,17 @@ software_install_starship() {
 software_install_oh_my_posh() {
   local paths user home bin _state installer
   paths="$(software_prompt_paths)"; IFS='|' read -r user home bin _state <<<"$paths"
-  terminal_prepare_paths "$home" || return 1
   [[ ! -e "$bin/oh-my-posh" ]] || software_prompt_managed oh-my-posh || die "$bin/oh-my-posh 已存在且不由 keine 管理。"
-  if declare -F changes_prepare_file >/dev/null; then
-    changes_prepare_file "$bin/oh-my-posh" || return 1
-    [[ -d "$home/.cache/oh-my-posh" ]] || changes_prepare_file "$home/.cache/oh-my-posh" directory || return 1
-  fi
   package_install curl ca-certificates unzip || return 1
-  software_run_as_target "$user" "$home" mkdir -p "$bin" || { warn "无法创建用户命令目录。"; return 1; }
+  terminal_create_directory "$user" "$home" "$bin" || return 1
   if [[ "$DRY_RUN" -eq 1 ]]; then
     info "将从 Oh My Posh 官方安装器部署到 $bin。"
   else
     installer="$(software_prompt_download_installer https://ohmyposh.dev/install.sh)" || return 1
+    if declare -F changes_prepare_file >/dev/null; then
+      if ! changes_prepare_file "$bin/oh-my-posh"; then rm -f "$installer"; return 1; fi
+      if [[ ! -d "$home/.cache/oh-my-posh" ]] && ! changes_prepare_file "$home/.cache/oh-my-posh" directory; then rm -f "$installer"; return 1; fi
+    fi
     software_run_as_target "$user" "$home" bash "$installer" -d "$bin" || { rm -f "$installer"; warn "Oh My Posh 官方安装器执行失败。"; return 1; }
     rm -f "$installer"
   fi
@@ -176,13 +183,12 @@ software_install_oh_my_posh() {
 software_install_spaceship() {
   local paths user home _bin state directory
   paths="$(software_prompt_paths)"; IFS='|' read -r user home _bin state <<<"$paths"
-  terminal_prepare_paths "$home" || return 1
   directory="$state/spaceship"
   safe_managed_path "$directory" || die "Spaceship 目标路径不安全：$directory"
   [[ ! -e "$directory" ]] || software_prompt_managed spaceship || die "$directory 已存在且不由 keine 管理。"
-  if declare -F changes_prepare_file >/dev/null; then changes_prepare_file "$directory" directory || return 1; fi
   package_install zsh git || return 1
-  software_run_as_target "$user" "$home" mkdir -p "$state" || { warn "无法创建提示符状态目录。"; return 1; }
+  terminal_create_directory "$user" "$home" "$state" || return 1
+  if declare -F changes_prepare_file >/dev/null; then changes_prepare_file "$directory" directory || return 1; fi
   software_run_as_target "$user" "$home" git clone --depth=1 https://github.com/spaceship-prompt/spaceship-prompt.git "$directory" || {
     warn "Spaceship Prompt 官方仓库克隆失败。"
     return 1

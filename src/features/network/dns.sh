@@ -123,7 +123,7 @@ network_dns_restore_path() {
 
 network_dns_restore() {
   local path
-  path="$(network_dns_path)" || { warn "当前解析器后端发生变化；请先在恢复与撤销中心检查原始记录。"; return 1; }
+  path="$(network_dns_path)" || { warn "当前解析器后端发生变化；请先在备份与恢复中心检查原始记录。"; return 1; }
   confirm "恢复该解析器首次项目修改前的配置，并重新验证？" || return 0
   network_dns_restore_path "$path" || return 1
   audit 'action=network-dns-restore'

@@ -13,7 +13,7 @@ dashboard_menu() {
     case "$choice" in
       1) continue ;;
       2) system_triage; continue ;;
-      3) system_package_health; continue ;;
+      3) system_update_menu; continue ;;
       4) security_exposure_analysis; continue ;;
       5) services_browser; continue ;;
       6) backups_menu; continue ;;

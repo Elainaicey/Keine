@@ -73,7 +73,7 @@ changes_prepare_file() {
   if [[ -d "$entry" && ! -L "$entry" ]]; then
     if [[ "$(<"$entry/path")" != "$path" ]] ||
       { [[ -z "${CHANGES_PENDING_FILES[$path]:-}" ]] && [[ "$(changes_fingerprint "$path")" != "$(<"$entry/last")" ]]; }; then
-      warn "$path 在上次项目操作后被修改；请先到恢复与撤销中心检查冲突。"; return 1;
+      warn "$path 在上次项目操作后被修改；请先到备份与恢复中心检查冲突。"; return 1;
     fi
   else
     [[ ! -e "$entry" && ! -L "$entry" ]] || return 1

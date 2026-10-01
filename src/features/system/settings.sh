@@ -1,26 +1,25 @@
 #!/usr/bin/env bash
 
+system_hostname_apply() {
+  run hostnamectl set-hostname "$name" || return 1
+  [[ "$(hostname -s 2>/dev/null || true)" == "$name" ]]
+}
+
+system_hostname_rollback() { run hostnamectl set-hostname "$current"; }
+
 system_set_hostname() {
-  local current name temporary
-  ui_page "修改主机名" "验证格式、备份 hosts 并通过 hostnamectl 应用"
+  local current name payload
+  ui_page "修改主机名" "同步 hosts 与 hostnamectl；应用失败时回退本次修改"
   ui_hint "例如 web-01；仅使用字母、数字和中间短横线，最长 63 字符。"
   current="$(hostname -s 2>/dev/null || hostname)"; name="$(read_input "新主机名" "$current")"
   [[ "$name" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]] || { warn "主机名格式无效。"; return 1; }
   [[ "$name" != "$current" ]] || { info "主机名未变化。"; return 0; }
   confirm "将主机名从 $current 修改为 $name？" || return 0; require_root
-  backup_file /etc/hostname || { warn "无法备份 /etc/hostname。"; return 1; }
-  backup_file /etc/hosts || { warn "无法备份 /etc/hosts。"; return 1; }
-  run hostnamectl set-hostname "$name" || { warn "主机名修改失败。"; return 1; }
-  if [[ "$DRY_RUN" -eq 1 ]]; then info "将更新 /etc/hosts。"; return 0; fi
-  temporary="$(mktemp)" || { warn "无法创建主机名配置临时文件。"; return 1; }
-  if ! awk -v name="$name" 'BEGIN{changed=0}$1=="127.0.1.1"{print "127.0.1.1 "name;changed=1;next}{print}END{if(!changed)print "127.0.1.1 "name}' /etc/hosts >"$temporary"; then
-    rm -f "$temporary"
-    warn "无法生成新的 /etc/hosts。"
-    return 1
-  fi
-  install -m 0644 "$temporary" /etc/hosts || { rm -f "$temporary"; warn "无法写入 /etc/hosts。"; return 1; }
-  rm -f "$temporary"
-  [[ "$(hostname -s 2>/dev/null || true)" == "$name" ]] || { warn "系统没有确认新的主机名。"; return 1; }
+  changes_prepare_file /etc/hostname || return 1
+  payload="$(awk -v name="$name" 'BEGIN{changed=0}$1=="127.0.1.1"{print "127.0.1.1 "name;changed=1;next}{print}END{if(!changed)print "127.0.1.1 "name}' /etc/hosts)" || {
+    warn "无法生成新的 /etc/hosts。"; return 1;
+  }
+  config_file_write /etc/hosts 0644 "$payload" system_hostname_apply system_hostname_rollback || return 1
   audit "action=set-hostname value=$name"
   ui_success "主机名已修改为 $name"
 }
@@ -34,7 +33,7 @@ system_set_timezone() {
   [[ "$timezone" != "$current" ]] || { info "时区未变化。"; return 0; }
   confirm "将时区修改为 $timezone？" || return 0
   require_root
-  backup_file /etc/timezone || { warn "无法备份 /etc/timezone。"; return 1; }
+  changes_prepare_file /etc/timezone || return 1
   run timedatectl set-timezone "$timezone" || { warn "时区修改失败。"; return 1; }
   if [[ "$DRY_RUN" -eq 0 && "$(timedatectl show -p Timezone --value 2>/dev/null || true)" != "$timezone" ]]; then
     warn "系统没有确认新的时区。"
@@ -66,7 +65,7 @@ system_swap_active() {
 }
 
 system_swap_creation_rollback() {
-  local marker="$1" fstab_existed="$2"
+  local marker="$1" fstab_existed="$2" previous_fstab="$3"
   [[ "$DRY_RUN" -eq 0 ]] || return 0
   if system_swap_active && ! swapoff /swapfile; then
     warn "Swap 已启用但无法回滚停用；为避免损坏，已保留 /swapfile 和状态记录。"
@@ -74,15 +73,16 @@ system_swap_creation_rollback() {
   fi
   rm -f -- /swapfile "$marker" || return 1
   if [[ "$fstab_existed" -eq 1 ]]; then
-    [[ -n "$BACKUP_SESSION" && -e "$BACKUP_SESSION/etc/fstab" ]] || return 1
-    cp -a "$BACKUP_SESSION/etc/fstab" /etc/fstab || return 1
+    [[ -n "$previous_fstab" && -f "$previous_fstab" ]] || return 1
+    cp -p "$previous_fstab" /etc/fstab || return 1
   else
     rm -f -- /etc/fstab || return 1
   fi
 }
 
-system_create_swap() {
-  local size_mb marker identity fstab_existed=0
+system_create_swap() (
+  local size_mb marker identity fstab_existed=0 previous_fstab=""
+  trap '[[ -z "$previous_fstab" ]] || rm -f -- "$previous_fstab"' EXIT
   ui_page "创建 Swap" "为低内存 VPS 创建受保护、可追踪的交换文件"
   swapon --show --noheadings 2>/dev/null | grep -q . && { warn "系统已经启用 Swap，无需再创建。"; return 0; }
   [[ ! -e /swapfile ]] || { warn "/swapfile 已存在且所有权未知，拒绝覆盖。"; return 1; }
@@ -103,29 +103,33 @@ system_create_swap() {
   confirm "创建 ${size_mb} MB 的 /swapfile？" || return 0
   require_root
   [[ -e /etc/fstab ]] && fstab_existed=1
-  backup_file /etc/fstab || { warn "无法备份 /etc/fstab。"; return 1; }
+  changes_prepare_file /etc/fstab || return 1
+  if (( DRY_RUN == 0 && fstab_existed == 1 )); then
+    previous_fstab="$(mktemp)" || return 1
+    cp -p /etc/fstab "$previous_fstab" || return 1
+  fi
   if command_exists fallocate; then
     if ! run fallocate -l "${size_mb}M" /swapfile; then
       run dd if=/dev/zero of=/swapfile bs=1M count="$size_mb" status=progress || {
-        system_swap_creation_rollback "$marker" "$fstab_existed" || warn "Swap 失败清理未完全完成，请检查 /swapfile。"
+        system_swap_creation_rollback "$marker" "$fstab_existed" "$previous_fstab" || warn "Swap 失败清理未完全完成，请检查 /swapfile。"
         warn "Swap 文件创建失败."
         return 1
       }
     fi
   else
     run dd if=/dev/zero of=/swapfile bs=1M count="$size_mb" status=progress || {
-      system_swap_creation_rollback "$marker" "$fstab_existed" || warn "Swap 失败清理未完全完成，请检查 /swapfile。"
+      system_swap_creation_rollback "$marker" "$fstab_existed" "$previous_fstab" || warn "Swap 失败清理未完全完成，请检查 /swapfile。"
       warn "Swap 文件创建失败。"
       return 1
     }
   fi
   run chmod 600 /swapfile || {
-    system_swap_creation_rollback "$marker" "$fstab_existed" || warn "Swap 失败清理未完全完成，请检查 /swapfile。"
+    system_swap_creation_rollback "$marker" "$fstab_existed" "$previous_fstab" || warn "Swap 失败清理未完全完成，请检查 /swapfile。"
     warn "无法设置 Swap 文件权限。"
     return 1
   }
   run mkswap /swapfile || {
-    system_swap_creation_rollback "$marker" "$fstab_existed" || warn "Swap 失败清理未完全完成，请检查 /swapfile。"
+    system_swap_creation_rollback "$marker" "$fstab_existed" "$previous_fstab" || warn "Swap 失败清理未完全完成，请检查 /swapfile。"
     warn "无法初始化 Swap 文件。"
     return 1
   }
@@ -135,13 +139,13 @@ system_create_swap() {
     return 0
   fi
   mkdir -p "$STATE_ROOT" || {
-    system_swap_creation_rollback "$marker" "$fstab_existed" || warn "Swap 失败清理未完全完成，请检查 /swapfile。"
+    system_swap_creation_rollback "$marker" "$fstab_existed" "$previous_fstab" || warn "Swap 失败清理未完全完成，请检查 /swapfile。"
     warn "无法创建项目状态目录。"
     return 1
   }
   identity="$(stat -c '%d:%i' /swapfile 2>/dev/null || true)"
   if [[ ! "$identity" =~ ^[0-9]+:[0-9]+$ ]]; then
-    system_swap_creation_rollback "$marker" "$fstab_existed" || warn "Swap 失败清理未完全完成，请检查 /swapfile。"
+    system_swap_creation_rollback "$marker" "$fstab_existed" "$previous_fstab" || warn "Swap 失败清理未完全完成，请检查 /swapfile。"
     warn "无法记录 Swap 文件身份。"
     return 1
   fi
@@ -151,29 +155,33 @@ system_create_swap() {
     printf 'identity=%s\n' "$identity"
     printf 'created_at=%s\n' "$(date -Is)"
   } >"$marker" || ! chmod 0600 "$marker"; then
-    system_swap_creation_rollback "$marker" "$fstab_existed" || warn "Swap 失败清理未完全完成，请检查 /swapfile。"
+    system_swap_creation_rollback "$marker" "$fstab_existed" "$previous_fstab" || warn "Swap 失败清理未完全完成，请检查 /swapfile。"
     warn "无法写入或保护 Swap 所有权记录。"
     return 1
   fi
   if ! swapon /swapfile; then
-    system_swap_creation_rollback "$marker" "$fstab_existed" || warn "Swap 失败清理未完全完成，请检查 /swapfile。"
+    system_swap_creation_rollback "$marker" "$fstab_existed" "$previous_fstab" || warn "Swap 失败清理未完全完成，请检查 /swapfile。"
     warn "无法启用 Swap 文件。"
     return 1
   fi
+  changes_prepare_file /etc/fstab || {
+    system_swap_creation_rollback "$marker" "$fstab_existed" "$previous_fstab" || warn "Swap 失败清理未完全完成，请检查 /swapfile。"
+    return 1
+  }
   if ! grep -Fqx '/swapfile none swap sw 0 0' /etc/fstab &&
     ! printf '/swapfile none swap sw 0 0\n' >>/etc/fstab; then
-    system_swap_creation_rollback "$marker" "$fstab_existed" || warn "Swap 失败清理未完全完成，请检查 /swapfile。"
+    system_swap_creation_rollback "$marker" "$fstab_existed" "$previous_fstab" || warn "Swap 失败清理未完全完成，请检查 /swapfile。"
     warn "无法更新 /etc/fstab，已尝试回滚本次创建。"
     return 1
   fi
   if ! system_swap_active; then
-    system_swap_creation_rollback "$marker" "$fstab_existed" || warn "Swap 失败清理未完全完成，请检查 /swapfile。"
+    system_swap_creation_rollback "$marker" "$fstab_existed" "$previous_fstab" || warn "Swap 失败清理未完全完成，请检查 /swapfile。"
     warn "Swap 创建完成但未处于启用状态。"
     return 1
   fi
   audit "action=create-swap size_mb=$size_mb"
   ui_success "Swap 已创建并设置为开机启用"
-}
+)
 
 system_swap_toggle() {
   local mode="$1"
@@ -207,13 +215,14 @@ system_remove_swap() {
   ui_danger "该操作会永久删除 /swapfile；内存不足时停用 Swap 可能失败。"
   confirm "确认删除由 keine 管理的 /swapfile？" || return 0
   require_root
-  backup_file /etc/fstab || { warn "无法备份 /etc/fstab。"; return 1; }
+  changes_prepare_file /etc/fstab || return 1
   if system_swap_active; then
     run swapoff /swapfile || { warn "无法安全停用 Swap，已取消删除。"; return 1; }
   fi
   if [[ "$DRY_RUN" -eq 1 ]]; then
     info "将从 /etc/fstab 移除 /swapfile，并删除 $marker。"
   else
+    changes_prepare_file /etc/fstab || return 1
     temporary="$(mktemp)" || { warn "无法创建 fstab 临时文件。"; return 1; }
     awk '$0 != "/swapfile none swap sw 0 0"' /etc/fstab >"$temporary" || {
       rm -f -- "$temporary"

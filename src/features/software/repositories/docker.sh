@@ -53,8 +53,8 @@ software_configure_docker_repository() {
     warn "无法生成 Docker 软件源配置。"
     return 1
   fi
-  backup_file "$key_file" || { rm -f -- "$key_tmp" "$source_tmp"; return 1; }
-  backup_file "$source_file" || { rm -f -- "$key_tmp" "$source_tmp"; return 1; }
+  changes_prepare_file "$key_file" || { rm -f -- "$key_tmp" "$source_tmp"; return 1; }
+  changes_prepare_file "$source_file" || { rm -f -- "$key_tmp" "$source_tmp"; return 1; }
   install -d -m 0755 "$(dirname "$key_file")" "$(dirname "$source_file")" || {
     rm -f -- "$key_tmp" "$source_tmp"; warn "无法创建 APT 仓库目录。"; return 1;
   }

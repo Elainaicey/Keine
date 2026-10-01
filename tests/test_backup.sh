@@ -6,10 +6,17 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
 TEST_ROOT="$(mktemp -d)"
 trap 'rm -rf -- "$TEST_ROOT"' EXIT
 KEINE_BACKUP_ROOT="$TEST_ROOT/keine/backups"
+# 该运行时覆盖值由 core/runtime 读取。
+# shellcheck disable=SC2034
+KEINE_STATE_ROOT="$TEST_ROOT/keine/state"
 
 . "$ROOT_DIR/src/core/runtime.sh"
 . "$ROOT_DIR/src/core/validation.sh"
 . "$ROOT_DIR/src/core/backup.sh"
+. "$ROOT_DIR/src/core/changes.sh"
+. "$ROOT_DIR/src/core/configuration.sh"
+
+require_root() { :; }
 
 mkdir -p "$KEINE_BACKUP_ROOT/20260719-120000-42/etc"
 printf '/etc/example.conf\n' > "$KEINE_BACKUP_ROOT/20260719-120000-42/manifest.txt"
@@ -104,5 +111,36 @@ backup_delete 20260719-120000-42
   printf 'FAIL: 没有删除明确选择的备份\n' >&2
   exit 1
 }
+
+# 多次配置修改只保留首次基线，不追加历史快照。
+# shellcheck disable=SC2034
+CHANGES_ENABLED=1
+config_path="$TEST_ROOT/manual.conf"
+printf 'original\n' >"$config_path"
+snapshot_count="$(backup_snapshots | wc -l)"
+config_file_write "$config_path" 0600 first config_no_reload >/dev/null
+config_file_write "$config_path" 0600 second config_no_reload >/dev/null
+[[ "$(backup_snapshots | wc -l)" == "$snapshot_count" ]] || die '配置修改生成了自动快照'
+[[ "$(cat "$(changes_file_entry "$config_path")/original")" == original ]] || die '重复修改覆盖了首次基线'
+
+# 同一进程中主动备份两次，必须形成独立快照；恢复不能再自动另存一份。
+backup_begin
+first_snapshot="$(backup_active_snapshot)"
+backup_file "$config_path" >/dev/null
+config_file_write "$config_path" 0600 third config_no_reload >/dev/null
+backup_begin
+second_snapshot="$(backup_active_snapshot)"
+backup_file "$config_path" >/dev/null
+[[ "$first_snapshot" != "$second_snapshot" ]] || die '手动备份复用了历史快照'
+[[ "$(cat "$BACKUP_ROOT/$first_snapshot$config_path")" == second ]] || die '手动快照内容被覆盖'
+# Windows 的 Git Bash 不提供真实的 POSIX 权限；Linux CI 验证保护位。
+case "$(uname -s)" in
+  MINGW*|MSYS*) : ;;
+  *) [[ "$(stat -c '%a' "$BACKUP_ROOT/$first_snapshot")" == 700 ]] || die '手动快照目录未保护' ;;
+esac
+snapshot_count="$(backup_snapshots | wc -l)"
+backup_restore "$first_snapshot" "$config_path" >/dev/null
+[[ "$(cat "$config_path")" == second ]] || die '手动快照没有正确恢复'
+[[ "$(backup_snapshots | wc -l)" == "$snapshot_count" ]] || die '恢复创建了自动快照'
 
 printf 'PASS: backup\n'

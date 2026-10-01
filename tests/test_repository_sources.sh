@@ -98,7 +98,7 @@ printf '%s\n' \
   "Signed-By: $docker_key" >"$docker_source"
 DRY_RUN=0
 CURL_CALLS=0
-backup_file() { :; }
+changes_prepare_file() { :; }
 curl() {
   local output=""
   CURL_CALLS=$((CURL_CALLS + 1))

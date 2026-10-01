@@ -10,6 +10,7 @@ trap '[[ "$prompt_test_root" == /tmp/* ]] && rm -rf -- "$prompt_test_root"' EXIT
 KEINE_STATE_ROOT="$prompt_test_root/keine-state"
 KEINE_BACKUP_ROOT="$prompt_test_root/keine-backups"
 . "$ROOT_DIR/src/core/runtime.sh"
+. "$ROOT_DIR/src/core/ui.sh"
 . "$ROOT_DIR/src/core/validation.sh"
 . "$ROOT_DIR/src/core/changes.sh"
 . "$ROOT_DIR/src/core/backup.sh"
@@ -80,5 +81,31 @@ config_file_restore "$target_home/.profile" config_no_reload >/dev/null
 [[ "$(cat "$target_home/.bashrc")" == 'export CUSTOM=keep' && "$(cat "$target_home/.profile")" == 'export LOGIN_CUSTOM=keep' ]] || die '初始终端配置未精确恢复'
 printf '# BEGIN keine: Prompt\nbroken\n' >"$prompt_test_root/incomplete"
 if terminal_rc_content "$prompt_test_root/incomplete" bash >/dev/null; then die '接受了未闭合托管块'; fi
+
+# 覆盖全新主目录的完整安装流程，而不只验证已有命令的配置切换。
+package_install() { run true; }
+software_run_as_target() { local user="$1" home="$2"; shift 2; run env HOME="$home" "$@"; }
+software_prompt_download_installer() {
+  local installer
+  installer="$(mktemp)"
+  cat >"$installer" <<'INSTALLER'
+#!/usr/bin/env sh
+while [ "$#" -gt 0 ]; do
+  case "$1" in -b|-d) bin="$2"; shift 2 ;; *) shift ;; esac
+done
+printf '#!/usr/bin/env sh\nprintf "export TEST_PROMPT_READY=yes\\n"\n' >"$bin/starship"
+chmod 0755 "$bin/starship"
+INSTALLER
+  printf '%s' "$installer"
+}
+target_home="$prompt_test_root/fresh-home"
+mkdir -p "$target_home"
+printf 'export CUSTOM=first-install\n' >"$target_home/.bashrc"
+terminal_apply starship >/dev/null
+software_prompt_active starship || die '首次安装未完成提示符切换'
+software_prompt_managed starship || die '首次安装没有记录引擎所有权'
+bash --noprofile --rcfile "$target_home/.bashrc" -ic '[[ "$TEST_PROMPT_READY" == yes && "$KEINE_PROMPT_LOADED" == starship ]]' 2>/dev/null || die '首次安装的 Bash 初始化没有生效'
+[[ "$(changes_file_status "$(changes_file_entry "$target_home/.local")")" == ready ]] || die '首次安装错误地被标记为外部修改'
+[[ ! -d "$KEINE_BACKUP_ROOT" ]] || die '终端切换生成了自动历史快照'
 
 printf 'PASS: prompts\n'

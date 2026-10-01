@@ -28,7 +28,7 @@ config_file_write() (
     existed=1; previous="$(mktemp)" || return 1
     cp -p -- "$path" "$previous" || return 1
   fi
-  backup_file "$path" || return 1
+  changes_prepare_file "$path" || return 1
   printf '%s\n' "$content" >"$temporary" || return 1
   if (( existed == 1 )); then chown --reference="$path" "$temporary" || return 1; fi
   chmod "$mode" "$temporary" || return 1
