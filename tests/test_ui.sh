@@ -46,4 +46,13 @@ long_metrics="$(ui_metric_row "内存使用" "123456 MiB / 1024 MiB" "warn" "磁
 long_pair="$(ui_action_pair 1 "重新验证官方软件仓库和候选版本及签名" "action" 2 "返回" "muted")"
 [[ "$(grep -c '\[' <<<"$long_pair")" -eq 2 ]] || { printf 'FAIL: 过长双列操作没有退化为纵向布局\n' >&2; exit 1; }
 
+UI_WIDTH_CACHE=()
+ui_measure_width "系统"
+[[ "$UI_TEXT_WIDTH" == 4 && "${UI_WIDTH_CACHE[系统]}" == 4 ]] || exit 1
+wc() { printf 'FAIL: 返回菜单时重复测量已有标签\n' >&2; return 1; }
+ui_measure_width "系统"
+[[ "$UI_TEXT_WIDTH" == 4 ]] || exit 1
+ui_measure_width ""
+[[ "$UI_TEXT_WIDTH" == 0 ]] || exit 1
+
 printf 'PASS: ui\n'

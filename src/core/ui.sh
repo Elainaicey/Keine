@@ -2,6 +2,8 @@
 
 UI_WIDTH=80
 UI_LABEL_WIDTH=18
+UI_TEXT_WIDTH=0
+declare -A UI_WIDTH_CACHE=()
 
 ui_detect_width() {
   local columns="80"
@@ -25,16 +27,27 @@ ui_repeat() {
   printf '%s' "${line// /$character}"
 }
 
-ui_display_width() {
+ui_measure_width() {
   local value="$1" width
-  width="$(printf '%s' "$value" | wc -L 2>/dev/null | tr -d '[:space:]')"
+  if [[ -z "$value" ]]; then UI_TEXT_WIDTH=0; return 0; fi
+  if [[ -n "${UI_WIDTH_CACHE[$value]:-}" ]]; then UI_TEXT_WIDTH="${UI_WIDTH_CACHE[$value]}"; return 0; fi
+  width="$(printf '%s' "$value" | wc -L 2>/dev/null)"
+  width="${width//[[:space:]]/}"
   [[ "$width" =~ ^[0-9]+$ ]] || width="${#value}"
-  printf '%s' "$width"
+  # 缓存仅存在于当前进程；限制动态内容的数量，不在磁盘上留下 UI 状态。
+  ((${#UI_WIDTH_CACHE[@]} < 1024)) || UI_WIDTH_CACHE=()
+  UI_WIDTH_CACHE["$value"]="$width"
+  UI_TEXT_WIDTH="$width"
+}
+
+ui_display_width() {
+  ui_measure_width "$1"
+  printf '%s' "$UI_TEXT_WIDTH"
 }
 
 ui_pad() {
   local value="$1" target="$2" width padding
-  width="$(ui_display_width "$value")"
+  ui_measure_width "$value"; width="$UI_TEXT_WIDTH"
   padding=$((target - width))
   printf '%s' "$value"
   if (( padding > 0 )); then ui_repeat ' ' "$padding"; else printf ' '; fi
@@ -101,7 +114,7 @@ ui_item() {
   ui_pad "$title" 22
   printf '%b' "$NC"
   if [[ -n "$hint" ]]; then
-    hint_width="$(ui_display_width "$hint")"
+    ui_measure_width "$hint"; hint_width="$UI_TEXT_WIDTH"
     if (( hint_width > UI_WIDTH - 34 )); then
       printf '\n         %b└─ %s%b' "$MUTED" "$hint" "$NC"
     else
@@ -118,7 +131,7 @@ ui_action() {
   ui_pad "$title" 18
   printf '%b' "$NC"
   if [[ -n "$hint" ]]; then
-    hint_width="$(ui_display_width "$hint")"
+    ui_measure_width "$hint"; hint_width="$UI_TEXT_WIDTH"
     if (( hint_width > UI_WIDTH - 28 )); then
       printf '\n       %b└─ %s%b' "$MUTED" "$hint" "$NC"
     else
@@ -133,8 +146,8 @@ ui_action_pair() {
   local color1 color2 column title_width width1 width2
   column=$((UI_WIDTH / 2 - 2))
   title_width=$((column - 7))
-  width1="$(ui_display_width "$title1")"
-  width2="$(ui_display_width "$title2")"
+  ui_measure_width "$title1"; width1="$UI_TEXT_WIDTH"
+  ui_measure_width "$title2"; width2="$UI_TEXT_WIDTH"
   if (( UI_WIDTH < 76 || width1 >= title_width || width2 >= title_width )); then
     ui_action "$number1" "$title1" "$style1"
     ui_action "$number2" "$title2" "$style2"
@@ -161,7 +174,7 @@ ui_state_item() {
   ui_pad "$title" 22
   printf '%b%b● %s%b' "$NC" "$color$BOLD" "$value" "$NC"
   if [[ -n "$hint" ]]; then
-    detail_width="$(ui_display_width "$value $hint")"
+    ui_measure_width "$value $hint"; detail_width="$UI_TEXT_WIDTH"
     if (( detail_width > UI_WIDTH - 36 )); then
       printf '\n         %b└─ %s%b' "$MUTED" "$hint" "$NC"
     else
@@ -173,7 +186,7 @@ ui_state_item() {
 
 ui_kv() {
   local label="$1" value="$2" value_color="${3:-$WHITE}" value_width
-  value_width="$(ui_display_width "$value")"
+  ui_measure_width "$value"; value_width="$UI_TEXT_WIDTH"
   if (( value_width > UI_WIDTH - UI_LABEL_WIDTH - 6 )); then
     printf '  %b%s%b\n    %b%s%b\n' "$BLUE" "$label" "$NC" "$value_color" "$value" "$NC"
     return 0
@@ -226,7 +239,7 @@ ui_section() {
 
 ui_panel_begin() {
   local title="$1" title_width fill
-  title_width="$(ui_display_width "$title")"
+  ui_measure_width "$title"; title_width="$UI_TEXT_WIDTH"
   fill=$((UI_WIDTH - title_width - 4))
   (( fill < 1 )) && fill=1
   printf '\n%b╭─%b %b%s%b %b' "$MAGENTA" "$NC" "$CYAN$BOLD" "$title" "$NC" "$MAGENTA"
@@ -236,7 +249,7 @@ ui_panel_begin() {
 
 ui_panel_kv() {
   local label="$1" value="$2" value_color="${3:-$WHITE}" value_width
-  value_width="$(ui_display_width "$value")"
+  ui_measure_width "$value"; value_width="$UI_TEXT_WIDTH"
   if (( value_width > UI_WIDTH - UI_LABEL_WIDTH - 6 )); then
     printf '%b│%b  %b%s%b\n%b│%b    %b%s%b\n' \
       "$MAGENTA" "$NC" "$BLUE" "$label" "$NC" \
@@ -275,7 +288,7 @@ ui_metric_cell() {
   local color width padding plain
   color="$(ui_color_for_state "$state")"
   plain="● $label  $value"
-  width="$(ui_display_width "$plain")"
+  ui_measure_width "$plain"; width="$UI_TEXT_WIDTH"
   padding=$((target - width))
   (( padding < 1 )) && padding=1
   printf '%b●%b %b%s%b  %b%s%b' \
@@ -292,9 +305,9 @@ ui_metric_row() {
   column1=$((usable / 3))
   column2="$column1"
   column3=$((usable - column1 - column2))
-  width1="$(ui_display_width "● $label1  $value1")"
-  width2="$(ui_display_width "● $label2  $value2")"
-  width3="$(ui_display_width "● $label3  $value3")"
+  ui_measure_width "● $label1  $value1"; width1="$UI_TEXT_WIDTH"
+  ui_measure_width "● $label2  $value2"; width2="$UI_TEXT_WIDTH"
+  ui_measure_width "● $label3  $value3"; width3="$UI_TEXT_WIDTH"
   if (( UI_WIDTH < 76 || width1 >= column1 || width2 >= column2 || width3 >= column3 )); then
     ui_status "$label1" "$value1" "$state1"
     ui_status "$label2" "$value2" "$state2"

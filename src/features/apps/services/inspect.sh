@@ -4,6 +4,10 @@ apps_service_package_version() {
   local app_id="$1" package_name
   package_name="$(apps_service_package "$app_id")" || return 1
   [[ -n "$package_name" ]] || return 1
+  if (( APPS_SERVICE_CACHE_READY == 1 )); then
+    printf '%s' "${APPS_PACKAGE_VERSION_CACHE[$package_name]:-}"
+    return 0
+  fi
   dpkg-query -W -f='${Version}' "$package_name" 2>/dev/null
 }
 
@@ -11,34 +15,34 @@ apps_service_binary_version() {
   local app_id="$1" version=""
   case "$app_id" in
     docker)
-      command_exists docker && version="$(docker --version 2>/dev/null | head -n 1 || true)"
+      command_exists docker && version="$(runtime_with_timeout 2 docker --version 2>/dev/null | head -n 1 || true)"
       ;;
     nginx)
-      command_exists nginx && version="$(nginx -v 2>&1 | head -n 1 || true)"
+      command_exists nginx && version="$(runtime_with_timeout 2 nginx -v 2>&1 | head -n 1 || true)"
       ;;
     caddy)
-      command_exists caddy && version="$(caddy version 2>/dev/null | head -n 1 || true)"
+      command_exists caddy && version="$(runtime_with_timeout 2 caddy version 2>/dev/null | head -n 1 || true)"
       ;;
     apache)
-      command_exists apache2 && version="$(apache2 -v 2>/dev/null | head -n 1 || true)"
+      command_exists apache2 && version="$(runtime_with_timeout 2 apache2 -v 2>/dev/null | head -n 1 || true)"
       ;;
     haproxy)
-      command_exists haproxy && version="$(haproxy -v 2>/dev/null | head -n 1 || true)"
+      command_exists haproxy && version="$(runtime_with_timeout 2 haproxy -v 2>/dev/null | head -n 1 || true)"
       ;;
     redis)
-      command_exists redis-server && version="$(redis-server --version 2>/dev/null | head -n 1 || true)"
+      command_exists redis-server && version="$(runtime_with_timeout 2 redis-server --version 2>/dev/null | head -n 1 || true)"
       ;;
     memcached)
-      command_exists memcached && version="$(memcached -h 2>/dev/null | head -n 1 || true)"
+      command_exists memcached && version="$(runtime_with_timeout 2 memcached -h 2>/dev/null | head -n 1 || true)"
       ;;
     postgresql)
-      if command_exists psql; then version="$(psql --version 2>/dev/null | head -n 1 || true)"; fi
+      if command_exists psql; then version="$(runtime_with_timeout 2 psql --version 2>/dev/null | head -n 1 || true)"; fi
       ;;
     mariadb)
-      if command_exists mariadb; then version="$(mariadb --version 2>/dev/null | head -n 1 || true)"; fi
+      if command_exists mariadb; then version="$(runtime_with_timeout 2 mariadb --version 2>/dev/null | head -n 1 || true)"; fi
       ;;
     mosquitto)
-      command_exists mosquitto && version="$(mosquitto -h 2>&1 | head -n 1 || true)"
+      command_exists mosquitto && version="$(runtime_with_timeout 2 mosquitto -h 2>&1 | head -n 1 || true)"
       ;;
   esac
   [[ -n "$version" ]] || return 1
@@ -48,10 +52,12 @@ apps_service_binary_version() {
 apps_service_version() {
   local app_id="$1" package_version binary_version
   package_version="$(apps_service_package_version "$app_id" 2>/dev/null || true)"
-  binary_version="$(apps_service_binary_version "$app_id" 2>/dev/null || true)"
   if [[ -n "$package_version" ]]; then
     printf '%s' "$package_version"
-  elif [[ -n "$binary_version" ]]; then
+    return 0
+  fi
+  binary_version="$(apps_service_binary_version "$app_id" 2>/dev/null || true)"
+  if [[ -n "$binary_version" ]]; then
     printf '%s' "$binary_version"
   else
     printf '未知'

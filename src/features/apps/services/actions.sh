@@ -44,7 +44,10 @@ apps_service_lifecycle_action() {
   case "$verb" in start|stop|restart|enable|disable) ;; *) warn "不支持的应用生命周期操作：$verb"; return 1 ;; esac
   service="$(apps_service_unit "$app_id")" || { warn "未知应用：$app_id"; return 1; }
   service_exists "$service" || { warn "应用服务未安装：$service"; return 1; }
-  services_apply_action "$service" "$verb"
+  local result=0
+  services_apply_action "$service" "$verb" || result=$?
+  apps_service_cache_invalidate
+  return "$result"
 }
 
 apps_service_reload() {
@@ -68,6 +71,7 @@ apps_service_reload() {
   ui_page "$label / 安全重新加载" "配置已通过检查；reload 不主动终止现有服务进程"
   confirm "重新加载 $label 配置？" || return 0
   require_root
+  apps_service_cache_invalidate
   run systemctl reload "$service" || { warn "$label reload 失败。"; return 1; }
   if [[ "$DRY_RUN" -eq 0 ]]; then
     systemctl is-active --quiet "$service" || { warn "reload 后 $label 未保持运行。"; return 1; }

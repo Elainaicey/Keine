@@ -72,7 +72,7 @@ keine
 | **网络管理** | 系统 DNS、SOCKS5 出站配置、原生 WARP、可撤销内核参数和第三方调优适配；接口、路由、会话与监听集中管理，连通性、TCP/HTTP、链路与套接字诊断独立分组 |
 | **安全中心** | 安全基线、公网暴露、登录活动、来源处置；UFW 生命周期、批量放行/拒绝与 TCP 连接限速；SSH 认证/端口、九项连接与转发策略、会话/密钥；Fail2ban 生命周期、Jail、封禁策略/白名单与恢复；TLS 证书检查 |
 | **服务与日志** | failed/active 服务浏览、资源与退出结果、正反依赖、启动关键链、失败诊断、经验证的 service 生命周期，以及 Journal 条件查询、完整性验证、按时间/容量维护、内核警告和操作审计 |
-| **软件中心** | 280 个单项软件、15 个用途分类；官方直装、原生安装识别、APT 事务预览、运行影响提示；分类与分页浏览、版本、来源、完整性、安装与更新 |
+| **软件中心** | 281 个单项软件、15 个用途分类；官方直装、原生安装识别、APT 事务预览、运行影响提示；包名搜索、关联软件指南、来源诊断、版本与完整性、安装与更新 |
 | **应用与容器** | 11 类应用服务的分组资产视图、版本、运行健康、资源、PID、重启次数、关联监听、配置/数据资产、日志和详情页直接生命周期控制；支持官方配置检查、安全 reload 与单项软件更新；Docker 另提供容器、Compose、网络、安全清理和可校验卷备份 |
 | **备份与恢复** | 手动备份托管配置、常用系统配置或指定 `/etc` 文件；每次独立快照、备注与保护、校验、差异、空间清理与恢复；Docker 卷归档；首次基线、冲突检测与项目变更撤销 |
 | **项目管理** | 版本和安装信息、运行环境检查、自更新与三种卸载模式 |
@@ -168,7 +168,9 @@ Docker 与 Caddy 在首次安装前不要求仓库已经存在：详情页会显
 
 应用中心通过声明式 [`config/apps.tsv`](config/apps.tsv) 识别 Docker、Nginx、Caddy、Apache、HAProxy、Redis、Memcached、PostgreSQL、MariaDB、Mosquitto 与 3x-ui。清单按容器、Web、缓存、数据库、消息和代理领域分组；未安装且具有软件目录映射的条目只进入对应单项安装流程。
 
-每个已安装应用都有独立详情页，汇总软件版本、候选版本、systemd 状态、资源、主进程、重启次数、执行结果、进程关联监听，以及固定配置和数据路径。启动、停止、重启和开机策略可在详情页直接执行，并统一复用带确认与结果验证的 systemd 生命周期。
+每个已安装应用都有独立详情页，汇总软件版本、候选版本、systemd 状态、资源、主进程、重启次数和执行结果，并提供进程关联监听、配置资产与数据占用的独立入口。启动、停止、重启和开机策略可直接执行，统一复用带确认与结果验证的 systemd 生命周期。
+
+应用清单一次批量读取 systemd 属性与已安装包版本。菜单返回复用内存快照，`R` 显式刷新；生命周期和软件操作后快照失效，实际变更仍重新校验原生状态。容器详情合并为一次 `inspect`，Compose 概况合并为一次容器列表；端口、挂载、日志、资源与空间查询按需执行，只读查询设有短时超时。终端文本宽度也在本次进程内复用，避免返回菜单时重复启动外部测量命令。
 
 Nginx、Caddy、Apache、HAProxy 与 Docker 可调用各自的官方只读配置检查；Nginx、Caddy、Apache 与 HAProxy 只有在配置检查通过且 systemd 声明 reload 能力后，才允许重新加载。运行健康页综合服务状态、应用响应、监听、最近错误、重启次数和资源快照，并给出明确结论。应用详情还可进入对应的软件条目检查候选版本和来源。3x-ui 没有声明可验证的安装来源，因此项目不会猜测下载地址或自动升级。
 
@@ -184,7 +186,20 @@ Nginx、Caddy、Apache、HAProxy 与 Docker 可调用各自的官方只读配置
 | 项目官方 Git 仓库 | Oh My Zsh、Spaceship 等框架或主题 | 验证远端地址，只允许 fast-forward 或官方升级流程 |
 | 项目官方安装渠道 | Starship、Oh My Posh 等专用安装器 | 固定官方 URL、独立状态标记和安装后版本验证 |
 
-18 个官方 Release 条目覆盖 ripgrep、fd、bat、fzf、eza、zoxide、Fastfetch、bottom、dust、duf、hyperfine、just、Lazygit、Delta、Lazydocker、actionlint、GitHub CLI 与 ShellCheck。这些独立工具默认直接下载上游稳定版，发行版软件包只作为显式备选。系统组件、共享库与未实现独立安装适配的服务继续使用系统或厂商签名渠道，不混用未经验证的源码安装。
+20 个官方 Release 条目覆盖 ripgrep、fd、bat、fzf、eza、zoxide、Fastfetch、bottom、dust、duf、hyperfine、just、Lazygit、Delta、Lazydocker、actionlint、GitHub CLI、ShellCheck、Micro 与 Go 版 yq。这些独立工具默认直接下载上游稳定版，发行版软件包只作为显式备选。Go 版 yq 不映射发行版中可能存在的同名 Python 工具。系统组件、共享库与未实现独立安装适配的服务继续使用系统或厂商签名渠道，不混用未经验证的源码安装。
+
+候选版本来自本机索引，不代表已经联网确认。尚未刷新且没有候选版本的条目显示“待刷新确认”，不会直接判定仓库故障；安装入口允许先确认刷新，再预览 APT 事务。`R` 可在主页、列表和详情刷新索引；来源诊断只读取本地版本优先级与地址。官方 Release 的显式更新检查会重新查询上游，浏览菜单不会联网探测。
+
+### Nginx 与 HTTPS 证书
+
+Certbot、Nginx 插件与 Apache 插件位于“安全与证书”，也可搜索 `certbot`、`https` 或真实包名。Nginx 软件详情的 `G` 指南和应用详情的 HTTPS 入口可直达插件；关联软件始终分别确认安装，不绑定下载。
+
+```bash
+keine software nginx
+keine software certbot-nginx
+```
+
+Nginx 本身不包含 Certbot。安装 `certbot-nginx` 时，APT 会解析 `python3-certbot-nginx` 对证书客户端的依赖，不需要重复安装；安装不会自动签发证书或修改站点。使用前核实域名解析、站点与验证端口；详细步骤参见 [Certbot 官方 Nginx 指南](https://certbot.eff.org/instructions?ws=nginx&os=pip)。发行版 Certbot 可能启用自身续期 Timer，软件详情和安装确认会单独提示；这不属于 keine 后台监控。
 
 现有发行版包与外部命令会被识别。切换到官方版时保留底层系统包；同路径外部普通文件必须明确确认并保存首次基线后才接管，符号链接不覆盖。只观察或切换配置不意味着拥有外部软件，删除前仍验证来源与所有权。
 
@@ -295,7 +310,8 @@ keine/
 │   ├── integrations.tsv         # 原生适配器注册
 │   ├── apps.tsv                 # 应用、systemd Unit、软件来源与类别映射
 │   ├── software-effects.tsv     # 软件自身服务、调度与网络影响声明
-│   └── official-releases.tsv    # 官方 Release、架构资产与项目主页
+│   ├── official-releases.tsv    # 官方 Release、架构资产与项目主页
+│   └── software-guides.tsv      # 关联软件、使用边界与官方文档
 ├── docs/                        # 设计、变更记录与发布文档
 ├── scripts/
 │   ├── install.sh               # 安装、原子升级与卸载

@@ -11,7 +11,7 @@ for test_file in tests/test_*.sh; do
 done
 
 printf '[tests] 声明式目录格式\n'
-for catalog_file in config/software.tsv config/apps.tsv config/software-effects.tsv config/official-releases.tsv; do
+for catalog_file in config/software.tsv config/apps.tsv config/software-effects.tsv config/official-releases.tsv config/software-guides.tsv; do
   awk -F '|' -v catalog="$catalog_file" '
     !/^#/ && NF != 6 { print "invalid catalog line " catalog ":" NR; failed=1 }
     END { exit failed }

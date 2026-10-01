@@ -26,9 +26,10 @@ catalog_state_info() {
     absent) printf '未安装|muted' ;;
     setup) printf '待配置|primary' ;;
     source-warning) printf '来源需修复|warning' ;;
-    unavailable) printf '仓库不可用|danger' ;;
+    index-needed) printf '待刷新确认|warning' ;;
+    unavailable) printf '无候选版本|danger' ;;
     update) printf '可更新|warning' ;;
-    current) printf '已是最新|success' ;;
+    current) printf '已安装|success' ;;
     managed) printf '已安装|success' ;;
     external) printf '外部安装|primary' ;;
     damaged) printf '完整性异常|danger' ;;
@@ -95,6 +96,8 @@ catalog_print_record() {
     printf '    %b来源状态%b  %b官方仓库配置需要核实或修复%b\n' "$BLUE" "$NC" "$YELLOW" "$NC"
   elif [[ "$state" == "unavailable" ]]; then
     printf '    %b可用性%b  %b当前系统软件源未提供此软件包%b\n' "$BLUE" "$NC" "$YELLOW" "$NC"
+  elif [[ "$state" == "index-needed" ]]; then
+    printf '    %b可用性%b  %b本地索引没有候选版本；R 刷新或在安装时确认%b\n' "$BLUE" "$NC" "$YELLOW" "$NC"
   else
     printf '    %b仓库版本%b  %b%s%b\n' "$BLUE" "$NC" "$WHITE" "$candidate" "$NC"
   fi

@@ -117,4 +117,18 @@ if software_remove_release sample >/dev/null 2>&1; then
   exit 1
 fi
 
+# Go yq 的资产内部使用架构名，不可错误匹配同名发行版 Python 工具。
+printf '%s\n' 'yq|mikefarah/yq|yq|yq_linux_amd64.tar.gz|yq_linux_arm64.tar.gz|https://github.com/mikefarah/yq' >>"$KEINE_RELEASE_CATALOG"
+mkdir -p "$TEST_ROOT/yq-archive"
+printf '#!/usr/bin/env sh\nprintf "yq version v4.1.0\\n"\n' >"$TEST_ROOT/yq-archive/yq_linux_amd64"
+TEST_RELEASE_ARCHIVE="$TEST_ROOT/yq_linux_amd64.tar.gz"
+tar -czf "$TEST_RELEASE_ARCHIVE" -C "$TEST_ROOT/yq-archive" yq_linux_amd64
+asset_digest="$(sha256sum "$TEST_RELEASE_ARCHIVE" | awk '{print $1}')"
+SOFTWARE_RELEASE_LATEST_CACHE["yq"]="4.1.0|yq_linux_amd64.tar.gz|$asset_digest|https://github.com/mikefarah/yq/releases/download/v4.1.0/yq_linux_amd64.tar.gz"
+software_install_release yq
+software_release_integrity yq || { printf 'FAIL: Go yq 官方命令部署失败\n' >&2; exit 1; }
+[[ "$(software_release_version yq)" == 4.1.0 ]] || exit 1
+software_release_latest_invalidate yq
+[[ -z "${SOFTWARE_RELEASE_LATEST_CACHE[yq]:-}" ]] || { printf 'FAIL: 显式检查官方更新没有清理旧查询缓存\n' >&2; exit 1; }
+
 printf 'PASS: releases\n'

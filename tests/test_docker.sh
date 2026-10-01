@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Docker 命令由被测 Compose 上下文解析函数间接调用。
-# shellcheck disable=SC2317,SC2329
+# shellcheck disable=SC2034,SC2317,SC2329
 set -Eeuo pipefail
 IFS=$'\n\t'
 
@@ -90,5 +90,31 @@ if docker_volume_backup_validate_record "$backup_id"; then
   printf 'FAIL: Docker 卷备份校验没有发现归档被修改\n' >&2
   exit 1
 fi
+
+# 容器浏览返回详情时复用一次 inspect；不隐式请求端口、挂载或资源。
+choice_counter="$test_root/container-choice"
+query_counter="$test_root/container-query"
+printf 0 >"$choice_counter"
+read_input() {
+  local step
+  step="$(<"$choice_counter")"
+  printf '%s' "$((step + 1))" >"$choice_counter"
+  case "$step" in 0) printf web ;; 1) printf 1 ;; *) printf 0 ;; esac
+}
+runtime_with_timeout() { shift; "$@"; }
+docker() {
+  if [[ "$1" == inspect && "$2" == --format ]]; then
+    printf 'inspect\n' >>"$query_counter"
+    printf 'running|healthy|unless-stopped|nginx:stable|2026-01-01T00:00:00.000Z|123\n'
+  elif [[ "$1" == logs ]]; then :
+  else printf 'FAIL: 菜单隐式执行了 %s\n' "$1" >&2; return 1; fi
+}
+# 颜色由已加载的菜单模块消费。
+# shellcheck disable=SC2034
+GREEN=''; YELLOW=''
+ui_page() { :; }; ui_panel_begin() { :; }; ui_panel_kv() { :; }; ui_panel_end() { :; }
+ui_hint() { :; }; ui_section() { :; }; ui_action() { :; }; pause() { :; }
+docker_container_action
+[[ "$(grep -c '^inspect$' "$query_counter")" == 1 ]] || { printf 'FAIL: 容器返回详情时重复 inspect\n' >&2; exit 1; }
 
 printf 'PASS: docker\n'

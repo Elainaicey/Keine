@@ -1,25 +1,32 @@
 #!/usr/bin/env bash
 
 apps_service_detail() {
-  local app_id="$1" label service action state enabled version main_pid restarts listeners configs data state_color
-  local catalog_id catalog_record_data candidate software_state memory tasks cpu_time started result snapshot
+  local app_id="$1" label service action state enabled version main_pid restarts state_color
+  local catalog_id catalog_record_data="" candidate="" software_state="" memory tasks cpu_time started result snapshot
   local lifecycle_verb lifecycle_label lifecycle_style boot_verb boot_label boot_style
+  local version_generation=-1
   label="$(apps_service_label "$app_id")" || return 1
   service="$(apps_service_unit "$app_id")"
   catalog_id="$(apps_service_catalog_id "$app_id")"
-  service_exists "$service" || { warn "没有找到应用服务：$service"; return 1; }
+  if [[ -n "$catalog_id" ]]; then catalog_record_data="$(catalog_record "$catalog_id" 2>/dev/null || true)"; fi
+  apps_service_cache_build
+  if (( APPS_SERVICE_CACHE_ERROR == 1 )); then warn "无法读取应用服务快照，请稍后 R 重试。"; return 1; fi
+  apps_service_cached_exists "$service" || { warn "没有找到应用服务：$service"; return 1; }
   while true; do
-    state="$(service_state "$service")"
-    enabled="$(systemctl is-enabled "$service" 2>/dev/null || true)"
-    enabled="${enabled:-disabled}"
-    version="$(apps_service_version "$app_id")"
-    snapshot="$(unit_properties_snapshot "$service" MainPID NRestarts MemoryCurrent TasksCurrent \
-      CPUUsageNSec ActiveEnterTimestamp Result || true)"
+    apps_service_cache_build
+    state="$(apps_service_cached_state "$service")"
+    enabled="$(apps_service_cached_enabled "$service")"
+    if (( version_generation != APPS_SERVICE_CACHE_GENERATION )); then
+      version="$(apps_service_version "$app_id")"
+      if [[ -n "$catalog_record_data" ]]; then
+        candidate="$(catalog_candidate_version "$catalog_record_data")"
+        software_state="$(catalog_state "$catalog_record_data" "$candidate")"
+      fi
+      version_generation="$APPS_SERVICE_CACHE_GENERATION"
+    fi
+    snapshot="${APPS_SERVICE_SNAPSHOT_CACHE[$service]:-}"
     main_pid="$(unit_snapshot_value "$snapshot" MainPID 2>/dev/null || true)"
     restarts="$(unit_snapshot_value "$snapshot" NRestarts 2>/dev/null || true)"
-    listeners="$(apps_service_listener_count "$service")"
-    configs="$(apps_service_existing_path_count "$app_id")"
-    data="$(apps_service_data_existing_count "$app_id")"
     memory="$(unit_snapshot_value "$snapshot" MemoryCurrent 2>/dev/null || true)"
     tasks="$(unit_snapshot_value "$snapshot" TasksCurrent 2>/dev/null || true)"
     cpu_time="$(unit_snapshot_value "$snapshot" CPUUsageNSec 2>/dev/null || true)"
@@ -44,30 +51,26 @@ apps_service_detail() {
     esac
 
     ui_page "应用 / $label" "状态、健康、资产、日志和经过验证的生命周期控制"
+    if (( APPS_SERVICE_CACHE_ERROR == 1 )); then ui_callout warn "服务快照读取不完整" "R 重试；没有读取的属性不代表实际为零或未安装。"; fi
     ui_panel_begin "运行信息"
     ui_panel_kv "状态" "● $state" "$state_color"
     ui_panel_kv "版本" "$version"
     ui_panel_kv "服务" "$service"
     ui_panel_kv "开机启动" "$enabled"
-    ui_panel_kv "主进程 PID" "${main_pid:-0}"
-    ui_panel_kv "重启次数" "${restarts:-0}"
+    ui_panel_kv "主进程 PID" "${main_pid:-—}"
+    ui_panel_kv "重启次数" "${restarts:-—}"
     ui_panel_kv "进入状态时间" "${started:-—}"
     ui_panel_kv "最近结果" "${result:-—}"
-    if [[ -n "$catalog_id" ]]; then
-      catalog_record_data="$(catalog_record "$catalog_id" 2>/dev/null || true)"
-      if [[ -n "$catalog_record_data" ]]; then
-        candidate="$(catalog_candidate_version "$catalog_record_data")"
-        software_state="$(catalog_state "$catalog_record_data" "$candidate")"
-        ui_panel_kv "软件候选版本" "$candidate"
-        ui_panel_kv "软件更新状态" "$(catalog_state_badge "$software_state")"
-      fi
+    if [[ -n "$catalog_record_data" ]]; then
+      ui_panel_kv "软件候选版本" "$candidate"
+      ui_panel_kv "软件安装状态" "$(catalog_state_badge "$software_state")"
     fi
     ui_panel_end
     ui_metric_row \
       "内存" "$(services_format_bytes "$memory")" "primary" \
       "任务" "${tasks:-—}" "primary" \
       "累计 CPU" "$(services_format_cpu_time "$cpu_time")" "primary"
-    ui_stats "监听" "$listeners" "配置路径" "$configs" "数据路径" "$data"
+    ui_hint "本次服务快照 · R 刷新；端口扫描、配置与数据占用仅在选择对应操作时读取。"
 
     ui_section "观察与诊断" "primary"
     ui_action_pair 1 "运行健康" "action" 2 "监听端口" "action"
@@ -95,6 +98,8 @@ apps_service_detail() {
       ui_action 12 "软件版本与更新" "disabled" "未声明可验证的软件目录来源"
     fi
     if [[ "$app_id" == "docker" ]]; then ui_action 13 "Docker 专属中心" "action"; fi
+    if [[ "$app_id" == "nginx" ]]; then ui_action 14 "HTTPS / Certbot" "accent" "安装证书客户端或 Nginx 插件；不隐式签发证书"; fi
+    ui_action R "刷新运行信息" "accent"
     ui_action 0 "返回应用清单" "muted"
     action="$(read_input "请选择" "0")"
     case "$action" in
@@ -122,13 +127,16 @@ apps_service_detail() {
         else warn "$service 的开机策略为 $enabled，不能通过通用流程切换。"; fi
         continue
         ;;
-      11) services_select "$service"; continue ;;
+      11) services_select "$service"; apps_service_cache_invalidate; continue ;;
       12)
         if [[ -n "$catalog_id" ]]; then catalog_item_menu "$catalog_id"
         else warn "该应用没有可验证的软件目录来源。"; fi
+        apps_service_cache_invalidate
         continue
         ;;
       13) if [[ "$app_id" == "docker" ]]; then docker_menu; else warn "未知选项"; fi; continue ;;
+      14) if [[ "$app_id" == nginx ]]; then catalog_item_menu certbot-nginx; else warn "未知选项"; fi; continue ;;
+      R|r) catalog_cache_invalidate; continue ;;
       0) return 0 ;;
       *) warn "未知选项：$action"; continue ;;
     esac

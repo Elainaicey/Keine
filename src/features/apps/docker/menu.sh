@@ -3,6 +3,7 @@
 docker_menu() {
   local choice
   while true; do
+    apps_service_cache_build
     ui_page "应用与容器 / Docker" "容器生命周期、资源、Compose、网络、存储与卷备份"
     if ! command_exists docker; then
       ui_empty "Docker 未安装"
@@ -17,7 +18,7 @@ docker_menu() {
       esac
       continue
     fi
-    ui_kv "服务" "$(service_state docker.service)"
+    ui_kv "服务快照" "$(apps_service_cached_state docker.service)"
     ui_context "发布容器端口可能绕过 UFW；公网服务请同时检查 Docker 防火墙规则。"
     ui_section "观察" "primary"
     ui_item 1 "Docker 概览"
@@ -31,6 +32,7 @@ docker_menu() {
     ui_item 8 "管理一个容器" "详情、日志、资源与生命周期"
     ui_item 9 "安全清理"
     ui_item 10 "Docker 卷备份" "压缩、校验、恢复和清理持久数据归档"
+    ui_action R "刷新服务状态" "accent" "不会调用 Docker Daemon 或扫描存储"
     ui_item 0 "返回"
     choice="$(read_input "请选择" "0")"
     case "$choice" in
@@ -40,10 +42,11 @@ docker_menu() {
       4) docker_images || true ;;
       5) docker_resources || true ;;
       6) docker_storage || true ;;
-      7) docker_compose_manage "" || true ;;
-      8) docker_container_action || true ;;
+      7) if ! docker_compose_manage ""; then pause; fi; continue ;;
+      8) if ! docker_container_action; then pause; fi; continue ;;
       9) docker_cleanup || true ;;
-      10) docker_volume_backups_menu ;;
+      10) docker_volume_backups_menu; continue ;;
+      R|r) apps_service_cache_invalidate; continue ;;
       0) return 0 ;;
       *) warn "未知选项"; continue ;;
     esac

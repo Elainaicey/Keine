@@ -17,3 +17,5 @@ lazygit|jesseduffield/lazygit|lazygit|lazygit_{version}_linux_x86_64.tar.gz|lazy
 git-delta|dandavison/delta|delta|delta-{version}-x86_64-unknown-linux-gnu.tar.gz|delta-{version}-aarch64-unknown-linux-gnu.tar.gz|https://github.com/dandavison/delta
 lazydocker|jesseduffield/lazydocker|lazydocker|lazydocker_{version}_Linux_x86_64.tar.gz|lazydocker_{version}_Linux_arm64.tar.gz|https://github.com/jesseduffield/lazydocker
 actionlint|rhysd/actionlint|actionlint|actionlint_{version}_linux_amd64.tar.gz|actionlint_{version}_linux_arm64.tar.gz|https://github.com/rhysd/actionlint
+micro|micro-editor/micro|micro|micro-{version}-linux64-static.tar.gz|micro-{version}-linux-arm64.tar.gz|https://github.com/micro-editor/micro
+yq|mikefarah/yq|yq|yq_linux_amd64.tar.gz|yq_linux_arm64.tar.gz|https://github.com/mikefarah/yq

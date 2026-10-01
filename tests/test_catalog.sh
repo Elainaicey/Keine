@@ -40,6 +40,7 @@ software_release_version() { :; }
 software_release_homepage() { printf 'https://example.com'; }
 software_release_repository() { printf 'owner/repo'; }
 software_release_target() { printf '/usr/local/bin/example'; }
+software_release_latest_invalidate() { :; }
 software_release_command() { printf example; }
 software_target_user() { printf 'tester'; }
 software_target_home() { printf '/home/tester'; }
@@ -125,10 +126,25 @@ while IFS='|' read -r id repository command amd64_asset arm64_asset homepage; do
 done < <(awk -F '|' '!/^#/ && NF == 6' "$CONFIG_DIR/official-releases.tsv")
 (( release_total >= 16 )) || die "官方 Release 条目不足：$release_total"
 
-package_candidate_version() { [[ "$1" == "jq" ]] && printf '(none)' || printf '1.0.0'; }
+package_candidate_version() { if [[ "$1" == "jq" ]]; then printf '(none)'; else printf '1.0.0'; fi; }
 record="$(catalog_record jq)"
-[[ "$(catalog_state "$record")" == "unavailable" ]] || die "没有识别当前软件源不可用的普通软件"
+[[ "$(catalog_state "$record")" == "index-needed" ]] || die "未刷新的索引被误报为仓库不可用"
+PACKAGE_INDEX_UPDATED=1
+[[ "$(catalog_state "$record")" == "unavailable" ]] || die "刷新后仍无候选版本没有明确显示"
+PACKAGE_INDEX_UPDATED=0
 package_candidate_version() { printf '1.0.0'; }
+
+grep -q '^certbot-nginx|' < <(catalog_rows python3-certbot-nginx) || die "搜索不支持真实包名"
+grep -q '^certbot-nginx|' < <(catalog_rows https) || die "HTTPS 搜索缺少 Certbot 插件"
+guide_total=0
+while IFS='|' read -r guide_id heading related boundary hint documentation; do
+  catalog_record "$guide_id" >/dev/null || die "指南引用了不存在的软件：$guide_id"
+  [[ -n "$heading" && -n "$boundary" && -n "$hint" && "$documentation" == https://* ]] || die "软件指南字段不完整"
+  IFS=',' read -r -a related_ids <<<"$related"
+  for related_id in "${related_ids[@]}"; do catalog_record "$related_id" >/dev/null || die "指南关联 ID 不存在：$related_id"; done
+  guide_total=$((guide_total + 1))
+done < <(awk -F '|' '!/^#/ && NF == 6' "$CONFIG_DIR/software-guides.tsv")
+(( guide_total > 0 )) || die "软件指南为空"
 
 record="$(catalog_record docker)"
 package_candidate_version() { [[ "$1" == "docker-ce" ]] && printf '(none)' || printf '1.0.0'; }
@@ -161,6 +177,13 @@ catalog_install jq >/dev/null
 [[ "$captured" == "package:jq" ]] || die "普通软件没有精确分发到单个包"
 [[ "$operation_events" == "confirm>root>invalidate>refresh>plan>confirm>install>" ]] ||
   die "APT 安装没有遵循刷新、预览、最终确认、执行的固定顺序：$operation_events"
+# 未建立本地索引时仍允许进入刷新与事务预览，不会绕过最终确认。
+installed_state=0
+operation_events=""
+package_candidate_version() { if [[ "$operation_events" == *refresh* ]]; then printf '1.0.0'; else printf '(none)'; fi; }
+catalog_install jq >/dev/null
+[[ "$captured" == "package:jq" && "$operation_events" == "confirm>root>invalidate>refresh>plan>confirm>install>" ]] || die "缺失候选版本阻止了确认后的安装流程"
+package_candidate_version() { printf '1.0.0'; }
 operation_events=""
 installed_state=0
 catalog_install docker >/dev/null

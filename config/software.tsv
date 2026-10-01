@@ -29,7 +29,7 @@ bash-completion|终端与编辑器|Bash Completion|为 Bash 提供可扩展的�
 neovim|终端与编辑器|Neovim|现代 Vim 编辑器|neovim|
 zoxide|终端与编辑器|zoxide|学习使用习惯的智能目录跳转工具||official_release
 eza|终端与编辑器|eza|现代化 ls 替代工具，来自项目官方 Release||official_release
-micro|终端与编辑器|Micro|支持鼠标与常用快捷键的终端编辑器|micro|
+micro|终端与编辑器|Micro|支持鼠标与常用快捷键的终端编辑器，官方稳定版|micro|official_release
 joe|终端与编辑器|JOE|轻量终端文本编辑器|joe|
 reptyr|终端与编辑器|reptyr|将已有进程接入终端，需要 ptrace 权限|reptyr|
 expect|终端与编辑器|Expect|脚本化控制交互式命令行程序|expect|
@@ -60,6 +60,7 @@ testdisk|文件与存储|TestDisk|分区与文件恢复，写入前应备份磁�
 gdrescue|文件与存储|GNU ddrescue|复制损坏介质数据，目标盘会被写入|gddrescue|
 # 文本与搜索
 jq|文本与搜索|jq|JSON 命令行处理器|jq|
+yq|文本与搜索|yq (Go)|YAML JSON XML 配置处理器，mikefarah 官方稳定版||official_release
 ripgrep|文本与搜索|ripgrep|高速文本搜索工具，优先使用官方稳定版|ripgrep|official_release
 fd|文本与搜索|fd|现代文件查找工具，优先使用官方稳定版|fd-find|official_release
 bat|文本与搜索|bat|带语法高亮的文件查看器，优先使用官方稳定版|bat|official_release
@@ -165,9 +166,9 @@ rkhunter|安全与证书|Rootkit Hunter|检查常见 Rootkit 与可疑系统变�
 chkrootkit|安全与证书|chkrootkit|扫描常见 Rootkit 痕迹|chkrootkit|
 pass|安全与证书|pass|基于 GnuPG 的命令行密码管理器|pass|
 age|安全与证书|age|简单、现代的文件加密工具|age|
-certbot|安全与证书|Certbot|Let's Encrypt ACME 证书客户端|certbot|
-certbot-nginx|安全与证书|Certbot Nginx 插件|使用 Nginx 完成 ACME 证书验证与部署|python3-certbot-nginx|
-certbot-apache|安全与证书|Certbot Apache 插件|使用 Apache 完成 ACME 证书验证与部署|python3-certbot-apache|
+certbot|安全与证书|Certbot|Let's Encrypt ACME 客户端，签发 HTTPS SSL/TLS 证书|certbot|
+certbot-nginx|安全与证书|Certbot Nginx 插件|Nginx HTTPS SSL/TLS 证书验证与部署，依赖 Certbot 客户端|python3-certbot-nginx|
+certbot-apache|安全与证书|Certbot Apache 插件|Apache HTTPS SSL/TLS 证书验证与部署，依赖 Certbot 客户端|python3-certbot-apache|
 cryptsetup|安全与证书|Cryptsetup|LUKS 加密管理，格式化会破坏原数据|cryptsetup|
 gocryptfs|安全与证书|gocryptfs|基于 FUSE 的文件加密|gocryptfs|
 pwgen|安全与证书|pwgen|按需生成随机密码|pwgen|

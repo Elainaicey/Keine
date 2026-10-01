@@ -2,16 +2,23 @@
 
 # 软件中心一次页面渲染共享的只读快照。它不会跨操作持久化；任何软件变更
 # 都会显式失效，避免为 100+ 个目录条目逐项启动 dpkg-query/apt-cache。
+# 统计缓存由软件菜单消费，单文件检查无法跟踪动态 source。
+# shellcheck disable=SC2034
 CATALOG_CACHE_READY=0
+CATALOG_CACHE_GENERATION=0
+CATALOG_STATISTICS_CACHE=""
 declare -A CATALOG_INSTALLED_VERSION_CACHE=()
 declare -A CATALOG_CANDIDATE_VERSION_CACHE=()
 declare -A CATALOG_UPGRADABLE_CACHE=()
 
 catalog_cache_invalidate() {
   CATALOG_CACHE_READY=0
+  CATALOG_CACHE_GENERATION=$((CATALOG_CACHE_GENERATION + 1))
+  CATALOG_STATISTICS_CACHE=""
   CATALOG_INSTALLED_VERSION_CACHE=()
   CATALOG_CANDIDATE_VERSION_CACHE=()
   CATALOG_UPGRADABLE_CACHE=()
+  if declare -F apps_service_cache_invalidate >/dev/null; then apps_service_cache_invalidate; fi
 }
 
 catalog_cache_packages() {
@@ -89,5 +96,6 @@ catalog_cache_package_has_update() {
   installed="${CATALOG_INSTALLED_VERSION_CACHE[$package]:-}"
   candidate="${CATALOG_CANDIDATE_VERSION_CACHE[$package]:-}"
   [[ -n "$installed" && -n "$candidate" && "$candidate" != "(none)" ]] || return 1
+  [[ "$candidate" != "$installed" ]] || return 1
   dpkg --compare-versions "$candidate" gt "$installed"
 }

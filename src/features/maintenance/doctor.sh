@@ -109,6 +109,7 @@ toolkit_doctor() {
     config/apps.tsv
     config/software.tsv
     config/software-effects.tsv
+    config/software-guides.tsv
     config/official-releases.tsv
     scripts/install.sh
     src/core/runtime.sh
@@ -191,6 +192,7 @@ toolkit_doctor() {
     src/features/apps/services.sh
     src/features/apps/services/metadata.sh
     src/features/apps/services/inspect.sh
+    src/features/apps/services/cache.sh
     src/features/apps/services/health.sh
     src/features/apps/services/actions.sh
     src/features/apps/services/overview.sh

@@ -16,9 +16,11 @@ catalog_browse_rows() {
       done < <(catalog_rows)
       ;;
     source)
-      while IFS= read -r record; do
-        [[ "$(catalog_source_kind "$record")" == "$filter" ]] && printf '%s\n' "$record"
-      done < <(catalog_rows)
+      awk -F '|' -v kind="$filter" '!/^#/ && NF == 6 {
+        source=($6 == "official_release" ? "official-release" :
+          ($6 == "docker_official" || $6 == "caddy_official" ? "official-repository" : "distribution"))
+        if (source == kind) print
+      }' "$SOFTWARE_CATALOG"
       ;;
     *) die "未知的软件浏览模式：$mode" ;;
   esac
@@ -28,9 +30,13 @@ catalog_browse_view() {
   local mode="$1" filter="$2" title="$3" subtitle="$4"
   local rows=() page=0 page_size=6 total pages start end index shown=0
   local record id name state_label state_style state current candidate choice filter_preview
+  local rows_generation=-1
   while true; do
     catalog_cache_build
-    mapfile -t rows < <(catalog_browse_rows "$mode" "$filter")
+    if (( rows_generation != CATALOG_CACHE_GENERATION )); then
+      mapfile -t rows < <(catalog_browse_rows "$mode" "$filter")
+      rows_generation="$CATALOG_CACHE_GENERATION"
+    fi
     total="${#rows[@]}"
     if (( total == 0 )); then
       ui_page "$title" "$subtitle"
@@ -66,12 +72,14 @@ catalog_browse_view() {
     ui_section "翻页与选择" "accent"
     (( page > 0 )) && ui_action P "上一页" "action"
     (( page + 1 < pages )) && ui_action N "下一页" "action"
+    ui_action R "刷新软件索引" "accent" "仅在确认后联网"
     ui_action 0 "返回" "muted"
-    choice="$(read_input "页内编号 / 软件 ID / N / P / 0" "0")"
+    choice="$(read_input "页内编号 / 软件 ID / N / P / R / 0" "0")"
     case "$choice" in
       0) return 0 ;;
       N|n) if (( page + 1 < pages )); then page=$((page + 1)); else warn "已经是最后一页。"; pause; fi ;;
       P|p) if (( page > 0 )); then page=$((page - 1)); else warn "已经是第一页。"; pause; fi ;;
+      R|r) catalog_refresh_index || true; pause ;;
       *)
         if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= shown )); then
           IFS='|' read -r id _ <<<"${rows[$((start + choice - 1))]}"

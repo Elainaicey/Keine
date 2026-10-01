@@ -26,6 +26,11 @@ software_release_command() { software_release_field "$1" 3; }
 software_release_repository() { software_release_field "$1" 2; }
 software_release_homepage() { software_release_field "$1" 6; }
 
+software_release_latest_invalidate() {
+  [[ "${1:-}" =~ ^[a-z0-9][a-z0-9-]*$ ]] || return 1
+  unset 'SOFTWARE_RELEASE_LATEST_CACHE[$1]'
+}
+
 software_release_asset_name() {
   local id="$1" version="$2" record _id _repository _command amd64_asset arm64_asset _homepage template
   record="$(software_release_record "$id")" || return 1
@@ -68,8 +73,8 @@ software_release_target() {
 software_release_version_output() {
   local id="$1" target="$2"
   case "$id" in
-    actionlint) "$target" -version 2>&1 ;;
-    *) "$target" --version 2>&1 ;;
+    actionlint) runtime_with_timeout 5 "$target" -version 2>&1 ;;
+    *) runtime_with_timeout 5 "$target" --version 2>&1 ;;
   esac
 }
 
@@ -279,7 +284,10 @@ software_install_release() {
     rm -rf "$temporary"; warn "Release 解压失败。"; return 1;
   }
   local binaries=()
-  mapfile -t binaries < <(find "$extract" -type f -name "$command" -print)
+  local binary_name="$command"
+  # yq 官方压缩包内使用精确架构名；不把发行版同名的 Python yq 当作 Go yq。
+  [[ "$id" != yq ]] || binary_name="${asset%.tar.gz}"
+  mapfile -t binaries < <(find "$extract" -type f -name "$binary_name" -print)
   ((${#binaries[@]} == 1)) || {
     rm -rf "$temporary"
     warn "Release 中没有找到唯一的 $command 可执行文件。"

@@ -156,4 +156,41 @@ fi
   exit 1
 }
 
+# 菜单快照只执行一次 systemctl 和 dpkg-query，且识别 systemd 别名。
+APPS_TEST_ROOT="$(mktemp -d)"
+trap '[[ "$APPS_TEST_ROOT" == /tmp/* ]] && rm -rf -- "$APPS_TEST_ROOT"' EXIT
+APP_QUERY_LOG="$APPS_TEST_ROOT/queries"
+ARCH=amd64
+runtime_with_timeout() { [[ "$1" == 3 ]] || return 1; shift; "$@"; }
+command_exists() { case "$1" in systemctl|dpkg-query) return 0 ;; *) return 1 ;; esac; }
+systemctl() {
+  local fixture_unit
+  printf 'systemctl\n' >>"$APP_QUERY_LOG"
+  printf '%s\n' 'Id=nginx.service' 'Names=nginx.service' 'LoadState=loaded' 'ActiveState=active' 'UnitFileState=enabled' 'MainPID=123' '' \
+    'Id=redis-server.service' 'Names=redis-server.service redis.service' 'LoadState=loaded' 'ActiveState=failed' 'UnitFileState=disabled'
+  printf '\n'
+  while IFS='|' read -r _ _ fixture_unit _; do
+    case "$fixture_unit" in nginx.service|redis.service) continue ;; esac
+    printf 'Id=%s\nLoadState=not-found\nActiveState=inactive\n\n' "$fixture_unit"
+  done < <(apps_service_catalog)
+}
+dpkg-query() { printf 'dpkg-query\n' >>"$APP_QUERY_LOG"; printf '%s\n' 'nginx|installed|1.28.0' 'removed|config-files|0.9'; }
+apps_service_cache_invalidate
+apps_service_cache_build
+apps_service_cache_build
+[[ "$APPS_SERVICE_CACHE_ERROR" == 0 ]] || { printf 'FAIL: 完整服务快照被误判为失败\n' >&2; exit 1; }
+[[ "$(grep -c '^systemctl$' "$APP_QUERY_LOG")" == 1 && "$(grep -c '^dpkg-query$' "$APP_QUERY_LOG")" == 1 ]] || {
+  printf 'FAIL: 菜单重复扫描应用状态或版本\n' >&2; exit 1;
+}
+apps_service_cached_exists redis.service || { printf 'FAIL: 没有识别原生服务别名\n' >&2; exit 1; }
+[[ "$(apps_service_cached_state redis.service)" == failed && "$(apps_service_cached_enabled nginx.service)" == enabled ]] || exit 1
+[[ "$(apps_service_package_version nginx)" == 1.28.0 ]] || exit 1
+apps_service_binary_version() { printf 'FAIL: 已有包版本时仍探测程序\n' >&2; exit 1; }
+[[ "$(apps_service_version nginx)" == 1.28.0 ]] || exit 1
+apps_service_cache_invalidate
+[[ "$APPS_SERVICE_CACHE_READY" == 0 && ${#APPS_PACKAGE_VERSION_CACHE[@]} == 0 ]] || exit 1
+systemctl() { return 1; }
+apps_service_cache_build
+[[ "$APPS_SERVICE_CACHE_ERROR" == 1 ]] || { printf 'FAIL: systemd 查询失败被误报为正常\n' >&2; exit 1; }
+
 printf 'PASS: apps\n'

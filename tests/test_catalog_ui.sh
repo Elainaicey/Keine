@@ -57,6 +57,14 @@ grep -q '待配置' <<<"$output" || { printf 'FAIL: Docker 安装前没有显示
 grep -q '未配置（安装时自动创建）' <<<"$output" || { printf 'FAIL: Docker 仓库缺少自动配置说明\n' >&2; exit 1; }
 grep -q '\[1\].*配置仓库并安装' <<<"$output" || { printf 'FAIL: Docker 安装操作被错误禁用\n' >&2; exit 1; }
 
+output="$(catalog_item_menu nginx </dev/null)"
+if ! grep -q 'Certbot' <<<"$output" || ! grep -q '\[G\].*相关软件' <<<"$output"; then
+  printf 'FAIL: Nginx 缺少证书工具入口\n' >&2; exit 1
+fi
+grep -q '待刷新确认' <<<"$output" || { printf 'FAIL: 缺失本地候选版本被误报为源故障\n' >&2; exit 1; }
+output="$(catalog_guide_view nginx </dev/null)"
+grep -q 'Certbot Nginx 插件' <<<"$output" || { printf 'FAIL: Nginx 指南未关联真实软件条目\n' >&2; exit 1; }
+
 output="$(catalog_browse_view search jq "软件搜索" "查询结果" </dev/null)"
 grep -q '共 1 项 · 第 1/1 页' <<<"$output" || { printf 'FAIL: 搜索结果没有按页显示\n' >&2; exit 1; }
 grep -q '\[ 1\].*jq.*可更新' <<<"$output" || { printf 'FAIL: 页内编号与软件状态缺失\n' >&2; exit 1; }

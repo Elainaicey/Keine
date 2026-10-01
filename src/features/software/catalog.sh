@@ -5,6 +5,7 @@
 . "$ROOT_DIR/src/features/software/catalog/query.sh"
 . "$ROOT_DIR/src/features/software/catalog/plan.sh"
 . "$ROOT_DIR/src/features/software/catalog/effects.sh"
+. "$ROOT_DIR/src/features/software/catalog/guides.sh"
 . "$ROOT_DIR/src/features/software/catalog/presentation.sh"
 . "$ROOT_DIR/src/features/software/catalog/actions.sh"
 . "$ROOT_DIR/src/features/software/catalog/browse.sh"

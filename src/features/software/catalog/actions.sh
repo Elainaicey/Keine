@@ -18,9 +18,10 @@ catalog_repair_repository() {
   ui_panel_kv "签名密钥" "$(software_repository_key_file "$handler")"
   ui_panel_kv "结果验证" "刷新 APT 索引并检查候选版本"
   ui_panel_end
-  ui_note "现有普通文件会先进入配置快照；不会安装、移除或更新软件包。"
+  ui_note "仅保存文件首次原始状态；不会创建历史快照，也不会安装、移除或更新软件包。"
   confirm "验证并按需修复 $name 官方仓库？" || return 0
   require_root
+  catalog_cache_invalidate
   case "$handler" in
     docker_official) software_prepare_docker_repository 1 || return 1 ;;
     caddy_official) software_prepare_caddy_repository 1 || return 1 ;;
@@ -56,6 +57,7 @@ catalog_switch_source() {
     ui_note "先安装发行版候选版本，再删除由 keine 管理的 /usr/local/bin 命令。"
     confirm "切换到发行版软件仓库？" || return 0
     require_root
+    catalog_cache_invalidate
     package_install_latest "$packages" || return 1
     software_remove_release "$id" || return 1
     current="official-release"
@@ -71,6 +73,8 @@ catalog_switch_source() {
     ui_note "系统包会保留；官方命令安装到 /usr/local/bin。若同路径已有外部普通文件，确认后保存首次原始状态再接管；符号链接不覆盖。"
     confirm "切换到项目官方稳定版？" || return 0
     require_root
+    catalog_cache_invalidate
+    software_release_latest_invalidate "$id"
     software_install_release "$id" adopt || return 1
     current="distribution"
   fi
@@ -96,7 +100,11 @@ catalog_install() {
     info "$name 已经安装。"
     return 0
   fi
-  catalog_available "$record" || { warn "当前平台没有可用的 $name 安装来源。"; return 1; }
+  # 发行版候选版本只能在明确刷新索引后判断；本地元数据缺失不能阻止安装入口。
+  if [[ -n "$handler" ]] && ! catalog_available "$record"; then
+    warn "当前平台没有可用的 $name 安装来源。"
+    return 1
+  fi
   selected_handler="$handler"
   # 独立工具默认直装官方稳定版；系统软件包仅作为详情页的显式备选。
   ui_page "安装软件 / $name" "$id · $category"
@@ -123,7 +131,8 @@ catalog_install() {
     else
       candidate="$(catalog_candidate_version "$record")"
     fi
-    ui_panel_kv "目标版本" "${candidate:-—}" "$GREEN"
+    [[ -n "$candidate" && "$candidate" != '(none)' ]] || candidate="刷新索引后确认"
+    ui_panel_kv "目标版本" "$candidate" "$GREEN"
   fi
   if [[ -n "$packages" && "$selected_handler" != official_release ]]; then
     ui_panel_kv "系统包" "$packages"
@@ -155,10 +164,11 @@ catalog_install() {
     confirm "确认安装 $name？" || { warn "已取消。"; return 0; }
     require_root
   fi
+  catalog_cache_invalidate
   case "$selected_handler" in
     docker_official) software_install_docker || return 1 ;;
     caddy_official) software_install_caddy || return 1 ;;
-    official_release) software_install_release "$id" || return 1 ;;
+    official_release) software_release_latest_invalidate "$id"; software_install_release "$id" || return 1 ;;
     "") package_install_latest "$packages" || return 1 ;;
     *) die "未知安装器：$selected_handler" ;;
   esac
@@ -197,8 +207,10 @@ catalog_update() {
     ui_panel_end
     confirm "查询官方版本并按需更新 $name？" || return 0
     require_root
+    software_release_latest_invalidate "$id"
     software_release_load_latest "$id" || return 1
     latest="$SOFTWARE_RELEASE_LATEST_VERSION"
+    catalog_cache_invalidate
     software_update_release "$id" || return 1
     catalog_cache_invalidate
     audit "action=software-update id=$id source=official-release from=$installed to=$latest"
@@ -254,6 +266,10 @@ catalog_update() {
   ui_panel_kv "当前版本" "$installed" "$WHITE"
   ui_panel_kv "候选版本" "$candidate" "$YELLOW"
   ui_panel_end
+  if [[ -z "$candidate" || "$candidate" == '—' || "$candidate" == '(none)' ]]; then
+    warn "刷新后仍没有 $name 的候选版本，无法判断是否有更新；请检查来源诊断。"
+    return 1
+  fi
   if ! catalog_has_update "$record"; then
     ui_success "$name 已经是当前软件仓库中的最新版本。"
     return 0
@@ -263,6 +279,7 @@ catalog_update() {
     catalog_apt_plan_render update "${plan_packages[@]}" || return 1
   fi
   confirm "将 $name 更新到 $candidate？" || { warn "已取消。"; return 0; }
+  catalog_cache_invalidate
   case "$handler" in
     docker_official) software_update_docker || return 1 ;;
     caddy_official) software_update_caddy || return 1 ;;
@@ -319,6 +336,7 @@ catalog_remove() {
   fi
   confirm "确认移除 $name？" || { warn "已取消。"; return 0; }
   require_root
+  catalog_cache_invalidate
   case "$handler" in
     docker_official) software_remove_docker || return 1 ;;
     caddy_official) software_remove_caddy || return 1 ;;

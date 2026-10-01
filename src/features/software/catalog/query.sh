@@ -40,7 +40,7 @@ catalog_rows() {
   if [[ -z "$query" ]]; then
     awk -F '|' '!/^#/ && NF == 6' "$SOFTWARE_CATALOG"
   else
-    awk -F '|' -v query="$query" 'BEGIN {query=tolower(query)} !/^#/ && NF==6 && index(tolower($1" "$2" "$3" "$4),query){print}' "$SOFTWARE_CATALOG"
+    awk -F '|' -v query="$query" 'BEGIN {query=tolower(query)} !/^#/ && NF==6 && index(tolower($1" "$2" "$3" "$4" "$5),query){print}' "$SOFTWARE_CATALOG"
   fi
 }
 
@@ -253,7 +253,7 @@ catalog_state() {
         if [[ -n "$repository_candidate" && "$repository_candidate" != "(none)" ]]; then
           printf 'absent'
         else
-          printf 'unavailable'
+          catalog_missing_candidate_state
         fi
         ;;
       *) printf 'unavailable' ;;
@@ -271,10 +271,22 @@ catalog_state() {
     fi
     if catalog_has_update "$record"; then printf 'update'; else printf 'current'; fi
   elif (( $# > 1 )); then
-    if [[ -n "$candidate" && "$candidate" != "—" ]]; then printf 'absent'; else printf 'unavailable'; fi
+    if [[ -n "$candidate" && "$candidate" != "—" ]]; then printf 'absent'; else catalog_missing_candidate_state; fi
   elif ! catalog_available "$record"; then
-    printf 'unavailable'
+    if [[ "$handler" == official_release ]] && ! software_release_supported "$id"; then
+      printf 'unavailable'
+    else
+      catalog_missing_candidate_state
+    fi
   else
     printf 'absent'
+  fi
+}
+
+catalog_missing_candidate_state() {
+  if [[ "${PACKAGE_INDEX_UPDATED:-0}" == 1 && "${DRY_RUN:-0}" == 0 ]]; then
+    printf 'unavailable'
+  else
+    printf 'index-needed'
   fi
 }
