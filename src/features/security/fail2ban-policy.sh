@@ -77,7 +77,7 @@ security_fail2ban_policy_configure() {
   ignore="$(security_fail2ban_ignore_addresses "$raw")" || { warn "白名单只接受最多 16 个 IP / CIDR，不能填写 any。"; return 1; }
   ui_kv "白名单" "${ignore//$'\n'/ · }"
   ui_note "自动保留回环与当前 SSH 来源。公网 IP 改变后请检查白名单；白名单地址不参与封禁。"
-  ui_note "使用原生 systemd 日志后端；缺少其 Python 支持会在配置检查阶段停止，不静默安装依赖。"
+  ui_note "使用原生 systemd 日志后端；需要 Fail2ban 的 Python systemd 支持，不静默安装依赖。"
   confirm "保存以上 sshd Jail 策略？服务已运行时会验证并重载，停止时只保存。" || return 0
   require_root
   SECURITY_F2B_BANTIME="$((10#$bantime))"; SECURITY_F2B_FINDTIME="$((10#$findtime))"; SECURITY_F2B_MAXRETRY="$((10#$maxretry))"

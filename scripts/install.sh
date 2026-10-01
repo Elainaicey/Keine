@@ -126,7 +126,9 @@ installation_data_read() {
     case "$key" in KEINE_BACKUP_ROOT|KEINE_DOCKER_BACKUP_ROOT|KEINE_LOG_ROOT|KEINE_STATE_ROOT) ;; *) continue ;; esac
     [[ -z "${!key:-}" ]] || continue
     [[ "$value" =~ ^/[a-zA-Z0-9._/-]+$ ]] || die "请通过环境变量明确指定使用转义格式的数据路径：$key"
-    safe_toolkit_data_path "$value" && [[ "$(readlink -m -- "$value")" == "$value" && ! -L "$value" ]] || die "已记录的数据路径不安全：$value"
+    if ! safe_toolkit_data_path "$value" || [[ "$(readlink -m -- "$value")" != "$value" || -L "$value" ]]; then
+      die "已记录的数据路径不安全：$value"
+    fi
     case "$key" in
       KEINE_BACKUP_ROOT) BACKUP_ROOT="$value" ;;
       KEINE_DOCKER_BACKUP_ROOT) DOCKER_BACKUP_ROOT="$value" ;;
