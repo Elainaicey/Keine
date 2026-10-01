@@ -62,7 +62,7 @@ proc_root="$(mktemp -d)"
 trap 'rm -rf -- "$proc_root"' EXIT
 mkdir -p "$proc_root/123"
 printf '0::/system.slice/ssh.service\n' >"$proc_root/123/cgroup"
-export SERVER_TOOLKIT_PROC_ROOT="$proc_root"
+export KEINE_PROC_ROOT="$proc_root"
 [[ "$(security_exposure_unit_for_pid 123)" == "ssh.service" ]] || {
   printf 'FAIL: 没有从 cgroup 识别 systemd 服务\n' >&2
   exit 1

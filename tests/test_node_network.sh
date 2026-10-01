@@ -7,17 +7,17 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
 CONFIG_DIR="$ROOT_DIR/config"
 NODE_TEST_ROOT="$(mktemp -d)"
 trap '[[ "$NODE_TEST_ROOT" == /tmp/* ]] && rm -rf -- "$NODE_TEST_ROOT"' EXIT
-SERVER_TOOLKIT_STATE_ROOT="$NODE_TEST_ROOT/server-toolkit-state"
-SERVER_TOOLKIT_BACKUP_ROOT="$NODE_TEST_ROOT/server-toolkit-backups"
-SERVER_TOOLKIT_RESOLV_CONF="$NODE_TEST_ROOT/resolv.conf"
-SERVER_TOOLKIT_NETWORK_TUNING_FILE="$NODE_TEST_ROOT/network.conf"
-SERVER_TOOLKIT_BBR_FILE="$NODE_TEST_ROOT/bbr.conf"
+KEINE_STATE_ROOT="$NODE_TEST_ROOT/keine-state"
+KEINE_BACKUP_ROOT="$NODE_TEST_ROOT/keine-backups"
+KEINE_RESOLV_CONF="$NODE_TEST_ROOT/resolv.conf"
+KEINE_NETWORK_TUNING_FILE="$NODE_TEST_ROOT/network.conf"
+KEINE_BBR_FILE="$NODE_TEST_ROOT/bbr.conf"
 . "$ROOT_DIR/src/core/runtime.sh"
 . "$ROOT_DIR/src/core/validation.sh"
 . "$ROOT_DIR/src/core/changes.sh"
 . "$ROOT_DIR/src/core/backup.sh"
 . "$ROOT_DIR/src/core/ui.sh"
-. "$ROOT_DIR/src/features/network/configuration.sh"
+. "$ROOT_DIR/src/core/configuration.sh"
 . "$ROOT_DIR/src/features/network/dns.sh"
 . "$ROOT_DIR/src/features/network/proxy.sh"
 . "$ROOT_DIR/src/features/network/parameters.sh"
@@ -40,12 +40,12 @@ grep -q '^nameserver 1.1.1.1$' <<<"$payload" || die 'DNS 服务器未写入'
 if grep -q '192.0.2.1' <<<"$payload"; then die '旧 DNS 未替换'; fi
 resolved_payload="$(network_dns_payload resolved "$NODE_TEST_ROOT/resolved.conf" $'1.1.1.1\n2606:4700:4700::1111')"
 grep -q '^DNS=1.1.1.1 2606:4700:4700::1111$' <<<"$resolved_payload" || die 'resolved 地址合并错误'
-network_config_write "$NETWORK_DNS_RESOLV" 0644 "$payload" apply_ok >/dev/null
-if network_config_write "$NETWORK_DNS_RESOLV" 0644 'broken' apply_fail >/dev/null 2>&1; then die '应用失败未返回错误'; fi
+config_file_write "$NETWORK_DNS_RESOLV" 0644 "$payload" apply_ok >/dev/null
+if config_file_write "$NETWORK_DNS_RESOLV" 0644 'broken' apply_fail >/dev/null 2>&1; then die '应用失败未返回错误'; fi
 grep -q 'nameserver 1.1.1.1' "$NETWORK_DNS_RESOLV" || die '失败后没有回退文件'
-if network_config_restore "$NETWORK_DNS_RESOLV" apply_fail >/dev/null 2>&1; then die '恢复验证失败仍报告成功'; fi
+if config_file_restore "$NETWORK_DNS_RESOLV" apply_fail >/dev/null 2>&1; then die '恢复验证失败仍报告成功'; fi
 grep -q 'nameserver 1.1.1.1' "$NETWORK_DNS_RESOLV" || die '恢复失败未保留原配置'
-network_config_restore "$NETWORK_DNS_RESOLV" apply_ok
+config_file_restore "$NETWORK_DNS_RESOLV" apply_ok
 grep -q 'nameserver 192.0.2.1' "$NETWORK_DNS_RESOLV" || die '初始 DNS 未恢复'
 
 payload="$(network_proxy_payload '::1' 1080 socks5h user 'p"a\ss$')"
@@ -76,25 +76,25 @@ sysctl() {
 }
 network_tuning_value_valid net.ipv4.tcp_mtu_probing 1 || die '合法参数被拒绝'
 if network_tuning_value_valid net.ipv4.tcp_mtu_probing 3; then die '参数范围未校验'; fi
-payload=$'# Managed by Server Toolkit\nnet.ipv4.tcp_mtu_probing = 1'
-network_config_write "$NETWORK_TUNING_FILE" 0644 "$payload" network_tuning_apply_file >/dev/null
+payload=$'# Managed by keine\nnet.ipv4.tcp_mtu_probing = 1'
+config_file_write "$NETWORK_TUNING_FILE" 0644 "$payload" network_tuning_apply_file >/dev/null
 [[ "$(sysctl -n net.ipv4.tcp_mtu_probing)" == 1 ]] || die '参数未生效'
 fail_new_value=1
-if network_config_write "$NETWORK_TUNING_FILE" 0644 "${payload/= 1/= 2}" network_tuning_apply_file >/dev/null 2>&1; then die '未发现参数应用失败'; fi
+if config_file_write "$NETWORK_TUNING_FILE" 0644 "${payload/= 1/= 2}" network_tuning_apply_file >/dev/null 2>&1; then die '未发现参数应用失败'; fi
 [[ "$(sysctl -n net.ipv4.tcp_mtu_probing)" == 1 ]] || die '参数失败回退未生效'
 fail_new_value=0
 sysctl -w net.ipv4.tcp_mtu_probing=2
-if network_config_write "$NETWORK_TUNING_FILE" 0644 "$payload" network_tuning_apply_file >/dev/null 2>&1; then die '写入覆盖了外部运行值'; fi
+if config_file_write "$NETWORK_TUNING_FILE" 0644 "$payload" network_tuning_apply_file >/dev/null 2>&1; then die '写入覆盖了外部运行值'; fi
 [[ "$(sysctl -n net.ipv4.tcp_mtu_probing)" == 2 ]] || die '失败补偿覆盖了外部运行值'
 if network_tuning_restore >/dev/null 2>&1; then die '覆盖了外部调优脚本改动'; fi
 sysctl -w net.ipv4.tcp_mtu_probing=1
 network_tuning_restore >/dev/null
 [[ ! -e "$NETWORK_TUNING_FILE" && "$(sysctl -n net.ipv4.tcp_mtu_probing)" == 0 ]] || die '托管文件或初始运行值未恢复'
-payload=$'# Managed by Server Toolkit\nnet.core.default_qdisc = fq\nnet.ipv4.tcp_congestion_control = bbr'
-network_config_write "$NETWORK_BBR_FILE" 0644 "$payload" network_bbr_apply_file >/dev/null
+payload=$'# Managed by keine\nnet.core.default_qdisc = fq\nnet.ipv4.tcp_congestion_control = bbr'
+config_file_write "$NETWORK_BBR_FILE" 0644 "$payload" network_bbr_apply_file >/dev/null
 network_restore_bbr >/dev/null
 [[ "$(sysctl -n net.core.default_qdisc)" == fq_codel && "$(sysctl -n net.ipv4.tcp_congestion_control)" == cubic ]] || die 'BBR 原始队列或算法未恢复'
 DRY_RUN=1
-network_config_write "$NODE_TEST_ROOT/dry.conf" 0644 'data' apply_ok >/dev/null
+config_file_write "$NODE_TEST_ROOT/dry.conf" 0644 'data' apply_ok >/dev/null
 [[ ! -e "$NODE_TEST_ROOT/dry.conf" ]] || die 'dry-run 写入了文件'
 printf 'PASS: node network configuration\n'

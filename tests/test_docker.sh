@@ -59,14 +59,14 @@ context_output="$(docker_compose_context edge-proxy)"
   exit 1
 }
 
-DOCKER_VOLUME_BACKUP_ROOT="$test_root/server-toolkit-docker"
+DOCKER_VOLUME_BACKUP_ROOT="$test_root/keine-docker"
 backup_id="20260723-120000-42-1234"
 mkdir -p "$test_root/volume-source" "$DOCKER_VOLUME_BACKUP_ROOT/$backup_id"
 printf 'volume data\n' >"$test_root/volume-source/example.txt"
 tar -czf "$DOCKER_VOLUME_BACKUP_ROOT/$backup_id/volume.tar.gz" -C "$test_root/volume-source" .
 checksum="$(sha256sum "$DOCKER_VOLUME_BACKUP_ROOT/$backup_id/volume.tar.gz" | awk '{print $1}')"
 {
-  printf 'format=server-toolkit-docker-volume-v1\n'
+  printf 'format=keine-docker-volume-v1\n'
   printf 'created=2026-07-23T12:00:00+08:00\n'
   printf 'volume=database-data\n'
   printf 'helper_image=alpine:latest\n'

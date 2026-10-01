@@ -9,7 +9,7 @@ runtime_paths=(bin src scripts install.sh)
 
 assert_no_runtime_match() {
   local pattern="$1" message="$2" matches
-  matches="$(grep -R -nE --include='*.sh' --include='serverctl' -- "$pattern" "${runtime_paths[@]}" 2>/dev/null || true)"
+  matches="$(grep -R -nE --include='*.sh' --include='keine' -- "$pattern" "${runtime_paths[@]}" 2>/dev/null || true)"
   [[ -z "$matches" ]] || {
     printf 'FAIL: %s\n%s\n' "$message" "$matches" >&2
     exit 1

@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 
-PROMPT_BLOCK_BEGIN="# BEGIN Server Toolkit: Prompt"
-PROMPT_BLOCK_END="# END Server Toolkit: Prompt"
+PROMPT_BLOCK_BEGIN="# BEGIN keine: Prompt"
+PROMPT_BLOCK_END="# END keine: Prompt"
 
 software_prompt_paths() {
-  local user home
+  local user home state
   user="$(software_target_user)"
   home="$(software_target_home "$user")"
-  printf '%s|%s|%s|%s' "$user" "$home" "$home/.local/bin" "$home/.local/share/server-toolkit/prompts"
+  state="$home/.local/share/keine/prompts"
+  printf '%s|%s|%s|%s' "$user" "$home" "$home/.local/bin" "$state"
 }
 
 software_prompt_marker() {
@@ -22,14 +23,16 @@ software_prompt_managed() {
 }
 
 software_prompt_active() {
-  local provider="$1" paths _user home _bin _state
-  paths="$(software_prompt_paths)"; IFS='|' read -r _user home _bin _state <<<"$paths"
-  grep -Fqx "# provider: $provider" "$home/.zshrc" 2>/dev/null
+  local provider="$1" paths user home _bin _state rc
+  paths="$(software_prompt_paths)"; IFS='|' read -r user home _bin _state <<<"$paths"
+  if [[ "$provider" == spaceship && "$(terminal_login_shell "$user" || true)" != zsh ]]; then return 1; fi
+  rc="$(terminal_prompt_rc "$provider" "$user" "$home")" || return 1
+  grep -Fqx "# provider: $provider" "$rc" 2>/dev/null
 }
 
 terminal_spaceship_directory() {
   local home="$1" directory remote
-  for directory in "$home/.local/share/server-toolkit/prompts/spaceship" "$home/.oh-my-zsh/custom/themes/spaceship-prompt" "$home/.oh-my-zsh/custom/themes/spaceship"; do
+  for directory in "$home/.local/share/keine/prompts/spaceship" "$home/.oh-my-zsh/custom/themes/spaceship-prompt" "$home/.oh-my-zsh/custom/themes/spaceship"; do
     [[ -f "$directory/spaceship.zsh" && -d "$directory/.git" && ! -L "$directory" ]] || continue
     remote="$(git -C "$directory" remote get-url origin 2>/dev/null || true)"
     case "$remote" in https://github.com/spaceship-prompt/spaceship-prompt|https://github.com/spaceship-prompt/spaceship-prompt.git)
@@ -65,74 +68,54 @@ software_prompt_installed() {
   esac
 }
 
-software_prompt_remove_block() {
-  local zshrc="$1" temporary
-  [[ -f "$zshrc" ]] || return 0
-  grep -Fq "$PROMPT_BLOCK_BEGIN" "$zshrc" || return 0
-  grep -Fq "$PROMPT_BLOCK_END" "$zshrc" || { warn "$zshrc 中的提示符托管块不完整，已保留原文件。"; return 1; }
-  temporary="$(mktemp)" || { warn "无法创建提示符配置临时文件。"; return 1; }
-  awk -v begin="$PROMPT_BLOCK_BEGIN" -v end="$PROMPT_BLOCK_END" '
-    $0 == begin {managed=1; next}
-    $0 == end && managed {managed=0; next}
-    !managed {print}
-  ' "$zshrc" >"$temporary"
-  printf '%s' "$temporary"
-}
-
 terminal_normalize_zshrc() {
-  local zshrc="$1" theme="${2:-}" temporary stripped=""
-  backup_file "$zshrc" || return 1
-  (( DRY_RUN == 0 )) || return 0
-  stripped="$(software_prompt_remove_block "$zshrc")" || return 1
-  temporary="$(mktemp)" || { [[ -z "$stripped" ]] || rm -f -- "$stripped"; return 1; }
-  if [[ -f "$zshrc" ]]; then
-    awk -v theme="$theme" '
-      BEGIN {if (theme != "") print "ZSH_THEME=\"" theme "\""}
-      /^[[:space:]]*(eval.*(starship init|oh-my-posh init)|source.*spaceship.*[.]zsh)/ {next}
-      /^[[:space:]]*(export[[:space:]]+)?ZSH_THEME=/ {if (theme == "") print "ZSH_THEME=\"\"";next}
-      {print}
-    ' "${stripped:-$zshrc}" >"$temporary" || { rm -f -- "$temporary" "$stripped"; return 1; }
-  fi
-  install -m 0644 "$temporary" "$zshrc" || { rm -f -- "$temporary" "$stripped"; return 1; }
-  rm -f -- "$temporary"
-  [[ -z "$stripped" ]] || rm -f -- "$stripped"
+  local zshrc="$1" theme="${2:-}" owner="${3:-}" payload
+  payload="$(terminal_rc_content "$zshrc" zsh "$theme")" || { warn "提示符托管块不完整，未修改配置。"; return 1; }
+  terminal_write_rc "$zshrc" zsh "$payload" "$owner"
 }
 
 terminal_prepare_paths() {
-  local home="$1" path
+  local home="$1" path paths _user _home _bin state
+  paths="$(software_prompt_paths)"; IFS='|' read -r _user _home _bin state <<<"$paths"
   declare -F changes_prepare_file >/dev/null || return 0
   # 对新建的父目录只登记一次；已有用户目录不会整体接管。
-  for path in "$home/.local" "$home/.local/bin" "$home/.local/share" "$home/.local/share/server-toolkit" "$home/.local/share/server-toolkit/prompts"; do
+  for path in "$home/.local" "$home/.local/bin" "$home/.local/share" "${state%/prompts}" "$state"; do
     if [[ ! -e "$path" ]]; then changes_prepare_file "$path" directory || return 1; fi
   done
 }
 
 software_prompt_activate() {
-  local provider="$1" user="$2" home="$3" zshrc="$3/.zshrc" init_line separator="" directory
+  local provider="$1" user="$2" home="$3" rc shell init_line directory command payload
+  rc="$(terminal_prompt_rc "$provider" "$user" "$home")" || return 1
+  shell=zsh; [[ "$rc" != "$home/.bashrc" ]] || shell=bash
   case "$provider" in
-    starship) init_line="eval \"\$(starship init zsh)\"" ;;
-    oh-my-posh) init_line="eval \"\$(oh-my-posh init zsh --strict)\"" ;;
+    starship|oh-my-posh)
+      if (( DRY_RUN == 1 )); then command="$home/.local/bin/$provider"
+      else command="$(terminal_prompt_command "$provider" "$home/.local/bin")" || return 1; fi
+      printf -v command '%q' "$command"
+      init_line="eval \"\$($command init $shell)\""
+      ;;
     spaceship)
-      if [[ "$DRY_RUN" -eq 1 ]]; then directory="$home/.local/share/server-toolkit/prompts/spaceship"
+      if [[ "$DRY_RUN" -eq 1 ]]; then directory="$home/.local/share/keine/prompts/spaceship"
       else directory="$(terminal_spaceship_directory "$home")" || return 1; fi
       printf -v init_line 'source %q' "$directory/spaceship.zsh"
       ;;
     *) die "未知提示符引擎：$provider" ;;
   esac
-  backup_file "$zshrc" || { warn "无法备份 $zshrc。"; return 1; }
-  if [[ "$DRY_RUN" -eq 1 ]]; then info "将把 $provider 设置为 $user 的活动 Zsh 提示符。"; return 0; fi
-  terminal_normalize_zshrc "$zshrc" || return 1
-  [[ ! -s "$zshrc" ]] || separator=$'\n'
-  printf '%s%s\n%s\n%s\n%s\n%s\n' "$separator" "$PROMPT_BLOCK_BEGIN" \
-    "# provider: $provider" "export PATH=\"\$HOME/.local/bin:\$PATH\"" "$init_line" "$PROMPT_BLOCK_END" >>"$zshrc" || {
-      warn "无法写入 $zshrc。"
-      return 1
-    }
-  if [[ "$EUID" -eq 0 ]]; then chown "$user":"$(id -gn "$user")" "$zshrc" || { warn "无法设置 $zshrc 所有者。"; return 1; }; fi
+  if [[ "$DRY_RUN" -eq 1 ]]; then info "将把 $provider 配置到 $user 的 $shell 提示符：$rc。"; return 0; fi
+  config_file_safe "$rc" || { warn "启动文件不是安全的普通文件：$rc"; return 1; }
+  payload="$(terminal_rc_content "$rc" "$shell")" || { warn "提示符托管块不完整，未修改配置。"; return 1; }
+  # shellcheck disable=SC2016
+  payload+="$(printf '\n%s\n' "$PROMPT_BLOCK_BEGIN" \
+    "# provider: $provider" 'if [[ $- == *i* ]]; then' '  export PATH="$HOME/.local/bin:$PATH"' \
+    "  $init_line" "  KEINE_PROMPT_LOADED=$provider" 'fi' "$PROMPT_BLOCK_END")"
+  terminal_write_rc "$rc" "$shell" "$payload" "$user" || return 1
+  if [[ "$shell" == bash ]]; then terminal_bash_login_setup "$home" "$user" || return 1; fi
 }
 
 software_prompt_mark() {
-  local provider="$1" user="$2" home="$3" state="$3/.local/share/server-toolkit/prompts"
+  local provider="$1" user="$2" home="$3" paths _user _home _bin state
+  paths="$(software_prompt_paths)"; IFS='|' read -r _user _home _bin state <<<"$paths"
   if [[ "$DRY_RUN" -eq 1 ]]; then return 0; fi
   if declare -F changes_prepare_file >/dev/null; then changes_prepare_file "$state/$provider.managed" || return 1; fi
   software_run_as_target "$user" "$home" mkdir -p "$state" || { warn "无法创建提示符状态目录。"; return 1; }
@@ -153,7 +136,7 @@ software_install_starship() {
   local paths user home bin _state installer
   paths="$(software_prompt_paths)"; IFS='|' read -r user home bin _state <<<"$paths"
   terminal_prepare_paths "$home" || return 1
-  [[ ! -e "$bin/starship" ]] || software_prompt_managed starship || die "$bin/starship 已存在且不由 Server Toolkit 管理。"
+  [[ ! -e "$bin/starship" ]] || software_prompt_managed starship || die "$bin/starship 已存在且不由 keine 管理。"
   if declare -F changes_prepare_file >/dev/null; then changes_prepare_file "$bin/starship" || return 1; fi
   package_install curl ca-certificates || return 1
   software_run_as_target "$user" "$home" mkdir -p "$bin" || { warn "无法创建用户命令目录。"; return 1; }
@@ -172,7 +155,7 @@ software_install_oh_my_posh() {
   local paths user home bin _state installer
   paths="$(software_prompt_paths)"; IFS='|' read -r user home bin _state <<<"$paths"
   terminal_prepare_paths "$home" || return 1
-  [[ ! -e "$bin/oh-my-posh" ]] || software_prompt_managed oh-my-posh || die "$bin/oh-my-posh 已存在且不由 Server Toolkit 管理。"
+  [[ ! -e "$bin/oh-my-posh" ]] || software_prompt_managed oh-my-posh || die "$bin/oh-my-posh 已存在且不由 keine 管理。"
   if declare -F changes_prepare_file >/dev/null; then
     changes_prepare_file "$bin/oh-my-posh" || return 1
     [[ -d "$home/.cache/oh-my-posh" ]] || changes_prepare_file "$home/.cache/oh-my-posh" directory || return 1
@@ -196,7 +179,7 @@ software_install_spaceship() {
   terminal_prepare_paths "$home" || return 1
   directory="$state/spaceship"
   safe_managed_path "$directory" || die "Spaceship 目标路径不安全：$directory"
-  [[ ! -e "$directory" ]] || software_prompt_managed spaceship || die "$directory 已存在且不由 Server Toolkit 管理。"
+  [[ ! -e "$directory" ]] || software_prompt_managed spaceship || die "$directory 已存在且不由 keine 管理。"
   if declare -F changes_prepare_file >/dev/null; then changes_prepare_file "$directory" directory || return 1; fi
   package_install zsh git || return 1
   software_run_as_target "$user" "$home" mkdir -p "$state" || { warn "无法创建提示符状态目录。"; return 1; }
@@ -236,35 +219,33 @@ software_update_prompt() {
 software_activate_prompt() {
   local provider="$1" paths user home _bin _state
   paths="$(software_prompt_paths)"; IFS='|' read -r user home _bin _state <<<"$paths"
-  software_prompt_installed "$provider" || die "$provider 未由 Server Toolkit 安装。"
+  software_prompt_installed "$provider" || die "$provider 未由 keine 安装。"
   software_prompt_activate "$provider" "$user" "$home" || return 1
 }
 
 software_remove_prompt() {
-  local provider="$1" paths user home bin state zshrc temporary=""
+  local provider="$1" paths user home bin state rc shell payload
   paths="$(software_prompt_paths)"; IFS='|' read -r user home bin state <<<"$paths"
   software_prompt_managed "$provider" || die "$provider 为外部安装，项目仅管理其配置，不删除原程序。"
-  zshrc="$home/.zshrc"; backup_file "$zshrc" || { warn "无法备份 $zshrc。"; return 1; }
   safe_toolkit_path "$state" || die "提示符状态路径不安全：$state"
   if declare -F changes_prepare_file >/dev/null; then
     case "$provider" in starship|oh-my-posh) changes_prepare_file "$bin/$provider" || return 1 ;; spaceship) changes_prepare_file "$state/spaceship" directory || return 1 ;; esac
     changes_prepare_file "$state/$provider.managed" || return 1
   fi
   if [[ "$DRY_RUN" -eq 0 ]]; then
-    if grep -Fq "# provider: $provider" "$zshrc" 2>/dev/null; then
-      temporary="$(software_prompt_remove_block "$zshrc")" || return 1
-      if [[ -n "$temporary" ]]; then
-        install -m 0644 "$temporary" "$zshrc" || { rm -f "$temporary"; warn "无法更新 $zshrc。"; return 1; }
-        rm -f "$temporary"
+    for shell in bash zsh; do
+      rc="$home/.${shell}rc"
+      if grep -Fqx "# provider: $provider" "$rc" 2>/dev/null; then
+        payload="$(terminal_rc_content "$rc" "$shell")" || return 1
+        terminal_write_rc "$rc" "$shell" "$payload" "$user" || return 1
       fi
-    fi
+    done
     case "$provider" in
       starship) rm -f -- "$bin/starship" || { warn "无法删除 Starship。"; return 1; } ;;
       oh-my-posh) rm -f -- "$bin/oh-my-posh" || { warn "无法删除 Oh My Posh。"; return 1; } ;;
       spaceship) rm -rf -- "$state/spaceship" || { warn "无法删除 Spaceship Prompt。"; return 1; } ;;
     esac
     rm -f -- "$state/$provider.managed" || { warn "无法删除提示符托管标记。"; return 1; }
-    if [[ "$EUID" -eq 0 && -f "$zshrc" ]]; then chown "$user":"$(id -gn "$user")" "$zshrc" || { warn "无法设置 $zshrc 所有者。"; return 1; }; fi
   fi
   info "已保留其他提示符、Oh My Zsh、用户自定义配置和 Nerd Font。"
 }

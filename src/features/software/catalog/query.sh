@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-SOFTWARE_CATALOG="${SERVER_TOOLKIT_CATALOG:-$CONFIG_DIR/software.tsv}"
+SOFTWARE_CATALOG="${KEINE_CATALOG:-$CONFIG_DIR/software.tsv}"
 
 catalog_source_kind() {
   local record="$1" _id _category _name _description _packages handler

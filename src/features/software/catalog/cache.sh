@@ -15,7 +15,7 @@ catalog_cache_invalidate() {
 }
 
 catalog_cache_packages() {
-  local catalog="${SERVER_TOOLKIT_CATALOG:-$CONFIG_DIR/software.tsv}"
+  local catalog="${KEINE_CATALOG:-$CONFIG_DIR/software.tsv}"
   [[ -r "$catalog" ]] || return 1
   awk -F '|' '
     !/^#/ && NF == 6 {

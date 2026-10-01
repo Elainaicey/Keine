@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
 security_root_public_key_exists() {
-  [[ -f /root/.ssh/authorized_keys && ! -L /root/.ssh/authorized_keys && -s /root/.ssh/authorized_keys ]]
+  [[ -d /root/.ssh && ! -L /root/.ssh && -f /root/.ssh/authorized_keys && ! -L /root/.ssh/authorized_keys && -s /root/.ssh/authorized_keys ]] || return 1
+  [[ "$(stat -c '%u' /root/.ssh/authorized_keys)" == 0 ]] || return 1
+  command_exists ssh-keygen && ssh-keygen -lf /root/.ssh/authorized_keys >/dev/null 2>&1
 }
 
 security_ssh_effective_values() {
@@ -48,7 +50,7 @@ security_ssh_effective_view() {
   local settings password root_login public_key keyboard forwarding x11 allow_users allow_groups
   ui_page "SSH / 有效配置" "读取 sshd -T 的最终生效值，而不是只查看单个配置文件"
   command_exists sshd || { warn "未找到 sshd。"; return 1; }
-  settings="$(sshd -T 2>/dev/null || true)"
+  settings="$(security_ssh_context_values || true)"
   [[ -n "$settings" ]] || { warn "无法读取 sshd 有效配置，请先执行 sshd -t 检查语法。"; return 1; }
   password="$(security_ssh_effective_values "$settings" passwordauthentication)"
   root_login="$(security_ssh_effective_values "$settings" permitrootlogin)"
@@ -130,131 +132,46 @@ security_ssh_host_keys() {
   ui_note "首次连接或主机重装后，可用这里的指纹核对客户端提示。"
 }
 
-security_restore_ssh_files() {
-  local main_config="$1" config="$2" config_existed="$3" failed=0
-  if [[ -e "$BACKUP_SESSION$main_config" ]]; then
-    cp -a "$BACKUP_SESSION$main_config" "$main_config" || failed=1
-  else
-    failed=1
-  fi
-  if [[ "$config_existed" -eq 1 && -e "$BACKUP_SESSION$config" ]]; then
-    cp -a "$BACKUP_SESSION$config" "$config" || failed=1
-  else
-    rm -f -- "$config" || failed=1
-  fi
-  (( failed == 0 ))
-}
-
 security_configure_ssh() {
-  local current_port new_port disable_password=0 root_key_only=0 key_label="否"
-  local password_label="保持现状" root_label="保持现状"
+  local current_port new_port disable_password=0 root_key_only=0 config payload
   current_port="$(detect_ssh_port)"
-  if security_root_public_key_exists; then key_label="是"; fi
-  ui_page "SSH 安全向导" "端口、公钥、密码登录与 root 登录策略"
+  config=/etc/ssh/sshd_config.d/00-keine-auth.conf
+  ui_page "SSH 安全向导" "端口、认证策略、有效值验证与安全 reload"
   ui_kv "当前端口" "$current_port"
-  ui_kv "root 公钥" "$key_label"
-  ui_hint "端口范围 1-65535；修改前请保留服务商控制台。"
+  ui_hint "修改前保留服务商控制台；SSH Socket 激活模式下不直接变更端口。"
   new_port="$(read_input "SSH 端口" "$current_port")"
   valid_port "$new_port" || { warn "SSH 端口无效。"; return 1; }
-  if confirm "禁用密码登录？"; then disable_password=1; fi
+  new_port="$((10#$new_port))"
+  if confirm "禁用密码和键盘交互登录？"; then disable_password=1; fi
   if confirm "限制 root 仅使用公钥登录？"; then root_key_only=1; fi
-  if [[ "$disable_password" -eq 1 ]] && ! security_root_public_key_exists; then
-    warn "未检测到 root authorized_keys，保持密码登录。"
-    disable_password=0
+  if (( disable_password == 1 || root_key_only == 1 )); then
+    security_root_public_key_exists || { warn "没有可解析的 root 公钥文件，拒绝收紧认证。"; return 1; }
+    confirm "已经在另一个 SSH 窗口验证 root 公钥登录成功？" || { warn "请先验证公钥，未修改认证。"; return 0; }
   fi
-  if [[ "$root_key_only" -eq 1 ]] && ! security_root_public_key_exists; then
-    warn "未检测到 root authorized_keys，保持 root 登录策略。"
-    root_key_only=0
-  fi
-  if [[ "$disable_password" -eq 1 ]]; then password_label="禁用"; fi
-  if [[ "$root_key_only" -eq 1 ]]; then root_label="仅允许公钥"; fi
-  ui_section "变更摘要"
-  ui_kv "端口" "$new_port"
-  ui_kv "密码登录" "$password_label"
-  ui_kv "root 登录" "$root_label"
-  confirm "应用以上 SSH 设置？" || return 0; require_root
-  if [[ "$new_port" != "$current_port" ]] && ss -H -ltn "sport = :$new_port" 2>/dev/null | grep -q .; then warn "端口 $new_port 已被占用。"; return 1; fi
-  command_exists sshd || die "未找到 sshd。"
-  local main_config=/etc/ssh/sshd_config dropin_dir=/etc/ssh/sshd_config.d config=/etc/ssh/sshd_config.d/99-server-toolkit.conf config_existed=0
-  if [[ -e "$config" ]]; then config_existed=1; fi
-  backup_file "$main_config" || { warn "无法备份 SSH 主配置。"; return 1; }
-  backup_file "$config" || { warn "无法备份 SSH 托管配置。"; return 1; }
-  if [[ "$DRY_RUN" -eq 1 ]]; then info "将写入并验证 $config。"; return 0; fi
-  mkdir -p "$dropin_dir" || { warn "无法创建 SSH 配置目录。"; return 1; }
-  if ! security_ssh_dropin_has_precedence "$main_config"; then
-    local main_temporary
-    main_temporary="$(mktemp)" || { warn "无法创建 SSH 主配置临时文件。"; return 1; }
-    if ! {
-      printf 'Include /etc/ssh/sshd_config.d/*.conf\n'
-      cat "$main_config"
-    } >"$main_temporary" || ! install -m 0644 "$main_temporary" "$main_config"; then
-      rm -f -- "$main_temporary"
-      security_restore_ssh_files "$main_config" "$config" "$config_existed" || warn "SSH 主配置回滚失败，请立即检查。"
-      warn "无法启用 SSH drop-in 配置目录。"
-      return 1
+  if [[ "$new_port" != "$current_port" ]]; then
+    if systemctl is-active --quiet ssh.socket 2>/dev/null; then
+      warn "SSH 由 ssh.socket 提供监听；请先通过原生 Socket 配置处理端口，工具不覆盖其 Unit。"; return 1
     fi
-    rm -f -- "$main_temporary"
+    if ss -H -ltn "sport = :$new_port" 2>/dev/null | grep -q .; then warn "端口 $new_port 已被占用。"; return 1; fi
   fi
-  if ! {
-    printf '# Managed by Server Toolkit\nPort %s\n' "$new_port"
-    if [[ "$disable_password" -eq 1 ]]; then
-      printf 'PasswordAuthentication no\nKbdInteractiveAuthentication no\nPubkeyAuthentication yes\n'
-    fi
-    if [[ "$root_key_only" -eq 1 ]]; then
-      printf 'PermitRootLogin prohibit-password\n'
-    fi
-  } >"$config"; then
-    security_restore_ssh_files "$main_config" "$config" "$config_existed" || warn "SSH 配置回滚失败，请立即检查。"
-    warn "无法写入 SSH 托管配置。"
-    return 1
+  payload="Port $new_port"
+  if (( disable_password == 1 )); then payload+=$'\nPasswordAuthentication no\nKbdInteractiveAuthentication no\nPubkeyAuthentication yes'; fi
+  if (( root_key_only == 1 )); then payload+=$'\nPermitRootLogin prohibit-password'; fi
+  ui_kv "计划端口" "$new_port/tcp"
+  ui_kv "密码认证" "$([[ "$disable_password" == 1 ]] && printf 禁用 || printf 保持现状)"
+  ui_kv "root 登录" "$([[ "$root_key_only" == 1 ]] && printf 仅公钥 || printf 保持现状)"
+  confirm "应用上述设置？未选择的现有认证参数保持不变。" || return 0
+  require_root
+  if [[ "$new_port" != "$current_port" ]] && command_exists ufw && platform_firewall_active; then
+    run ufw allow "$new_port/tcp" || { warn "无法放行新 SSH 端口，未修改 SSH。"; return 1; }
+    ui_note "旧 SSH 防火墙规则保留；新窗口验证成功后可手动清理。"
   fi
-  if ! chmod 0644 "$config"; then
-    security_restore_ssh_files "$main_config" "$config" "$config_existed" || warn "SSH 配置回滚失败，请立即检查。"
-    warn "无法设置 SSH 托管配置权限。"
-    return 1
+  if security_ssh_write_settings "$config" "$payload"; then
+    audit "action=ssh-config port=$new_port password_disabled=$disable_password root_key_only=$root_key_only"
+    ui_success "SSH 设置已加载。请保留当前会话，在新窗口验证登录。"
+  else
+    warn "SSH 设置未完成，配置已尝试回退；请检查服务状态。"; return 1
   fi
-  if ! sshd -t -f "$main_config"; then
-    security_restore_ssh_files "$main_config" "$config" "$config_existed" || warn "SSH 配置回滚失败，请立即检查。"
-    warn "SSH 验证失败，已恢复配置。"
-    return 1
-  fi
-  if ! security_ssh_effective_matches "$main_config" "$new_port" "$disable_password" "$root_key_only"; then
-    security_restore_ssh_files "$main_config" "$config" "$config_existed" || warn "SSH 配置回滚失败，请立即检查。"
-    warn "SSH 最终生效值与计划不一致，已恢复配置。请检查主配置中的 Match 或 Include 顺序。"
-    return 1
-  fi
-  if [[ "$new_port" != "$current_port" ]] && command_exists ufw && ufw status 2>/dev/null | grep -q '^Status: active'; then
-    if ! run ufw allow "$new_port/tcp"; then
-      security_restore_ssh_files "$main_config" "$config" "$config_existed" || warn "SSH 配置回滚失败，请立即检查。"
-      warn "无法放行新的 SSH 端口，已恢复配置。"
-      return 1
-    fi
-  fi
-  local ssh_service=""
-  if service_exists ssh.service; then
-    ssh_service=ssh.service
-  elif service_exists sshd.service; then
-    ssh_service=sshd.service
-  fi
-  if [[ -z "$ssh_service" ]]; then
-    security_restore_ssh_files "$main_config" "$config" "$config_existed" || warn "SSH 配置回滚失败，请立即检查。"
-    warn "未找到 SSH 服务，已恢复配置。"
-    return 1
-  fi
-  if ! systemctl restart "$ssh_service"; then
-    security_restore_ssh_files "$main_config" "$config" "$config_existed" || warn "SSH 配置回滚失败，请立即检查。"
-    systemctl restart "$ssh_service" 2>/dev/null || true
-    warn "SSH 重启失败，已恢复旧配置。"
-    return 1
-  fi
-  if ! systemctl is-active --quiet "$ssh_service"; then
-    security_restore_ssh_files "$main_config" "$config" "$config_existed" || warn "SSH 配置回滚失败，请立即检查。"
-    systemctl restart "$ssh_service" 2>/dev/null || true
-    warn "SSH 重启后未进入运行状态，已恢复旧配置。"
-    return 1
-  fi
-  audit "action=ssh-config port=$new_port password_disabled=$disable_password root_key_only=$root_key_only"
-  warn "请保留当前会话，并在新窗口验证登录。"
 }
 
 security_auth_log() {
@@ -281,7 +198,7 @@ security_ssh_manage() {
     ui_panel_kv "服务" "${service:-—}"
     ui_panel_kv "状态" "$state" "$([[ "$state" == "active" ]] && printf '%s' "$GREEN" || printf '%s' "$YELLOW")"
     ui_panel_kv "端口" "$port/tcp"
-    ui_panel_kv "托管配置" "$([[ -f /etc/ssh/sshd_config.d/99-server-toolkit.conf ]] && printf '已创建' || printf '未创建')"
+    ui_panel_kv "连接策略" "$([[ -f "$SECURITY_SSH_POLICY" ]] && printf '已创建' || printf '未创建')"
     ui_panel_end
     ui_section "查看" "primary"
     ui_action_pair 1 "有效配置" "action" 2 "当前会话" "action"
@@ -290,6 +207,8 @@ security_ssh_manage() {
     ui_section "配置" "accent"
     ui_action 6 "SSH 安全向导" "warning" "端口、密码认证与 root 登录策略"
     if [[ -n "$service" ]]; then ui_action 7 "服务与日志" "action" "$service"; else ui_action 7 "服务与日志" "disabled" "未找到 SSH 服务"; fi
+    ui_action 8 "连接与转发策略" "action" "认证次数、宽限、存活探测、Agent / X11 / TCP 转发"
+    ui_action 9 "恢复认证与端口" "warning" "撤销安全向导的独立配置；保留其他 SSH 文件和防火墙规则"
     ui_action 0 "返回安全中心" "muted"
     action="$(read_input "请选择" "0")"
     case "$action" in
@@ -299,6 +218,15 @@ security_ssh_manage() {
       4) security_ssh_host_keys ;;
       5) security_auth_log ;;
       6) security_configure_ssh || true ;;
+      8) security_ssh_policy_menu; continue ;;
+      9)
+        if confirm "恢复安全向导修改前的认证与 SSH 端口？请保留当前会话。"; then
+          require_root
+          if config_file_restore /etc/ssh/sshd_config.d/00-keine-auth.conf security_ssh_reload_only; then
+            audit 'action=ssh-auth-restore'; ui_success "认证与端口配置已恢复；请在新窗口验证登录。"
+          fi
+        fi
+        ;;
       7) if [[ -n "$service" ]]; then services_select "$service"; else warn "未找到 SSH 服务。"; fi ;;
       0) return 0 ;;
       *) warn "未知选项：$action"; continue ;;

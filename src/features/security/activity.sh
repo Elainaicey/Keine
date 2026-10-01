@@ -5,6 +5,12 @@ security_exact_ip_valid() {
   valid_firewall_source "$address" && [[ "$address" != "any" && "$address" != */* ]]
 }
 
+security_source_is_current() {
+  local source="${SSH_CONNECTION:-}"
+  source="${source%% *}"
+  [[ -n "$source" && "$1" == "$source" ]]
+}
+
 security_auth_event_rows() {
   local line event user address
   while IFS= read -r line || [[ -n "$line" ]]; do

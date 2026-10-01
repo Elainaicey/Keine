@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-NETWORK_DNS_RESOLV="${SERVER_TOOLKIT_RESOLV_CONF:-/etc/resolv.conf}"
-NETWORK_DNS_DROPIN="${SERVER_TOOLKIT_DNS_DROPIN:-/etc/systemd/resolved.conf.d/90-server-toolkit-dns.conf}"
-NETWORK_DNS_HEAD="${SERVER_TOOLKIT_RESOLVCONF_HEAD:-/etc/resolvconf/resolv.conf.d/head}"
+NETWORK_DNS_RESOLV="${KEINE_RESOLV_CONF:-/etc/resolv.conf}"
+NETWORK_DNS_DROPIN="${KEINE_DNS_DROPIN:-/etc/systemd/resolved.conf.d/90-keine-dns.conf}"
+NETWORK_DNS_HEAD="${KEINE_RESOLVCONF_HEAD:-/etc/resolvconf/resolv.conf.d/head}"
 NETWORK_DNS_CHECK_HOST="example.com"
 
 network_dns_backend() {
@@ -60,20 +60,20 @@ network_dns_payload() {
   case "$backend" in
     resolved)
       joined="${addresses//$'\n'/ }"
-      printf '# Managed by Server Toolkit\n[Resolve]\nDNS=\nDNS=%s\nFallbackDNS=\nDomains=~.\n' "$joined"
+      printf '# Managed by keine\n[Resolve]\nDNS=\nDNS=%s\nFallbackDNS=\nDomains=~.\n' "$joined"
       ;;
     plain)
-      printf '# Managed by Server Toolkit DNS\n'
-      if [[ -f "$path" ]]; then awk '!/^[[:space:]]*nameserver[[:space:]]/ && $0 != "# Managed by Server Toolkit DNS" {print}' "$path"; fi
+      printf '# Managed by keine DNS\n'
+      if [[ -f "$path" ]]; then awk '!/^[[:space:]]*nameserver[[:space:]]/ && $0 != "# Managed by keine DNS" {print}' "$path"; fi
       while IFS= read -r address; do printf 'nameserver %s\n' "$address"; done <<<"$addresses"
       ;;
     resolvconf)
       if [[ -f "$path" ]]; then
-        awk '$0 == "# BEGIN Server Toolkit DNS" {block=1; next} $0 == "# END Server Toolkit DNS" {block=0; next} !block {print}' "$path"
+        awk '$0 == "# BEGIN keine DNS" {block=1; next} $0 == "# END keine DNS" {block=0; next} !block {print}' "$path"
       fi
-      printf '# BEGIN Server Toolkit DNS\n'
+      printf '# BEGIN keine DNS\n'
       while IFS= read -r address; do printf 'nameserver %s\n' "$address"; done <<<"$addresses"
-      printf '# END Server Toolkit DNS\n'
+      printf '# END keine DNS\n'
       ;;
   esac
 }
@@ -85,7 +85,7 @@ network_dns_configure() {
   NETWORK_DNS_ACTIVE_BACKEND="$backend"
   path="$(network_dns_path)" || { warn "解析器由其他组件管理；请在 NetworkManager、Netplan 或服务商配置中修改，不覆盖其生成文件。"; return 1; }
   if [[ "$backend" == resolved && -e "$path" && ! -d "$(changes_file_entry "$path")" ]] &&
-    ! grep -Fqx '# Managed by Server Toolkit' "$path"; then warn "该 drop-in 已存在且没有项目归属，拒绝覆盖。"; return 1; fi
+    ! config_project_marker "$path"; then warn "该 drop-in 已存在且没有项目归属，拒绝覆盖。"; return 1; fi
   ui_page "DNS 配置 / 选择服务器" "配置系统解析器；不会修改 Xray / sing-box 的内部 DNS"
   ui_action 1 "Cloudflare" "action" "1.1.1.1 / 1.0.0.1"
   ui_action 2 "Quad9" "action" "9.9.9.9 / 149.112.112.112"
@@ -107,7 +107,7 @@ network_dns_configure() {
   ui_hint "先保留服务商控制台；resolved 会短暂重启解析服务，VPN 更具体的 DNS 路由仍可能优先。验证失败会回退。"
   confirm "保存并应用上述系统 DNS？" || return 0
   payload="$(network_dns_payload "$backend" "$path" "$addresses")" || return 1
-  network_config_write "$path" 0644 "$payload" network_dns_verify || return 1
+  config_file_write "$path" 0644 "$payload" network_dns_verify || return 1
   audit "action=network-dns-configure backend=$backend"
   ui_success "DNS 配置操作完成。"
 }
@@ -118,7 +118,7 @@ network_dns_restore_path() {
   NETWORK_DNS_ACTIVE_BACKEND="$(network_dns_backend)"
   expected="$(network_dns_path)" || return 1
   [[ "$expected" == "$path" ]] || { warn "DNS 后端已改变，保留原始记录；请先检查当前网络管理器。"; return 1; }
-  network_config_restore "$path" network_dns_verify
+  config_file_restore "$path" network_dns_verify
 }
 
 network_dns_restore() {

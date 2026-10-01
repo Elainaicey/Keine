@@ -7,9 +7,9 @@ IFS=$'\n\t'
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)"
 REPOSITORY_TEST_ROOT="$(mktemp -d)"
 trap '[[ "$REPOSITORY_TEST_ROOT" == /tmp/* ]] && rm -rf -- "$REPOSITORY_TEST_ROOT"' EXIT
-SERVER_TOOLKIT_APT_SOURCES_DIR="$REPOSITORY_TEST_ROOT/sources"
-SERVER_TOOLKIT_APT_KEYRING_DIR="$REPOSITORY_TEST_ROOT/keyrings"
-SERVER_TOOLKIT_SHARE_KEYRING_DIR="$REPOSITORY_TEST_ROOT/share-keyrings"
+KEINE_APT_SOURCES_DIR="$REPOSITORY_TEST_ROOT/sources"
+KEINE_APT_KEYRING_DIR="$REPOSITORY_TEST_ROOT/keyrings"
+KEINE_SHARE_KEYRING_DIR="$REPOSITORY_TEST_ROOT/share-keyrings"
 OS_ID=debian
 OS_NAME='Debian test'
 OS_CODENAME=bookworm
@@ -25,7 +25,7 @@ gpg() {
   grep -aFq 'VALID-KEY' "$key_file"
 }
 
-mkdir -p "$SERVER_TOOLKIT_APT_SOURCES_DIR" "$SERVER_TOOLKIT_APT_KEYRING_DIR" "$SERVER_TOOLKIT_SHARE_KEYRING_DIR"
+mkdir -p "$KEINE_APT_SOURCES_DIR" "$KEINE_APT_KEYRING_DIR" "$KEINE_SHARE_KEYRING_DIR"
 [[ "$(software_repository_status docker_official)" == "missing" ]] || {
   printf 'FAIL: 空目录没有识别为未配置仓库\n' >&2
   exit 1
@@ -35,7 +35,7 @@ docker_key="$(software_repository_key_file docker_official)"
 docker_source="$(software_repository_source_file docker_official)"
 printf 'test-key\n' >"$docker_key"
 printf '%s\n' \
-  '# Managed by Server Toolkit' \
+  '# Managed by keine' \
   'Types: deb' \
   'URIs: https://download.docker.com/linux/debian' \
   'Suites: bookworm' \
@@ -89,7 +89,7 @@ printf '%s\n' \
   'VALID-KEY-OLD' \
   '-----END PGP PUBLIC KEY BLOCK-----' >"$docker_key"
 printf '%s\n' \
-  '# Managed by Server Toolkit' \
+  '# Managed by keine' \
   'Types: deb' \
   'URIs: https://download.docker.com/linux/debian' \
   'Suites: bookworm' \

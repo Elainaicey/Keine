@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-APPS_SERVICE_CATALOG="${SERVER_TOOLKIT_APPS_CATALOG:-${CONFIG_DIR:-$ROOT_DIR/config}/apps.tsv}"
+APPS_SERVICE_CATALOG="${KEINE_APPS_CATALOG:-${CONFIG_DIR:-$ROOT_DIR/config}/apps.tsv}"
 
 apps_service_catalog() {
   [[ -r "$APPS_SERVICE_CATALOG" ]] || return 1

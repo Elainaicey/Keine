@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-DOCKER_VOLUME_BACKUP_ROOT="${SERVER_TOOLKIT_DOCKER_BACKUP_ROOT:-/var/backups/server-toolkit-docker}"
+DOCKER_VOLUME_BACKUP_ROOT="${KEINE_DOCKER_BACKUP_ROOT:-/var/backups/keine-docker}"
 DOCKER_VOLUME_HELPER_IMAGE="alpine:latest"
 
 docker_volume_backup_valid_id() {
@@ -56,7 +56,7 @@ docker_volume_backup_validate_record() {
   image="$(docker_volume_backup_meta "$backup_id" helper_image 2>/dev/null || true)"
   expected="$(docker_volume_backup_meta "$backup_id" sha256 2>/dev/null || true)"
   archive="$record/volume.tar.gz"
-  [[ "$format" == "server-toolkit-docker-volume-v1" ]] || return 1
+  [[ "$format" == "keine-docker-volume-v1" ]] || return 1
   valid_docker_volume_name "$volume" || return 1
   [[ "$image" == "$DOCKER_VOLUME_HELPER_IMAGE" ]] || return 1
   [[ "$expected" =~ ^[a-f0-9]{64}$ ]] || return 1
@@ -106,7 +106,7 @@ docker_volume_backup_execute() {
   checksum="$(sha256sum "$archive" | awk '{print $1}')"
   created="$(date -Is)"
   {
-    printf 'format=server-toolkit-docker-volume-v1\n'
+    printf 'format=keine-docker-volume-v1\n'
     printf 'created=%s\n' "$created"
     printf 'volume=%s\n' "$volume"
     printf 'helper_image=%s\n' "$DOCKER_VOLUME_HELPER_IMAGE"
@@ -221,7 +221,7 @@ docker_volume_backup_delete() {
   ui_page "删除 Docker 卷备份" "$backup_id"
   ui_kv "源卷" "$volume"
   ui_kv "预计释放" "$(backup_human_bytes "$bytes")"
-  ui_danger "只会删除 Server Toolkit 创建的这个归档，不会删除 Docker 卷。"
+  ui_danger "只会删除 keine 创建的这个归档，不会删除 Docker 卷。"
   confirm "永久删除备份 $backup_id？" || return 0
   require_root
   if [[ "$DRY_RUN" -eq 1 ]]; then info "将删除 Docker 卷备份：$record"; return 0; fi

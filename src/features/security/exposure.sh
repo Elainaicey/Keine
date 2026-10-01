@@ -82,7 +82,7 @@ security_exposure_load_docker() {
 }
 
 security_exposure_unit_for_pid() {
-  local pid="${1:-}" cgroup_root="${SERVER_TOOLKIT_PROC_ROOT:-/proc}"
+  local pid="${1:-}" cgroup_root="${KEINE_PROC_ROOT:-/proc}"
   [[ "$pid" =~ ^[0-9]+$ ]] && (( 10#$pid >= 1 && 10#$pid <= 4194304 )) || return 1
   [[ -r "$cgroup_root/$pid/cgroup" ]] || return 1
   awk -F/ '

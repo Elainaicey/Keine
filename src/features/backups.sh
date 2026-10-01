@@ -198,7 +198,7 @@ backups_delete_snapshot() {
   ui_panel_kv "内容" "$state"
   ui_panel_kv "占用" "$(backup_human_bytes "$bytes")"
   ui_panel_end
-  ui_danger "删除后无法通过 Server Toolkit 恢复此快照。"
+  ui_danger "删除后无法通过 keine 恢复此快照。"
   confirm "确认永久删除快照 $snapshot？" || return 0
   require_root
   backup_delete "$snapshot" || return 1
@@ -216,7 +216,7 @@ backups_delete() {
 backups_cleanup() {
   local choice value label snapshot bytes total_bytes=0 preview=""
   local candidates=()
-  ui_page "清理历史快照" "只清理 Server Toolkit 配置备份，不触碰业务数据"
+  ui_page "清理历史快照" "只清理 keine 配置备份，不触碰业务数据"
   backups_summary
   ui_section "清理方式" "accent"
   ui_action 1 "保留最近若干份" "warning" "适合控制快照数量"

@@ -3,22 +3,26 @@
 # 共享待提交状态由 core/changes 消费。
 # shellcheck disable=SC2034
 
-# 网络配置共用事务：首次基线、原子写入、应用失败回退、外部修改冲突保护。
-network_config_safe() {
+# 配置共用事务：首次基线、原子写入、应用失败回退、外部修改冲突保护。
+config_project_marker() {
+  grep -Fqx '# Managed by keine' "$1"
+}
+
+config_file_safe() {
   local path="$1" parent
   safe_managed_path "$path" || return 1
   parent="$(dirname -- "$path")"
   [[ ! -L "$path" && ( ! -e "$path" || -f "$path" ) && "$(readlink -m -- "$parent")" == "$parent" ]]
 }
 
-network_config_write() (
-  local path="$1" mode="$2" content="$3" callback="$4" temporary previous="" existed=0
-  network_config_safe "$path" || { warn "配置路径不是安全的普通文件：$path"; return 1; }
+config_file_write() (
+  local path="$1" mode="$2" content="$3" callback="$4" rollback="${5:-$4}" temporary previous="" existed=0
+  config_file_safe "$path" || { warn "配置路径不是安全的普通文件：$path"; return 1; }
   require_root
   if (( DRY_RUN == 1 )); then info "将记录基线、原子写入 $path 并验证；不显示配置中的凭据。"; return 0; fi
-  changes_ready || { warn "恢复记录未启用，拒绝写入网络配置。"; return 1; }
+  changes_ready || { warn "恢复记录未启用，拒绝写入配置。"; return 1; }
   mkdir -p -- "$(dirname -- "$path")" || return 1
-  temporary="$(mktemp "$(dirname -- "$path")/.server-toolkit-network.XXXXXX")" || return 1
+  temporary="$(mktemp "$(dirname -- "$path")/.keine-config.XXXXXX")" || return 1
   trap 'rm -f -- "$temporary"; [[ -z "$previous" ]] || rm -f -- "$previous"' EXIT
   if [[ -f "$path" ]]; then
     existed=1; previous="$(mktemp)" || return 1
@@ -26,6 +30,7 @@ network_config_write() (
   fi
   backup_file "$path" || return 1
   printf '%s\n' "$content" >"$temporary" || return 1
+  if (( existed == 1 )); then chown --reference="$path" "$temporary" || return 1; fi
   chmod "$mode" "$temporary" || return 1
   mv -fT -- "$temporary" "$path" || return 1
   if "$callback"; then
@@ -38,13 +43,13 @@ network_config_write() (
   else rm -f -- "$path" || return 1; fi
   # 回调中的 run 可能已提交并清空待记录集合，回退后必须重新登记文件。
   CHANGES_PENDING_FILES["$path"]=1
-  "$callback" || warn "文件已回退，但运行状态仍需人工检查。"
+  "$rollback" || warn "文件已回退，但运行状态仍需人工检查。"
   CHANGES_PENDING_FILES["$path"]=1
   changes_commit_pending || return 1
   return 1
 )
 
-network_config_restore() (
+config_file_restore() (
   local path="$1" callback="$2" rollback="${3:-$2}" entry previous="" temporary="" existed=0
   entry="$(changes_file_entry "$path")"
   [[ -d "$entry" && ! -L "$entry" ]] || { warn "没有该配置的原始状态记录：$path"; return 1; }
@@ -61,7 +66,7 @@ network_config_restore() (
   changes_restore_file "$entry" 1 || return 1
   if ! "$callback"; then
     if (( existed == 1 )); then
-      temporary="$(mktemp "$(dirname -- "$path")/.server-toolkit-rollback.XXXXXX")" || return 1
+      temporary="$(mktemp "$(dirname -- "$path")/.keine-rollback.XXXXXX")" || return 1
       cp -p -- "$previous" "$temporary" && mv -fT -- "$temporary" "$path" || return 1
     else rm -f -- "$path" || return 1; fi
     "$rollback" || true
@@ -70,9 +75,9 @@ network_config_restore() (
   rm -rf -- "$entry" || return 1
 )
 
-network_config_no_reload() { return 0; }
+config_no_reload() { return 0; }
 
-network_read_secret() {
+read_secret() {
   local answer=""
   if [[ -t 0 ]]; then read -r -s -p "$1: " answer || return 1; printf '\n' >&2
   elif [[ -r /dev/tty && -t 2 ]]; then read -r -s -p "$1: " answer </dev/tty || return 1; printf '\n' >&2

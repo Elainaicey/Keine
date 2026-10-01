@@ -36,6 +36,6 @@ if software_oh_my_zsh_official_remote 'https://example.com/ohmyzsh.git'; then
 fi
 
 output="$(software_oh_my_zsh_configure alice /home/alice)"
-grep -q '添加 Server Toolkit 托管' <<<"$output" || die "配置预览没有说明托管范围"
+grep -q '添加 keine 托管' <<<"$output" || die "配置预览没有说明托管范围"
 
 printf 'PASS: oh-my-zsh\n'

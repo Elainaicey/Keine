@@ -6,12 +6,13 @@
 install.sh
 └── scripts/install.sh
 
-bin/serverctl
+bin/keine
 ├── src/core/runtime.sh
 ├── src/core/validation.sh
 ├── src/core/ui.sh
 ├── src/core/platform.sh
 ├── src/core/backup.sh
+├── src/core/configuration.sh
 ├── src/features/*.sh
 ├── src/features/dashboard/overview.sh
 ├── src/features/dashboard/menu.sh
@@ -24,7 +25,7 @@ bin/serverctl
 ├── src/features/software/catalog.sh
 ├── src/features/software/catalog/*.sh
 ├── src/features/software/repositories/*.sh
-├── src/features/terminal/{framework,prompts,menu}.sh
+├── src/features/terminal/{shells,framework,prompts,menu}.sh
 ├── src/features/recovery.sh
 ├── src/core/changes.sh
 ├── src/core/changes/{packages,settings}.sh
@@ -35,7 +36,7 @@ bin/serverctl
 ├── config/terminal.tsv
 ├── config/integrations.tsv
 ├── src/features/network.sh
-├── src/features/network/{configuration,dns,proxy,parameters,overview,diagnostics,http,tuning,menu}.sh
+├── src/features/network/{dns,proxy,parameters,overview,diagnostics,http,tuning,menu}.sh
 ├── config/network-tuning.tsv
 ├── src/features/system.sh
 ├── src/features/system/diagnostics.sh
@@ -91,7 +92,7 @@ bin/serverctl
 
 删除由项目创建的系统资源时必须先证明所有权。新建 Swap、下载目录或其他持久资源应在项目状态目录写入最小所有权记录；缺少记录时只展示状态和人工处理指引，不得根据常见路径猜测删除。Compose 等外部资源可以控制生命周期，但不声明所有权，危险操作必须明确其保留和删除边界。
 
-Server Toolkit 必须保持前台、按需、短生命周期运行。运行时代码不得调用 `crontab`、`systemd-run`、`nohup`、`setsid` 或 daemonize，不得安装项目自有 systemd Unit，不得控制 `.timer` 生命周期，也不得使用 Shell `&` 脱离当前会话。系统中由软件自身提供的守护进程仍可在用户明确操作后通过 service 管理，但它们不属于 Server Toolkit 后台组件。
+keine 必须保持前台、按需、短生命周期运行。运行时代码不得调用 `crontab`、`systemd-run`、`nohup`、`setsid` 或 daemonize，不得安装项目自有 systemd Unit，不得控制 `.timer` 生命周期，也不得使用 Shell `&` 脱离当前会话。系统中由软件自身提供的守护进程仍可在用户明确操作后通过 service 管理，但它们不属于 keine 后台组件。
 
 软件自身的持久运行影响必须与项目后台边界分开表达。已知会安装服务、Timer/Cron、Socket 或监听器的目录条目使用 `config/software-effects.tsv` 声明，安装前展示但不自动禁用；元数据只能陈述发行版包可能产生的行为，不能承诺某个 Unit 在所有系统上必然启用。
 
@@ -101,9 +102,13 @@ Server Toolkit 必须保持前台、按需、短生命周期运行。运行时�
 
 网络深度诊断只接受经过白名单校验的接口名、目标和端口。接口页面不得提供可能中断当前 SSH 的 up/down 操作；端点探测、链路路径和套接字压力必须明确单次快照与持续监控的边界，缺少 Netcat、mtr 等可选工具时不得静默安装。
 
-网络配置的共用事务位于 `network/configuration.sh`：验证普通文件和规范化父路径、记录首次基线、原子替换、应用验证以及失败补偿。恢复记录在运行验证通过前不得删除。DNS 必须调用识别到的原生后端，未知生成文件不接管；SOCKS 只提供显式 curl 客户端配置，凭据不进入命令参数、审计或预览。
+通用配置事务位于 `core/configuration.sh`，由网络、终端和安全中心共享：验证普通文件和规范化父路径、记录首次基线、原子替换、应用验证以及失败补偿。应用回调和回退回调可以分开，回退时不得继续要求新值匹配。恢复记录在运行验证通过前不得删除。DNS 必须调用识别到的原生后端，未知生成文件不接管；SOCKS 只提供显式 curl 客户端配置，凭据不进入命令参数、审计或预览。
 
-网络参数由六字段 `config/network-tuning.tsv` 声明键、标签、上下限、参考值和说明，执行键另由代码白名单限制。只对项目独立文件中的键执行 `sysctl -w`，不运行 `sysctl --system` 重新加载第三方配置。写入前检查所有原始记录和外部冲突；文件与运行值成组撤销，失败时保留恢复记录并尝试补偿。设置记录使用便携目录名并独立保存逻辑键，兼容已有记录。第三方入口遵守 [网络调优适配契约](NETWORK-ADAPTERS.md)，不提供任意 URL 执行器。
+终端适配必须从 passwd 读取目标用户的登录 Shell。Bash 与 Zsh 的初始化文件不可混用；Zsh 专属引擎的 Shell 切换必须先单独确认，配置成功后才执行。诊断不执行用户 rc 文件；状态只表示配置，不宣称当前父 Shell 已加载。Bash 登录桥接要兼容 `.profile` 的 POSIX 语法，且避免重复初始化。
+
+SSH 的认证文件和连接策略文件独立管理，逐项更新必须保留同一文件内未选择的参数。语法和当前连接上下文最终值验证通过后才 reload；不自动停止 SSH 或清理旧端口防火墙规则。Fail2ban 只管理独立 sshd Jail 文件，配置检查失败停止，运行时还需核对封禁参数与当前来源白名单。UFW 拒绝规则保护当前 SSH 端口；limit 明确说明其放行与连接限速语义，不承诺全局防护。
+
+网络参数由六字段 `config/network-tuning.tsv` 声明键、标签、上下限、参考值和说明，执行键另由代码白名单限制。只对项目独立文件中的键执行 `sysctl -w`，不运行 `sysctl --system` 重新加载第三方配置。写入前检查所有原始记录和外部冲突；文件与运行值成组撤销，失败时保留恢复记录并尝试补偿。设置记录使用便携目录名并独立保存逻辑键。第三方入口遵守 [网络调优适配契约](NETWORK-ADAPTERS.md)，不提供任意 URL 执行器。
 
 用户提供的 HTTP 诊断 URL 只能使用 `http://` 或 `https://`，不得包含凭据、空白或控制字符。curl 调用必须使用固定参数和 `--` 参数终止符，显式限制可用协议与重定向协议，并设置重定向次数、连接超时和总超时；诊断仅发送纯前台 HEAD 请求，不下载响应体、不持久化 Cookie，也不创建后台进程。展示的 URL、错误和响应头必须先移除终端控制字符。HTTP 405/501 只能说明端点不支持 HEAD，不能据此判断 GET 不可用；该功能只表示一次请求的可观测结果，不能承诺端点持续可用。
 
@@ -125,7 +130,7 @@ CI 使用三个独立检查任务：`repository-files` 负责全文件分类和�
 
 ## 终端 UI 规范
 
-- 主菜单使用品牌横幅；功能中心使用 `SERVER TOOLKIT / 当前页面` 页面顶栏。
+- 主菜单使用品牌横幅；功能中心使用 `KEINE / 当前页面` 页面顶栏。
 - 页面标题、上下文、分组、键值、状态、进度、提示与危险信息分别使用统一组件。
 - 不能直接使用 `printf %-Ns` 对齐中文。所有列宽必须通过 `ui_display_width` 计算终端显示宽度。
 - 颜色分为品牌层级和语义状态：青色用于导航，蓝色用于可操作项，紫色用于分组与强调；绿色表示正常，黄色表示关注，红色表示危险，灰色表示辅助信息。
@@ -149,7 +154,7 @@ id|category|name|description|apt packages|handler
 3. 只有无法通过一个系统包正确安装的独立产品才允许专用 handler。
 4. handler 只安装该产品不可分割的官方组件，不联动防火墙、SSH 或其他软件。
 5. CLI 和交互界面共用 `catalog_install` / `catalog_remove`，避免行为分叉。
-6. `serverctl install`、`update` 和 `remove` 必须且只能接收一个 ID；不提供整个目录的无监督批量更新。
+6. `keine install`、`update` 和 `remove` 必须且只能接收一个 ID；不提供整个目录的无监督批量更新。
 7. APT 普通条目必须检测候选版本；当前软件源不提供时显示“仓库不可用”并禁用安装，而不是执行注定失败的命令。
 8. 用户级 handler 必须明确目标用户和主目录、验证上游来源、备份已有配置，并且只移除能够证明由自身管理的内容。
 9. 多个提示符引擎可以共存，但同一 Shell 只能启用一个托管提示符；切换只替换带边界标记的配置块。
@@ -166,7 +171,7 @@ id|category|name|description|apt packages|handler
 20. 软件源与签名目标必须拒绝符号链接。已有普通文件在替换前进入配置快照；已有发行版来源安装不能在普通更新操作中被隐式迁移到项目官方仓库。
 21. 目录列表可以在单次页面生命周期内批量缓存 dpkg、APT 候选与可更新状态；任何安装、更新、移除、来源切换或索引刷新后必须立即失效，不得跨操作保留旧状态。
 22. 普通 APT 写操作在最终确认前必须尽可能执行无锁模拟并展示联带变更。安装或更新模拟包含移除项时默认阻止；明确移除必须展示完整计数与有限清单。首次建立官方仓库等无法提前模拟的阶段必须单独说明并验证候选版本。
-23. 可能产生持久运行影响的条目必须在 `config/software-effects.tsv` 中声明运行形态、Unit、调度方式、网络行为和简短说明；Server Toolkit 不自动替用户处置这些上游组件。
+23. 可能产生持久运行影响的条目必须在 `config/software-effects.tsv` 中声明运行形态、Unit、调度方式、网络行为和简短说明；keine 不自动替用户处置这些上游组件。
 
 运行影响目录格式：
 
@@ -178,9 +183,9 @@ id|runtime|units|scheduler|network|note
 
 ## 配置与恢复
 
-所有由项目持久化的配置应带有 `Managed by Server Toolkit` 注释，优先写入独立 drop-in。修改现有文件前调用 `backup_file`。恢复只能选择快照清单中记录的绝对路径，不能接受任意拼接路径。会被递归清理的项目数据根目录必须同时通过绝对路径规范化和 `server-toolkit` 路径组件校验；尾随斜杠、重复斜杠、控制字符与系统顶层目录一律拒绝。
+所有由项目持久化的配置应带有 `Managed by keine` 注释，优先写入独立 drop-in。修改现有文件前调用 `backup_file`。恢复只能选择快照清单中记录的绝对路径，不能接受任意拼接路径。会被递归清理的项目数据根目录必须同时通过绝对路径规范化和 `keine` 路径组件校验；尾随斜杠、重复斜杠、控制字符与系统顶层目录一律拒绝。
 
-配置快照以一次 Server Toolkit 进程为会话合并保存，避免一次操作为每个文件重复创建目录。清理只能作用于 `BACKUP_ROOT` 下格式有效且不是符号链接的快照目录；批量清理必须先展示数量和预计释放空间，并保护当前操作会话。损坏清单会阻止恢复，但不能阻止用户明确删除该快照。
+配置快照以一次 keine 进程为会话合并保存，避免一次操作为每个文件重复创建目录。清理只能作用于 `BACKUP_ROOT` 下格式有效且不是符号链接的快照目录；批量清理必须先展示数量和预计释放空间，并保护当前操作会话。损坏清单会阻止恢复，但不能阻止用户明确删除该快照。
 
 配置快照可以附加单行短备注和项目保护标记。受保护快照不得进入数量/天数清理候选，也不得直接删除；取消保护必须由用户显式执行。备注和保护文件不改变 manifest 的恢复边界。
 
@@ -196,7 +201,7 @@ Docker 卷归档必须与配置快照分开保存。创建时只读挂载源卷�
 
 1. 在 `src/features/<name>.sh` 实现查询和修改动作；独立应用放在 `src/features/apps/`，复杂领域的专属实现放在 `src/features/<name>/`。
 2. 菜单保持一层，不跳转到另一套导航系统。
-3. 在 `bin/serverctl` 加载文件并加入顶层入口。
+3. 在 `bin/keine` 加载文件并加入顶层入口。
 4. 为输入校验、分发或安全边界补充离线测试。
 5. 更新 README 功能表和 CHANGELOG。
 
@@ -207,7 +212,6 @@ Docker 卷归档必须与配置快照分开保存。创建时只读挂载源卷�
 - profiles、无人值守安装、`--yes`、软件套餐、全选或多选。
 - 多账户、sudo 分配、Crontab、systemd Timer 管理和项目后台监控。
 - 项目自有常驻服务、后台进程或自动修复任务。
-- 为旧目录和旧命令保留兼容包装层。
 - 自动升级整个系统或自动删除用户数据。
 - 卸载时猜测性删除软件或回滚无法确认所有权的系统设置。
 - 安装 Web、容器或数据库时自动修改防火墙。

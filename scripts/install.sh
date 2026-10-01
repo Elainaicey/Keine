@@ -3,23 +3,23 @@
 set -Eeuo pipefail
 IFS=$'\n\t'
 
-REPOSITORY="${SERVER_TOOLKIT_REPO:-Elainaicey/server-toolkit}"
-REF="${SERVER_TOOLKIT_REF:-main}"
-INSTALL_DIR="${SERVER_TOOLKIT_INSTALL_DIR:-/opt/server-toolkit}"
-BIN_PATH="${SERVER_TOOLKIT_BIN_PATH:-/usr/local/bin/serverctl}"
+REPOSITORY="${KEINE_REPO:-Elainaicey/keine}"
+REF="${KEINE_REF:-main}"
+INSTALL_DIR="${KEINE_INSTALL_DIR:-/opt/keine}"
+BIN_PATH="${KEINE_BIN_PATH:-/usr/local/bin/keine}"
 DRY_RUN=0
 UNINSTALL=0
 PURGE_DATA=0
 TEMP_ROOT=""
 STAGE_DIR=""
-BACKUP_ROOT="${SERVER_TOOLKIT_BACKUP_ROOT:-/var/backups/server-toolkit}"
-DOCKER_BACKUP_ROOT="${SERVER_TOOLKIT_DOCKER_BACKUP_ROOT:-/var/backups/server-toolkit-docker}"
-LOG_ROOT="${SERVER_TOOLKIT_LOG_ROOT:-/var/log/server-toolkit}"
-STATE_ROOT="${SERVER_TOOLKIT_STATE_ROOT:-/var/lib/server-toolkit}"
+BACKUP_ROOT="${KEINE_BACKUP_ROOT:-/var/backups/keine}"
+DOCKER_BACKUP_ROOT="${KEINE_DOCKER_BACKUP_ROOT:-/var/backups/keine-docker}"
+LOG_ROOT="${KEINE_LOG_ROOT:-/var/log/keine}"
+STATE_ROOT="${KEINE_STATE_ROOT:-/var/lib/keine}"
 
 usage() {
   cat <<EOF
-Server Toolkit 安装器
+keine 安装器
 
 用法：
   sudo bash install.sh [选项]
@@ -75,7 +75,7 @@ safe_toolkit_data_path() {
   IFS='/' read -r -a components <<<"${path#/}"
   for component in "${components[@]}"; do
     case "$component" in
-      server-toolkit|server-toolkit-*) return 0 ;;
+      keine|keine-*) return 0 ;;
     esac
   done
   return 1
@@ -115,7 +115,25 @@ source_archive_root() {
 
 is_toolkit_dir() {
   local path="$1"
-  [[ -f "$path/bin/serverctl" && -d "$path/src/core" && -d "$path/src/features" && -f "$path/config/software.tsv" && -f "$path/VERSION" ]]
+  [[ -f "$path/bin/keine" && -d "$path/src/core" && -d "$path/src/features" && -f "$path/config/software.tsv" && -f "$path/VERSION" ]]
+}
+
+installation_data_read() {
+  local metadata="$INSTALL_DIR/config/installation.conf" key value
+  [[ -e "$metadata" ]] || return 0
+  [[ -f "$metadata" && ! -L "$metadata" && "$(stat -c '%u' -- "$metadata")" == 0 ]] || die "安装路径元数据不安全"
+  while IFS='=' read -r key value; do
+    case "$key" in KEINE_BACKUP_ROOT|KEINE_DOCKER_BACKUP_ROOT|KEINE_LOG_ROOT|KEINE_STATE_ROOT) ;; *) continue ;; esac
+    [[ -z "${!key:-}" ]] || continue
+    [[ "$value" =~ ^/[a-zA-Z0-9._/-]+$ ]] || die "请通过环境变量明确指定使用转义格式的数据路径：$key"
+    safe_toolkit_data_path "$value" && [[ "$(readlink -m -- "$value")" == "$value" && ! -L "$value" ]] || die "已记录的数据路径不安全：$value"
+    case "$key" in
+      KEINE_BACKUP_ROOT) BACKUP_ROOT="$value" ;;
+      KEINE_DOCKER_BACKUP_ROOT) DOCKER_BACKUP_ROOT="$value" ;;
+      KEINE_LOG_ROOT) LOG_ROOT="$value" ;;
+      KEINE_STATE_ROOT) STATE_ROOT="$value" ;;
+    esac
+  done <"$metadata"
 }
 
 cleanup() {
@@ -150,10 +168,11 @@ if ! safe_install_path "$BIN_PATH" || [[ -d "$BIN_PATH" ]]; then
   die "命令入口必须是安全的绝对文件路径：$BIN_PATH"
 fi
 [[ ! -L "$INSTALL_DIR" ]] || die "安装目录不能是符号链接：$INSTALL_DIR"
+if [[ -d "$INSTALL_DIR" ]] && is_toolkit_dir "$INSTALL_DIR"; then installation_data_read; fi
 
 if [[ "$UNINSTALL" -eq 1 ]]; then
   if [[ -d "$INSTALL_DIR" ]]; then
-    is_toolkit_dir "$INSTALL_DIR" || die "目录不像 Server Toolkit，拒绝删除：$INSTALL_DIR"
+    is_toolkit_dir "$INSTALL_DIR" || die "目录不像 keine，拒绝删除：$INSTALL_DIR"
   fi
   if [[ "$PURGE_DATA" -eq 1 ]]; then
     safe_toolkit_data_path "$BACKUP_ROOT" || die "不安全的备份目录：$BACKUP_ROOT"
@@ -168,7 +187,7 @@ if [[ "$UNINSTALL" -eq 1 ]]; then
     info "  日志：$LOG_ROOT"
     info "  状态：$STATE_ROOT"
     info "已安装的软件和系统配置不会自动删除。"
-    confirm "确认彻底清除 Server Toolkit 自身文件和数据？" || { info "已取消。"; exit 0; }
+    confirm "确认彻底清除 keine 自身文件和数据？" || { info "已取消。"; exit 0; }
   else
     confirm "删除 $INSTALL_DIR 和它的命令入口？日志与备份将保留。" || { info "已取消。"; exit 0; }
   fi
@@ -181,7 +200,7 @@ if [[ "$UNINSTALL" -eq 1 ]]; then
     exit 0
   fi
   resolved_bin="$(normalized_link_target "$BIN_PATH" 2>/dev/null || true)"
-  expected_bin="$(readlink -m -- "$INSTALL_DIR/bin/serverctl")"
+  expected_bin="$(readlink -m -- "$INSTALL_DIR/bin/keine")"
   if [[ "$resolved_bin" == "$expected_bin" ]]; then
     rm -f -- "$BIN_PATH"
   fi
@@ -203,11 +222,11 @@ if [[ -e "$BIN_PATH" && ! -L "$BIN_PATH" ]]; then
 fi
 if [[ -L "$BIN_PATH" ]]; then
   current_target="$(normalized_link_target "$BIN_PATH" 2>/dev/null || true)"
-  expected_target="$(readlink -m -- "$INSTALL_DIR/bin/serverctl")"
+  expected_target="$(readlink -m -- "$INSTALL_DIR/bin/keine")"
   [[ "$current_target" == "$expected_target" ]] || die "命令入口指向其他程序：$BIN_PATH"
 fi
 if [[ -d "$INSTALL_DIR" ]]; then
-  is_toolkit_dir "$INSTALL_DIR" || die "现有目录不属于 Server Toolkit：$INSTALL_DIR"
+  is_toolkit_dir "$INSTALL_DIR" || die "现有目录不属于 keine：$INSTALL_DIR"
 fi
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
@@ -237,16 +256,16 @@ fi
 is_toolkit_dir "$SOURCE_DIR" || die "源码结构不完整"
 [[ "$SOURCE_DIR" != "$INSTALL_DIR" ]] || die "不能把项目安装到源码目录自身"
 
-confirm "将 Server Toolkit 安装到 $INSTALL_DIR？已有安装会被完整替换。" || { info "已取消。"; exit 0; }
+confirm "将 keine 安装到 $INSTALL_DIR？已有安装会被完整替换。" || { info "已取消。"; exit 0; }
 if [[ "$DRY_RUN" -eq 1 ]]; then
   info "将完整替换 $INSTALL_DIR"
-  info "将创建命令入口 $BIN_PATH -> $INSTALL_DIR/bin/serverctl"
+  info "将创建命令入口 $BIN_PATH -> $INSTALL_DIR/bin/keine"
   exit 0
 fi
 
 parent_dir="$(dirname -- "$INSTALL_DIR")"
 mkdir -p "$parent_dir" "$(dirname -- "$BIN_PATH")"
-STAGE_DIR="$(mktemp -d "$parent_dir/.server-toolkit-stage.XXXXXX")"
+STAGE_DIR="$(mktemp -d "$parent_dir/.keine-stage.XXXXXX")"
 for entry in bin src config docs scripts install.sh VERSION README.md LICENSE; do
   if [[ -e "$SOURCE_DIR/$entry" ]]; then
     cp -a "$SOURCE_DIR/$entry" "$STAGE_DIR/"
@@ -258,42 +277,42 @@ for entry in assets CONTRIBUTING.md SECURITY.md; do
     cp -a "$SOURCE_DIR/.github/$entry" "$STAGE_DIR/.github/"
   fi
 done
-chmod 0755 "$STAGE_DIR/bin/serverctl" "$STAGE_DIR/install.sh" "$STAGE_DIR/scripts/install.sh"
+chmod 0755 "$STAGE_DIR/bin/keine" "$STAGE_DIR/install.sh" "$STAGE_DIR/scripts/install.sh"
 find "$STAGE_DIR/src" -type f -name '*.sh' -exec chmod 0644 {} \;
 {
-  printf 'SERVER_TOOLKIT_INSTALL_DIR=%q\n' "$INSTALL_DIR"
-  printf 'SERVER_TOOLKIT_BIN_PATH=%q\n' "$BIN_PATH"
-  printf 'SERVER_TOOLKIT_BACKUP_ROOT=%q\n' "$BACKUP_ROOT"
-  printf 'SERVER_TOOLKIT_DOCKER_BACKUP_ROOT=%q\n' "$DOCKER_BACKUP_ROOT"
-  printf 'SERVER_TOOLKIT_LOG_ROOT=%q\n' "$LOG_ROOT"
-  printf 'SERVER_TOOLKIT_STATE_ROOT=%q\n' "$STATE_ROOT"
+  printf 'KEINE_INSTALL_DIR=%q\n' "$INSTALL_DIR"
+  printf 'KEINE_BIN_PATH=%q\n' "$BIN_PATH"
+  printf 'KEINE_BACKUP_ROOT=%q\n' "$BACKUP_ROOT"
+  printf 'KEINE_DOCKER_BACKUP_ROOT=%q\n' "$DOCKER_BACKUP_ROOT"
+  printf 'KEINE_LOG_ROOT=%q\n' "$LOG_ROOT"
+  printf 'KEINE_STATE_ROOT=%q\n' "$STATE_ROOT"
 } >"$STAGE_DIR/config/installation.conf"
 chmod 0644 "$STAGE_DIR/config/installation.conf"
 is_toolkit_dir "$STAGE_DIR" || die "暂存的安装内容不完整"
 
 old_dir=""
 if [[ -d "$INSTALL_DIR" ]]; then
-  old_dir="$parent_dir/.server-toolkit-old.$$"
+  old_dir="$parent_dir/.keine-old.$$"
   mv "$INSTALL_DIR" "$old_dir"
 fi
 if ! mv "$STAGE_DIR" "$INSTALL_DIR"; then
   if [[ -n "$old_dir" && -d "$old_dir" ]]; then
     mv "$old_dir" "$INSTALL_DIR"
   fi
-  die "替换安装目录失败，旧版本已恢复"
+  die "替换安装目录失败，操作前安装已恢复"
 fi
 STAGE_DIR=""
-if ! ln -sfn "$INSTALL_DIR/bin/serverctl" "$BIN_PATH"; then
-  failed_dir="$parent_dir/.server-toolkit-failed.$$"
+if ! ln -sfn "$INSTALL_DIR/bin/keine" "$BIN_PATH"; then
+  failed_dir="$parent_dir/.keine-failed.$$"
   mv "$INSTALL_DIR" "$failed_dir"
   if [[ -n "$old_dir" && -d "$old_dir" ]]; then
     mv "$old_dir" "$INSTALL_DIR"
   fi
   rm -rf -- "$failed_dir"
-  die "创建命令入口失败，旧版本已恢复"
+  die "创建命令入口失败，操作前安装已恢复"
 fi
 if [[ -n "$old_dir" && -d "$old_dir" ]]; then
   rm -rf -- "$old_dir"
 fi
 
-info "安装完成：sudo serverctl"
+info "安装完成：sudo keine"

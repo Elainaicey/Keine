@@ -129,7 +129,7 @@ catalog_apt_plan_render() {
   [[ -z "$CATALOG_PLAN_DISK" ]] || ui_hint "$(terminal_safe_text "$CATALOG_PLAN_DISK")"
   if [[ "$action" != "remove" && "$CATALOG_PLAN_REMOVALS" -gt 0 ]]; then
     ui_callout bad "安装或更新计划意外包含移除项" \
-      "为避免联带卸载，Server Toolkit 已阻止本次操作。"
+      "为避免联带卸载，keine 已阻止本次操作。"
     return 1
   fi
   if [[ "$action" == "remove" && "$CATALOG_PLAN_REMOVALS" -gt 1 ]]; then

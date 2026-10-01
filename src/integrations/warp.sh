@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# 原生探测不依赖 Server Toolkit 安装标记，不读取或展示私钥。
-warp_wireguard_directory() { printf '%s' "${SERVER_TOOLKIT_WIREGUARD_DIR:-/etc/wireguard}"; }
+# 原生探测不依赖 keine 安装标记，不读取或展示私钥。
+warp_wireguard_directory() { printf '%s' "${KEINE_WIREGUARD_DIR:-/etc/wireguard}"; }
 
 warp_wireguard_profiles() {
   local directory file name

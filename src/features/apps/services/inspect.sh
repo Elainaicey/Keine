@@ -156,7 +156,7 @@ apps_service_data_view() {
     fi
   done < <(apps_service_data_paths "$app_id")
   (( found > 0 )) || ui_empty "没有找到已声明的数据路径"
-  ui_note "数据目录属于对应应用；Server Toolkit 不提供猜测性删除。"
+  ui_note "数据目录属于对应应用；keine 不提供猜测性删除。"
 }
 
 apps_service_listeners_view() {

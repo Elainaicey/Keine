@@ -23,10 +23,10 @@ jobs:
         run: |
           version="$(cat VERSION)"
           mkdir -p dist
-          git archive --format=tar.gz --prefix="server-toolkit-$version/" \
-            -o "dist/server-toolkit-$version.tar.gz" "$GITHUB_SHA"
+          git archive --format=tar.gz --prefix="keine-$version/" \
+            -o "dist/keine-$version.tar.gz" "$GITHUB_SHA"
           cd dist
-          sha256sum "server-toolkit-$version.tar.gz" > "server-toolkit-$version.tar.gz.sha256"
+          sha256sum "keine-$version.tar.gz" > "keine-$version.tar.gz.sha256"
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -34,8 +34,8 @@ jobs:
           version="$(cat VERSION)"
           notes_file="docs/releases/$version.md"
           gh release create "$GITHUB_REF_NAME" \
-            "dist/server-toolkit-$version.tar.gz" \
-            "dist/server-toolkit-$version.tar.gz.sha256" \
+            "dist/keine-$version.tar.gz" \
+            "dist/keine-$version.tar.gz.sha256" \
             --verify-tag \
-            --title "Server Toolkit $version" \
+            --title "keine $version" \
             --notes-file "$notes_file"

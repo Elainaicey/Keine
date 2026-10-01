@@ -10,7 +10,7 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
 . "$ROOT_DIR/src/features/dashboard.sh"
 
 NO_COLOR=1
-SERVERCTL_VERSION=0.3.0
+KEINE_VERSION=0.3.0
 DASHBOARD_TIMEOUT_FILE="$(mktemp)"
 trap 'rm -f -- "$DASHBOARD_TIMEOUT_FILE"' EXIT
 runtime_locale

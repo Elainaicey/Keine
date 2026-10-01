@@ -7,20 +7,20 @@ while [[ -L "$ENTRY" ]]; do
   ENTRY_DIR="$(cd -P -- "$(dirname -- "$ENTRY")" >/dev/null 2>&1 && pwd)"
   ENTRY="$(readlink "$ENTRY")"; [[ "$ENTRY" == /* ]] || ENTRY="$ENTRY_DIR/$ENTRY"
 done
-ROOT_DIR="${SERVER_TOOLKIT_ROOT:-$(cd -P -- "$(dirname -- "$ENTRY")/.." >/dev/null 2>&1 && pwd)}"
+ROOT_DIR="${KEINE_ROOT:-$(cd -P -- "$(dirname -- "$ENTRY")/.." >/dev/null 2>&1 && pwd)}"
 # 后续加载的软件目录模块消费该全局路径；单文件分析无法跟踪动态 source。
 # shellcheck disable=SC2034
-CONFIG_DIR="${SERVER_TOOLKIT_CONFIG_DIR:-$ROOT_DIR/config}"
-SERVERCTL_VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")"
+CONFIG_DIR="${KEINE_CONFIG_DIR:-$ROOT_DIR/config}"
+KEINE_VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")"
 INSTALL_METADATA="$ROOT_DIR/config/installation.conf"
 if [[ -r "$INSTALL_METADATA" ]]; then
   # 由安装器生成，只包含经过 shell 转义的安装路径。
   # shellcheck source=/dev/null
   . "$INSTALL_METADATA"
-  SERVER_TOOLKIT_LOG_ROOT="${SERVER_TOOLKIT_LOG_ROOT:-/var/log/server-toolkit}"
-  export SERVER_TOOLKIT_BACKUP_ROOT SERVER_TOOLKIT_DOCKER_BACKUP_ROOT SERVER_TOOLKIT_LOG_ROOT SERVER_TOOLKIT_STATE_ROOT
-  SERVER_TOOLKIT_AUDIT_LOG="${SERVER_TOOLKIT_AUDIT_LOG:-$SERVER_TOOLKIT_LOG_ROOT/actions.log}"
-  export SERVER_TOOLKIT_AUDIT_LOG
+  KEINE_LOG_ROOT="${KEINE_LOG_ROOT:-/var/log/keine}"
+  export KEINE_BACKUP_ROOT KEINE_DOCKER_BACKUP_ROOT KEINE_LOG_ROOT KEINE_STATE_ROOT
+  KEINE_AUDIT_LOG="${KEINE_AUDIT_LOG:-$KEINE_LOG_ROOT/actions.log}"
+  export KEINE_AUDIT_LOG
 fi
 
 . "$ROOT_DIR/src/core/runtime.sh"
@@ -29,6 +29,7 @@ fi
 . "$ROOT_DIR/src/core/platform.sh"
 . "$ROOT_DIR/src/core/changes.sh"
 . "$ROOT_DIR/src/core/backup.sh"
+. "$ROOT_DIR/src/core/configuration.sh"
 . "$ROOT_DIR/src/features/software.sh"
 . "$ROOT_DIR/src/features/software/releases.sh"
 . "$ROOT_DIR/src/features/terminal.sh"
@@ -47,63 +48,64 @@ fi
 . "$ROOT_DIR/src/core/navigation.sh"
 
 usage() {
-  printf 'Server Toolkit %s\n\n' "$SERVERCTL_VERSION"
+  printf 'keine %s\n\n' "$KEINE_VERSION"
   cat <<'EOF'
 用法：
-  serverctl                       打开交互控制台
-  serverctl status                显示一次性只读运维总览
-  serverctl doctor                检查运行环境与项目完整性
-  serverctl triage                运行只读故障快速排查
-  serverctl updates               查看系统软件包更新清单
-  serverctl system-update         预览并确认更新当前 VPS 系统
-  serverctl storage               显示只读存储概览
-  serverctl swap                  打开 Swap 生命周期管理
-  serverctl process PID           查看并管理一个进程
-  serverctl software [ID]         打开软件中心或指定软件详情
-  serverctl list [关键词]         查询软件目录
-  serverctl sources               按维护来源浏览软件
-  serverctl official-updates      检查已安装官方 Release 更新
-  serverctl exposure              分析公网监听、进程、容器与 UFW
-  serverctl install ID            安装一个软件
-  serverctl update ID             更新一个已安装软件
-  serverctl remove ID             移除一个软件
-  serverctl ports                 查看监听端口
-  serverctl dns [域名]            诊断系统 DNS 解析
-  serverctl dns-config             配置或恢复主机系统 DNS
-  serverctl proxy                  配置与管理已有 SOCKS5 出站代理
-  serverctl proxy-check URL        使用保存的代理验证 HTTP/HTTPS 请求
-  serverctl net-tuning             管理可撤销的原生网络参数
-  serverctl tuning-adapters        第三方调优适配预留与参数来源检查
-  serverctl probe HOST PORT       探测目标 TCP 端口
-  serverctl http URL              诊断 HTTP/HTTPS HEAD 状态、TLS 与耗时
-  serverctl trace HOST            查看目标链路路径
-  serverctl interface IFACE       查看一个网络接口详情
-  serverctl system                打开系统管理中心
-  serverctl network               打开网络与端口中心
-  serverctl security              打开安全中心
-  serverctl auth-activity         汇总最近 24 小时 SSH 登录活动
-  serverctl services              打开服务与日志中心
-  serverctl service SERVICE       打开一个 systemd 服务的管理页
-  serverctl service SERVICE ACTION
+  keine                       打开交互控制台
+  keine status                显示一次性只读运维总览
+  keine doctor                检查运行环境与项目完整性
+  keine triage                运行只读故障快速排查
+  keine updates               查看系统软件包更新清单
+  keine system-update         预览并确认更新当前 VPS 系统
+  keine storage               显示只读存储概览
+  keine swap                  打开 Swap 生命周期管理
+  keine process PID           查看并管理一个进程
+  keine software [ID]         打开软件中心或指定软件详情
+  keine list [关键词]         查询软件目录
+  keine sources               按维护来源浏览软件
+  keine official-updates      检查已安装官方 Release 更新
+  keine exposure              分析公网监听、进程、容器与 UFW
+  keine install ID            安装一个软件
+  keine update ID             更新一个已安装软件
+  keine remove ID             移除一个软件
+  keine ports                 查看监听端口
+  keine dns [域名]            诊断系统 DNS 解析
+  keine dns-config             配置或恢复主机系统 DNS
+  keine proxy                  配置与管理已有 SOCKS5 出站代理
+  keine proxy-check URL        使用保存的代理验证 HTTP/HTTPS 请求
+  keine net-tuning             管理可撤销的原生网络参数
+  keine tuning-adapters        第三方调优适配预留与参数来源检查
+  keine probe HOST PORT       探测目标 TCP 端口
+  keine http URL              诊断 HTTP/HTTPS HEAD 状态、TLS 与耗时
+  keine trace HOST            查看目标链路路径
+  keine interface IFACE       查看一个网络接口详情
+  keine system                打开系统管理中心
+  keine network               打开网络与端口中心
+  keine security              打开安全中心
+  keine auth-activity         汇总最近 24 小时 SSH 登录活动
+  keine services              打开服务与日志中心
+  keine service SERVICE       打开一个 systemd 服务的管理页
+  keine service SERVICE ACTION
                                   执行 start/stop/restart/enable/disable
-  serverctl journal               打开 Journal 管理
-  serverctl logs SERVICE          查看一个 systemd 服务的最近日志
-  serverctl apps                  打开应用与容器中心
-  serverctl app ID                打开一个已安装应用的专属详情
-  serverctl compose PROJECT       管理一个现有 Docker Compose 项目
-  serverctl backups               打开备份与恢复中心
-  serverctl terminal              终端框架与提示符一键切换
-  serverctl warp                  管理原生 WARP / wgcf 隧道
-  serverctl recovery              配置快照与项目变更撤销
-  serverctl changes               查看与撤销项目记录的修改
-  serverctl project               项目维护、更新与卸载
-  serverctl backup-delete SNAPSHOT
+  keine journal               打开 Journal 管理
+  keine logs SERVICE          查看一个 systemd 服务的最近日志
+  keine apps                  打开应用与容器中心
+  keine app ID                打开一个已安装应用的专属详情
+  keine compose PROJECT       管理一个现有 Docker Compose 项目
+  keine backups               打开备份与恢复中心
+  keine terminal              终端框架与提示符一键切换
+  keine terminal-check        诊断提示符未生效、登录 Shell 与初始化文件
+  keine warp                  管理原生 WARP / wgcf 隧道
+  keine recovery              配置快照与项目变更撤销
+  keine changes               查看与撤销项目记录的修改
+  keine project               项目维护、更新与卸载
+  keine backup-delete SNAPSHOT
                                   删除一个明确选择的项目快照
-  serverctl backup-cleanup        按保留数量或天数清理历史快照
-  serverctl about                 显示项目与安装信息
-  serverctl self-update           更新 Server Toolkit
-  serverctl uninstall             卸载 Server Toolkit
-  serverctl version               显示版本
+  keine backup-cleanup        按保留数量或天数清理历史快照
+  keine about                 显示项目与安装信息
+  keine self-update           更新 keine
+  keine uninstall             卸载 keine
+  keine version               显示版本
 
 选项：
   --dry-run                       预览修改命令
@@ -135,7 +137,7 @@ main() {
         # shellcheck disable=SC2034
         NO_COLOR=1
         ;;
-      -V|--version) printf 'Server Toolkit %s\n' "$SERVERCTL_VERSION"; return 0 ;;
+      -V|--version) printf 'keine %s\n' "$KEINE_VERSION"; return 0 ;;
       -h|--help|help) runtime_init; usage; return 0 ;;
       --*) die "未知选项：$1" ;;
       *) if [[ "$command_set" -eq 0 ]]; then command="$1"; command_set=1; else arguments+=("$1"); fi ;;
@@ -335,6 +337,10 @@ main() {
       platform_detect_identity
       backups_menu
       ;;
+    terminal-check)
+      ((${#arguments[@]} == 0)) || die "terminal-check 不接受参数"
+      terminal_diagnose
+      ;;
     terminal|warp|recovery|changes|project)
       ((${#arguments[@]} == 0)) || die "$command 不接受参数"
       case "$command" in
@@ -363,7 +369,7 @@ main() {
       ((${#arguments[@]} == 0)) || die "uninstall 不接受参数"
       toolkit_uninstall
       ;;
-    version) printf 'Server Toolkit %s\n' "$SERVERCTL_VERSION" ;;
+    version) printf 'keine %s\n' "$KEINE_VERSION" ;;
     *) die "未知命令：$command" ;;
   esac
 }

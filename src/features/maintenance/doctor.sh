@@ -105,7 +105,7 @@ toolkit_doctor() {
   local dependency_missing=0
   local required_files=(
     VERSION
-    bin/serverctl
+    bin/keine
     config/apps.tsv
     config/software.tsv
     config/software-effects.tsv
@@ -129,7 +129,7 @@ toolkit_doctor() {
     src/features/system/settings.sh
     src/features/system/menu.sh
     src/features/network.sh
-    src/features/network/configuration.sh
+    src/core/configuration.sh
     src/features/network/dns.sh
     src/features/network/proxy.sh
     src/features/network/parameters.sh
@@ -148,6 +148,8 @@ toolkit_doctor() {
     src/features/security/certificates.sh
     src/features/security/firewall.sh
     src/features/security/ssh.sh
+    src/features/security/ssh-policy.sh
+    src/features/security/fail2ban-policy.sh
     src/features/security/menu.sh
     src/features/services.sh
     src/features/services/overview.sh
@@ -169,6 +171,7 @@ toolkit_doctor() {
     src/features/software/repositories/caddy.sh
     src/features/software/releases.sh
     src/features/terminal/framework.sh
+    src/features/terminal/shells.sh
     src/features/terminal/prompts.sh
     src/features/terminal/menu.sh
     src/features/terminal.sh
@@ -209,10 +212,10 @@ toolkit_doctor() {
 
   ui_section "版本与程序结构" "primary"
   version="$(tr -d '[:space:]' <"$ROOT_DIR/VERSION" 2>/dev/null || true)"
-  if toolkit_version_valid "$version" && [[ "$version" == "$SERVERCTL_VERSION" ]]; then
+  if toolkit_version_valid "$version" && [[ "$version" == "$KEINE_VERSION" ]]; then
     toolkit_doctor_result pass "版本文件有效 · $version"
   else
-    toolkit_doctor_result fail "版本文件无效或运行时版本不一致" "VERSION=$version · runtime=$SERVERCTL_VERSION"
+    toolkit_doctor_result fail "版本文件无效或运行时版本不一致" "VERSION=$version · runtime=$KEINE_VERSION"
   fi
   for entry in "${required_files[@]}"; do
     if [[ -f "$ROOT_DIR/$entry" && ! -L "$ROOT_DIR/$entry" ]]; then
@@ -240,10 +243,10 @@ toolkit_doctor() {
   ui_section "安装入口与权限" "accent"
   metadata="$ROOT_DIR/config/installation.conf"
   if [[ -r "$metadata" ]]; then
-    expected_bin="${SERVER_TOOLKIT_BIN_PATH:-/usr/local/bin/serverctl}"
+    expected_bin="${KEINE_BIN_PATH:-/usr/local/bin/keine}"
     if [[ -L "$expected_bin" ]]; then
       resolved_bin="$(readlink -f "$expected_bin" 2>/dev/null || true)"
-      if [[ "$resolved_bin" == "$ROOT_DIR/bin/serverctl" ]]; then
+      if [[ "$resolved_bin" == "$ROOT_DIR/bin/keine" ]]; then
         toolkit_doctor_result pass "命令入口正确 · $expected_bin"
       else
         toolkit_doctor_result fail "命令入口指向其他位置" "$expected_bin → ${resolved_bin:-无法解析}"
@@ -251,7 +254,7 @@ toolkit_doctor() {
     else
       toolkit_doctor_result fail "命令入口不是符号链接或不存在 · $expected_bin"
     fi
-    if [[ "${SERVER_TOOLKIT_INSTALL_DIR:-$ROOT_DIR}" == "$ROOT_DIR" ]]; then
+    if [[ "${KEINE_INSTALL_DIR:-$ROOT_DIR}" == "$ROOT_DIR" ]]; then
       toolkit_doctor_result pass "安装元数据与当前目录一致"
     else
       toolkit_doctor_result fail "安装元数据中的目录与当前目录不一致"
@@ -300,7 +303,7 @@ toolkit_doctor() {
   ui_section "升级残留" "accent"
   parent_dir="$(dirname "$ROOT_DIR")"
   stale_count="$(find "$parent_dir" -mindepth 1 -maxdepth 1 -type d \
-    \( -name '.server-toolkit-stage.*' -o -name '.server-toolkit-old.*' -o -name '.server-toolkit-failed.*' \) \
+    \( -name '.keine-stage.*' -o -name '.keine-old.*' -o -name '.keine-failed.*' \) \
     -mmin +30 -printf '.' 2>/dev/null | wc -c | tr -d '[:space:]')"
   if [[ "$stale_count" =~ ^[0-9]+$ ]] && (( stale_count > 0 )); then
     toolkit_doctor_result warn "发现 $stale_count 个超过 30 分钟的安装残留目录" "请先确认没有安装进程，再人工检查 $parent_dir"
@@ -316,7 +319,7 @@ toolkit_doctor() {
   elif (( TOOLKIT_DOCTOR_WARN > 0 )); then
     ui_note "项目核心结构可用，但有 $TOOLKIT_DOCTOR_WARN 项需要确认。"
   else
-    ui_success "Server Toolkit 运行环境与项目检查通过"
+    ui_success "keine 运行环境与项目检查通过"
   fi
   ui_note "此检查只读，不会自动删除残留或修改安装。"
 }

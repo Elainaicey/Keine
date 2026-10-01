@@ -29,4 +29,4 @@ Changes involving the following areas require explicit confirmation, input valid
 - Docker cleanup and lifecycle operations;
 - downloaded repository keys and package sources.
 
-Server Toolkit does not collect telemetry or transmit VPS configuration to the project maintainers. Network requests are limited to user-invoked connectivity checks, TLS inspection, package repositories, and source installation or upgrade.
+keine does not collect telemetry or transmit VPS configuration to the project maintainers. Network requests are limited to user-invoked connectivity checks, TLS inspection, package repositories, and source installation or upgrade.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-NETWORK_BBR_FILE="${SERVER_TOOLKIT_BBR_FILE:-/etc/sysctl.d/98-server-toolkit-bbr.conf}"
+NETWORK_BBR_FILE="${KEINE_BBR_FILE:-/etc/sysctl.d/98-keine-bbr.conf}"
 
 network_bbr_apply_file() {
   [[ -f "$NETWORK_BBR_FILE" ]] || return 0
@@ -14,7 +14,7 @@ network_enable_bbr() {
   available="$(sysctl -n net.ipv4.tcp_available_congestion_control 2>/dev/null || true)"
   current="$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null || printf '未知')"
   ui_page "启用 BBR" "原生内核能力、独立持久配置与完整基线恢复"
-  if [[ -e "$NETWORK_BBR_FILE" ]] && ! grep -Fqx '# Managed by Server Toolkit' "$NETWORK_BBR_FILE"; then
+  if [[ -e "$NETWORK_BBR_FILE" ]] && ! config_project_marker "$NETWORK_BBR_FILE"; then
     warn "目标文件不属于项目，拒绝覆盖。"; return 1
   fi
   ui_hint "只设置拥塞算法与默认队列；不更换内核、不重建当前网卡队列，也不加载第三方 sysctl 文件。"
@@ -25,8 +25,8 @@ network_enable_bbr() {
     (( DRY_RUN == 1 )) || available="$(sysctl -n net.ipv4.tcp_available_congestion_control 2>/dev/null || true)"
   fi
   [[ "$DRY_RUN" == 1 || " $available " == *" bbr "* ]] || { warn "当前内核不支持 BBR。"; return 1; }
-  payload="$(printf '# Managed by Server Toolkit\n# Previous: %s\nnet.core.default_qdisc = fq\nnet.ipv4.tcp_congestion_control = bbr\n' "$current")"
-  network_config_write "$NETWORK_BBR_FILE" 0644 "$payload" network_bbr_apply_file || return 1
+  payload="$(printf '# Managed by keine\n# Previous: %s\nnet.core.default_qdisc = fq\nnet.ipv4.tcp_congestion_control = bbr\n' "$current")"
+  config_file_write "$NETWORK_BBR_FILE" 0644 "$payload" network_bbr_apply_file || return 1
   audit "action=enable-bbr previous=$current"
   ui_success "BBR 配置操作完成。"
 }
@@ -44,7 +44,7 @@ network_bbr_manage() {
   current="$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null || printf '未知')"
   available="$(sysctl -n net.ipv4.tcp_available_congestion_control 2>/dev/null || printf '未知')"
   if [[ -f "$NETWORK_BBR_FILE" ]] &&
-    grep -Fq '# Managed by Server Toolkit' "$NETWORK_BBR_FILE"; then
+    config_project_marker "$NETWORK_BBR_FILE"; then
     managed="是"
   fi
   ui_page "BBR 拥塞控制" "查看内核能力、启用 BBR 或恢复托管配置"
@@ -89,24 +89,24 @@ network_set_address_preference() {
   temporary="$(mktemp)" || { warn "无法创建地址优先级临时文件。"; return 1; }
   if [[ -f "$config" ]]; then
     awk '
-      $0 == "# BEGIN Server Toolkit" {managed=1; next}
-      $0 == "# END Server Toolkit" && managed {managed=0; next}
+      $0 == "# BEGIN keine" {managed=1; next}
+      $0 == "# END keine" && managed {managed=0; next}
       !managed {print}
     ' "$config" >"$temporary" || { rm -f "$temporary"; warn "无法读取 $config。"; return 1; }
   fi
   if [[ "$choice" == "1" ]]; then
     cat >>"$temporary" <<'EOF'
 
-# BEGIN Server Toolkit
+# BEGIN keine
 precedence ::ffff:0:0/96 100
-# END Server Toolkit
+# END keine
 EOF
   fi
   install -m 0644 "$temporary" "$config" || { rm -f "$temporary"; warn "无法更新 $config。"; return 1; }
   rm -f "$temporary"
   if [[ "$choice" == "1" ]]; then
     grep -Fqx 'precedence ::ffff:0:0/96 100' "$config" || { warn "IPv4 优先级写入后验证失败。"; return 1; }
-  elif grep -Fq '# BEGIN Server Toolkit' "$config"; then
+  elif grep -Fq '# BEGIN keine' "$config"; then
     warn "托管的地址优先级配置未完全移除。"
     return 1
   fi

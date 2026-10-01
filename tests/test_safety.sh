@@ -75,19 +75,19 @@ if valid_firewall_source 999.0.0.1 || valid_firewall_source 10.0.0.0/33 ||
   exit 1
 fi
 
-safe_managed_path /opt/server-toolkit || { printf 'FAIL: 正常路径被拒绝\n' >&2; exit 1; }
+safe_managed_path /opt/keine || { printf 'FAIL: 正常路径被拒绝\n' >&2; exit 1; }
 if safe_managed_path / || safe_managed_path /opt || safe_managed_path /var/ ||
   safe_managed_path /var// || safe_managed_path /var//log ||
   safe_managed_path /var/../etc || safe_managed_path $'/var/log\n/unsafe'; then
   printf 'FAIL: 接受了危险路径\n' >&2
   exit 1
 fi
-safe_toolkit_path /var/lib/server-toolkit/software-releases || {
+safe_toolkit_path /var/lib/keine/software-releases || {
   printf 'FAIL: 正常项目数据路径被拒绝\n' >&2
   exit 1
 }
 if safe_toolkit_path /var/log || safe_toolkit_path /var/backups/general ||
-  safe_toolkit_path /var//server-toolkit; then
+  safe_toolkit_path /var//keine; then
   printf 'FAIL: 接受了不属于项目的数据根路径\n' >&2
   exit 1
 fi

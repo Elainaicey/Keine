@@ -42,7 +42,7 @@ software_configure_docker_repository() {
     return 1
   fi
   if ! printf '%s\n' \
-    '# Managed by Server Toolkit' \
+    '# Managed by keine' \
     'Types: deb' \
     "URIs: https://download.docker.com/linux/$OS_ID" \
     "Suites: $OS_CODENAME" \

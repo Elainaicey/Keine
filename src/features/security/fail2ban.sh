@@ -106,6 +106,9 @@ security_fail2ban_jail_manage() {
           pause
           continue
         fi
+        if security_source_is_current "$address"; then
+          warn "拒绝封禁当前 SSH 会话来源。"; pause; continue
+        fi
         if tr ' ' '\n' <<<"$banned" | grep -Fxq "$address"; then
           info "$address 已在当前封禁清单中。"
           pause
@@ -143,6 +146,7 @@ security_fail2ban_jail_manage() {
 security_fail2ban_reload() {
   confirm "重新加载 Fail2ban 配置？" || return 0
   require_root
+  fail2ban-client -t >/dev/null 2>&1 || { warn "配置检查失败，未执行重载。"; return 1; }
   run fail2ban-client reload || { warn "Fail2ban 配置重新加载失败。"; return 1; }
   if [[ "$DRY_RUN" -eq 0 ]]; then
     fail2ban-client ping >/dev/null 2>&1 || { warn "重新加载后 Fail2ban 无法响应。"; return 1; }
@@ -203,13 +207,15 @@ security_fail2ban() {
     ui_panel_kv "当前封禁" "$banned"
     ui_panel_end
     if [[ "$state" == "active" && "$client_ready" -eq 0 ]]; then
-      ui_note "服务正在运行，但当前用户无法读取 Fail2ban Socket；请使用 sudo serverctl。"
+      ui_note "服务正在运行，但当前用户无法读取 Fail2ban Socket；请使用 sudo keine。"
     fi
     ui_section "观察与处置" "primary"
     ui_action 1 "查看全部 Jail" "action"
     ui_action 2 "管理一个 Jail" "action" "查看详情并解除误封 IP"
     ui_action 3 "查看服务日志" "action"
     ui_action 4 "重新加载配置" "warning"
+    ui_action C "配置 SSH Jail 策略" "action" "封禁时间、观察窗口、重试与白名单"
+    ui_action R "撤销项目 Jail 策略" "warning" "保留其他 Jail 和当前服务"
     ui_section "服务生命周期" "accent"
     if [[ "$state" == "active" ]]; then
       ui_action 5 "启动服务" "muted" "当前已经运行"
@@ -257,6 +263,8 @@ security_fail2ban() {
       7) services_apply_action fail2ban.service restart || true; pause ;;
       8) services_apply_action fail2ban.service enable || true; pause ;;
       9) services_apply_action fail2ban.service disable || true; pause ;;
+      C|c) security_fail2ban_policy_configure || true; pause ;;
+      R|r) security_fail2ban_policy_restore || true; pause ;;
       0) return 0 ;;
       *) warn "未知选项" ;;
     esac

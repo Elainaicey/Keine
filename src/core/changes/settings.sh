@@ -53,19 +53,16 @@ changes_setting_value() {
 }
 
 changes_setting_entry() {
-  local key="$1" legacy
+  local key="$1"
   [[ "$key" =~ ^[a-z]+(:[A-Za-z0-9@_.-]+)?$ ]] || return 1
-  legacy="$(changes_root)/settings/$key"
-  if [[ -d "$legacy" && ! -L "$legacy" ]]; then printf '%s' "$legacy"
-  else printf '%s/settings/%s' "$(changes_root)" "${key//:/_}"; fi
+  printf '%s/settings/%s' "$(changes_root)" "${key//:/_}"
 }
 
 changes_setting_key() {
   local entry="$1" key field
   [[ -d "$entry" && ! -L "$entry" ]] || return 1
-  for field in before last; do [[ -f "$entry/$field" && ! -L "$entry/$field" ]] || return 1; done
-  if [[ -f "$entry/key" && ! -L "$entry/key" ]]; then key="$(<"$entry/key")"
-  else key="${entry##*/}"; fi
+  for field in key before last; do [[ -f "$entry/$field" && ! -L "$entry/$field" ]] || return 1; done
+  key="$(<"$entry/key")"
   [[ "$key" =~ ^[a-z]+(:[A-Za-z0-9@_.-]+)?$ ]] || return 1
   [[ "$(changes_setting_entry "$key")" == "$entry" ]] || return 1
   printf '%s' "$key"
@@ -117,7 +114,7 @@ changes_before_command() {
       while IFS= read -r key; do changes_setting_prepare "$key" || return 1; done < <(changes_sysctl_arguments "$verb" "${@:3}")
       ;;
     ufw:*)
-      case "$verb" in allow|deny|limit|default|enable|disable|delete|logging|--force)
+      case "$verb" in allow|deny|limit|prepend|insert|default|enable|disable|delete|logging|--force)
         for path in /etc/ufw/ufw.conf /etc/ufw/user.rules /etc/ufw/user6.rules /etc/default/ufw; do changes_prepare_file "$path" || return 1; done
         ;;
       esac

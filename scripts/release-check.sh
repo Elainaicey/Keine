@@ -25,7 +25,7 @@ grep -Fqx "## $version" docs/CHANGELOG.md || {
   printf 'FAIL: 缺少正式发布说明：%s\n' "$release_notes" >&2
   exit 1
 }
-grep -Fqx "# Server Toolkit $version" "$release_notes" || {
+grep -Fqx "# keine $version" "$release_notes" || {
   printf 'FAIL: %s 标题与 VERSION 不一致\n' "$release_notes" >&2
   exit 1
 }

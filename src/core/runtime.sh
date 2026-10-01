@@ -6,8 +6,8 @@
 DRY_RUN=0
 NO_COLOR=0
 RED=''; GREEN=''; YELLOW=''; BLUE=''; CYAN=''; MAGENTA=''; WHITE=''; MUTED=''; BOLD=''; NC=''
-AUDIT_LOG="${SERVER_TOOLKIT_AUDIT_LOG:-/var/log/server-toolkit/actions.log}"
-STATE_ROOT="${SERVER_TOOLKIT_STATE_ROOT:-/var/lib/server-toolkit}"
+AUDIT_LOG="${KEINE_AUDIT_LOG:-/var/log/keine/actions.log}"
+STATE_ROOT="${KEINE_STATE_ROOT:-/var/lib/keine}"
 
 runtime_colors() {
   if [[ "$NO_COLOR" -eq 1 || ! -t 1 ]]; then
@@ -25,7 +25,7 @@ error() { printf '%b[错误]%b %s\n' "$RED" "$NC" "$*" >&2; }
 die() { error "$*"; exit 1; }
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
-require_root() { [[ "${EUID}" -eq 0 ]] || die "此操作需要 root 权限，请使用 sudo serverctl。"; }
+require_root() { [[ "${EUID}" -eq 0 ]] || die "此操作需要 root 权限，请使用 sudo keine。"; }
 
 terminal_safe_text() {
   local value="${1:-}"

@@ -7,7 +7,7 @@ IFS=$'\n\t'
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)"
 test_root="$(mktemp -d)"
 trap '[[ "$test_root" == /tmp/* ]] && rm -rf -- "$test_root"' EXIT
-SERVER_TOOLKIT_STATE_ROOT="$test_root/server-toolkit-state"
+KEINE_STATE_ROOT="$test_root/keine-state"
 . "$ROOT_DIR/src/core/runtime.sh"
 . "$ROOT_DIR/src/core/validation.sh"
 . "$ROOT_DIR/src/core/changes.sh"
@@ -70,10 +70,10 @@ apt_mock_removal=base
 if changes_packages_plan >/dev/null 2>&1; then die "撤销计划会删除原有包却未阻止"; fi
 
 . "$ROOT_DIR/src/integrations/warp.sh"
-SERVER_TOOLKIT_WIREGUARD_DIR="$test_root/wireguard"
-mkdir -p "$SERVER_TOOLKIT_WIREGUARD_DIR"
-printf '[Peer]\nEndpoint = engage.cloudflareclient.com:2408\n' >"$SERVER_TOOLKIT_WIREGUARD_DIR/cloudflare.conf"
-printf '[Peer]\nEndpoint = example.com:51820\n' >"$SERVER_TOOLKIT_WIREGUARD_DIR/private.conf"
+KEINE_WIREGUARD_DIR="$test_root/wireguard"
+mkdir -p "$KEINE_WIREGUARD_DIR"
+printf '[Peer]\nEndpoint = engage.cloudflareclient.com:2408\n' >"$KEINE_WIREGUARD_DIR/cloudflare.conf"
+printf '[Peer]\nEndpoint = example.com:51820\n' >"$KEINE_WIREGUARD_DIR/private.conf"
 [[ "$(warp_wireguard_profiles)" == cloudflare ]] || die "WARP 原生配置识别错误"
 warp_cli_state=Disconnected
 warp-cli() { printf 'Status update: %s\n' "$warp_cli_state"; }

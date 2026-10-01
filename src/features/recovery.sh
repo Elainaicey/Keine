@@ -38,7 +38,7 @@ recovery_restore_file() {
   local entry="$1" path
   path="$(<"$entry/path")"
   case "$path" in
-    "${NETWORK_DNS_RESOLV:-/etc/resolv.conf}"|"${NETWORK_DNS_DROPIN:-/etc/systemd/resolved.conf.d/90-server-toolkit-dns.conf}"|"${NETWORK_DNS_HEAD:-/etc/resolvconf/resolv.conf.d/head}")
+    "${NETWORK_DNS_RESOLV:-/etc/resolv.conf}"|"${NETWORK_DNS_DROPIN:-/etc/systemd/resolved.conf.d/90-keine-dns.conf}"|"${NETWORK_DNS_HEAD:-/etc/resolvconf/resolv.conf.d/head}")
       network_dns_restore_path "$path" ;;
     *) changes_restore_file "$entry" ;;
   esac
@@ -63,7 +63,7 @@ recovery_restore_all() {
   local kind entry label path failed=0 ssh_changed=0 ufw_changed=0
   recovery_preflight || { warn "请先处理冲突，未执行撤销。"; return 1; }
   ui_page "撤销项目变更" "恢复首次修改前的资源，移除项目新增资源"
-  ui_note "仅撤销有原始记录且未被外部修改的资源。旧版本的历史变更、已有软件的升级和已删除的数据没有可推断的原始状态。"
+  ui_note "仅撤销有原始记录且未被外部修改的资源。未记录的历史变更、已有软件的升级和已删除的数据没有可推断的原始状态。"
   ui_hint "若列表涉及 SSH、UFW 或 WARP，请保留服务商控制台；撤销会改变当前网络设置。"
   confirm "撤销当前记录中的项目变更？" || return 1
   require_root

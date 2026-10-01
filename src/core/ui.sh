@@ -68,7 +68,7 @@ ui_page() {
   local title="$1" subtitle="${2:-}"
   ui_clear
   ui_detect_width
-  printf '\n%b◆%b %bSERVER TOOLKIT%b %b›%b %b%s%b\n' \
+  printf '\n%b◆%b %bKEINE%b %b›%b %b%s%b\n' \
     "$MAGENTA$BOLD" "$NC" "$MUTED$BOLD" "$NC" "$MAGENTA" "$NC" "$CYAN$BOLD" "$title" "$NC"
   if [[ -n "$subtitle" ]]; then
     printf '  %b%s%b\n' "$MUTED" "$subtitle" "$NC"
@@ -85,7 +85,7 @@ ui_banner() {
   ui_clear
   ui_detect_width
   printf '\n  %b◆ SERVER%b %bTOOLKIT%b  %bv%s%b\n' \
-    "$MAGENTA$BOLD" "$NC" "$CYAN$BOLD" "$NC" "$YELLOW" "$SERVERCTL_VERSION" "$NC"
+    "$MAGENTA$BOLD" "$NC" "$CYAN$BOLD" "$NC" "$YELLOW" "$KEINE_VERSION" "$NC"
   printf '  %bDebian / Ubuntu · 安全、清晰、可恢复的 VPS 控制台%b\n' "$MUTED" "$NC"
   ui_rule
 }

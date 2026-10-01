@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-NETWORK_TUNING_FILE="${SERVER_TOOLKIT_NETWORK_TUNING_FILE:-/etc/sysctl.d/98-server-toolkit-network.conf}"
-NETWORK_TUNING_CATALOG="${SERVER_TOOLKIT_NETWORK_TUNING_CATALOG:-$CONFIG_DIR/network-tuning.tsv}"
+NETWORK_TUNING_FILE="${KEINE_NETWORK_TUNING_FILE:-/etc/sysctl.d/98-keine-network.conf}"
+NETWORK_TUNING_CATALOG="${KEINE_NETWORK_TUNING_CATALOG:-$CONFIG_DIR/network-tuning.tsv}"
 NETWORK_TUNING_GROUP_ENTRIES=()
 NETWORK_TUNING_PREVIOUS_VALUES=()
 
@@ -94,19 +94,19 @@ network_tuning_set() {
   [[ "$value" != 0 || "$minimum" == 0 ]] || return 0
   network_tuning_value_valid "$key" "$value" || { warn "参数须为范围内的整数。"; return 1; }
   value="$((10#$value))"
-  if [[ -e "$NETWORK_TUNING_FILE" ]] && ! grep -Fqx '# Managed by Server Toolkit' "$NETWORK_TUNING_FILE"; then
+  if [[ -e "$NETWORK_TUNING_FILE" ]] && ! config_project_marker "$NETWORK_TUNING_FILE"; then
     warn "目标文件不属于项目，拒绝覆盖。"; return 1
   fi
   ui_note "只写入本项目独立文件；第三方持久配置可能在重启时覆盖，请先查看参数来源。"
   confirm "设置 $key=$value 并记录原始运行值？" || return 0
   payload="$({
-    printf '# Managed by Server Toolkit\n'
+    printf '# Managed by keine\n'
     if [[ -f "$NETWORK_TUNING_FILE" ]]; then
       awk -F '=' -v wanted="$key" '!/^#/ {key=$1; gsub(/[[:space:]]/,"",key); if(key != wanted && NF==2) print}' "$NETWORK_TUNING_FILE"
     fi
     printf '%s = %s\n' "$key" "$value"
   })"
-  network_config_write "$NETWORK_TUNING_FILE" 0644 "$payload" network_tuning_apply_file || return 1
+  config_file_write "$NETWORK_TUNING_FILE" 0644 "$payload" network_tuning_apply_file || return 1
   audit "action=network-parameter key=$key value=$value"
   ui_success "参数配置完成。"
 }
@@ -139,7 +139,7 @@ network_sysctl_restore_group() {
     NETWORK_TUNING_GROUP_ENTRIES+=("$entry"); NETWORK_TUNING_PREVIOUS_VALUES+=("$key=$current")
   done
   confirm "移除项目网络参数文件，并恢复首次修改前的运行值？" || return 0
-  network_config_restore "$file" network_tuning_restore_runtime network_tuning_restore_rollback || return 1
+  config_file_restore "$file" network_tuning_restore_runtime network_tuning_restore_rollback || return 1
   for entry in "${NETWORK_TUNING_GROUP_ENTRIES[@]}"; do changes_restore_setting "$entry" || return 1; done
   audit 'action=network-parameters-restore'
   ui_success "项目网络参数已撤销；第三方配置文件未修改。"

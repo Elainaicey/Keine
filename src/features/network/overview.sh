@@ -92,7 +92,7 @@ network_target_diagnose() {
 network_dns_diagnose() {
   local target="${1:-}" resolved
   if [[ -z "$target" ]]; then
-    ui_hint "输入域名或地址；命令行也可使用 serverctl dns example.com。"
+    ui_hint "输入域名或地址；命令行也可使用 keine dns example.com。"
     target="$(read_input "待解析域名" "github.com")"
   fi
   valid_network_target "$target" || { warn "目标格式无效。"; return 1; }

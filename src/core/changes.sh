@@ -17,7 +17,7 @@ changes_path_safe() {
   parent="$(dirname -- "$path")"
   [[ "$(readlink -m -- "$parent")" == "$parent" ]] || return 1
   case "$path" in
-    "$STATE_ROOT"|"$STATE_ROOT"/*|"${BACKUP_ROOT:-/var/backups/server-toolkit}"/*|"${ROOT_DIR:-/opt/server-toolkit}"/*) return 1 ;;
+    "$STATE_ROOT"|"$STATE_ROOT"/*|"${BACKUP_ROOT:-/var/backups/keine}"/*|"${ROOT_DIR:-/opt/keine}"/*) return 1 ;;
   esac
 }
 
@@ -143,7 +143,7 @@ changes_restore_file() {
       [[ -f "$entry/original" || -L "$entry/original" ]] || return 1
       parent="$(dirname -- "$path")"
       mkdir -p "$parent" || return 1
-      temporary="$(mktemp "$parent/.server-toolkit-restore.XXXXXX")" || return 1
+      temporary="$(mktemp "$parent/.keine-restore.XXXXXX")" || return 1
       rm -f -- "$temporary"
       if ! cp -a -- "$entry/original" "$temporary" || ! mv -fT -- "$temporary" "$path"; then
         rm -f -- "$temporary"; return 1

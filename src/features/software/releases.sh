@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-OFFICIAL_RELEASE_CATALOG="${SERVER_TOOLKIT_RELEASE_CATALOG:-$CONFIG_DIR/official-releases.tsv}"
-SOFTWARE_RELEASE_STATE_DIR="${SERVER_TOOLKIT_RELEASE_STATE_DIR:-$STATE_ROOT/software-releases}"
-SOFTWARE_RELEASE_BIN_DIR="${SERVER_TOOLKIT_RELEASE_BIN_DIR:-/usr/local/bin}"
+OFFICIAL_RELEASE_CATALOG="${KEINE_RELEASE_CATALOG:-$CONFIG_DIR/official-releases.tsv}"
+SOFTWARE_RELEASE_STATE_DIR="${KEINE_RELEASE_STATE_DIR:-$STATE_ROOT/software-releases}"
+SOFTWARE_RELEASE_BIN_DIR="${KEINE_RELEASE_BIN_DIR:-/usr/local/bin}"
 declare -Ag SOFTWARE_RELEASE_LATEST_CACHE=()
 SOFTWARE_RELEASE_LATEST_VERSION=""
 SOFTWARE_RELEASE_LATEST_ASSET=""
@@ -318,7 +318,7 @@ software_install_release() {
 
 software_update_release() {
   local id="$1" current latest
-  software_release_installed "$id" || { warn "$id 尚未由 Server Toolkit 官方 Release 安装器管理。"; return 1; }
+  software_release_installed "$id" || { warn "$id 尚未由 keine 官方 Release 安装器管理。"; return 1; }
   software_release_integrity "$id" || { warn "$id 的托管二进制已被修改，拒绝自动更新。"; return 1; }
   current="$(software_release_version "$id")"
   software_release_load_latest "$id" || return 1
@@ -332,13 +332,13 @@ software_update_release() {
 
 software_repair_release() {
   local id="$1"
-  software_release_managed "$id" || { warn "$id 不由 Server Toolkit 官方 Release 安装器管理。"; return 1; }
+  software_release_managed "$id" || { warn "$id 不由 keine 官方 Release 安装器管理。"; return 1; }
   software_install_release "$id" repair
 }
 
 software_remove_release() {
   local id="$1" target marker
-  software_release_managed "$id" || { warn "$id 不由 Server Toolkit 官方 Release 安装器管理。"; return 1; }
+  software_release_managed "$id" || { warn "$id 不由 keine 官方 Release 安装器管理。"; return 1; }
   software_release_integrity "$id" || { warn "$id 的托管二进制已被修改，拒绝自动删除。"; return 1; }
   target="$(software_release_target "$id")" || return 1
   marker="$(software_release_marker "$id")" || return 1

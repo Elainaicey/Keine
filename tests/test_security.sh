@@ -181,7 +181,7 @@ ui_section() { :; }
 ui_kv() { :; }
 ui_success() { :; }
 
-security_firewall_rule >/dev/null
+security_firewall_rule allow >/dev/null
 [[ "${#captured_calls[@]}" -eq 2 && "${captured_calls[0]}" == "ufw allow 443/tcp" &&
   "${captured_calls[1]}" == "ufw allow 80/tcp" ]] || {
   printf 'FAIL: 批量 UFW 规则构造错误\n' >&2
@@ -190,10 +190,25 @@ security_firewall_rule >/dev/null
 
 firewall_input='8443'
 captured_calls=()
-security_firewall_rule >/dev/null
+security_firewall_rule allow >/dev/null
 [[ "${#captured_calls[@]}" -eq 1 && "${captured_calls[0]}" == "ufw allow 8443/udp" ]] || {
   printf 'FAIL: 未指定协议的 UFW 规则构造错误\n' >&2
   exit 1
 }
 
+detect_ssh_port() { printf '22'; }
+firewall_input='22/tcp,443/tcp'
+captured_calls=()
+if security_firewall_rule deny >/dev/null 2>&1; then printf 'FAIL: 拒绝规则允许阻断当前 SSH 端口\n' >&2; exit 1; fi
+[[ ${#captured_calls[@]} == 0 ]] || { printf 'FAIL: SSH 阻断验证前已修改防火墙\n' >&2; exit 1; }
+security_ssh_policy_valid MaxAuthTries 3 || die '合法 SSH 策略被拒绝'
+security_ssh_policy_valid AllowTcpForwarding no || die '合法转发策略被拒绝'
+if security_ssh_policy_valid MaxAuthTries 0 || security_ssh_policy_valid AllowTcpForwarding 'yes;reboot' || security_ssh_policy_valid Unknown yes; then die 'SSH 策略缺少白名单或范围校验'; fi
+security_fail2ban_policy_valid 3600 600 5 || die '合法 Fail2ban 策略被拒绝'
+if security_fail2ban_policy_valid 0 600 5 || security_fail2ban_policy_valid 3600 600 21; then die 'Fail2ban 参数范围未校验'; fi
+export SSH_CONNECTION='192.0.2.10 49152 198.51.100.10 22'
+ignore="$(security_fail2ban_ignore_addresses '203.0.113.0/24,192.0.2.10')"
+[[ "$(grep -cx '192.0.2.10' <<<"$ignore")" == 1 ]] || die '未保护当前 SSH 来源或未去重'
+security_source_is_current 192.0.2.10 || die '当前 SSH 来源保护未生效'
+if security_fail2ban_ignore_addresses 'any' >/dev/null || security_fail2ban_ignore_addresses $'192.0.2.1\n[DEFAULT]' >/dev/null; then die 'Fail2ban 白名单接受了危险输入'; fi
 printf 'PASS: security\n'

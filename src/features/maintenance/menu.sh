@@ -6,7 +6,7 @@ toolkit_menu() {
     ui_page "项目与扩展" "版本、环境、扩展接口和安装生命周期"
     ui_action 1 "项目与安装信息" "action"
     ui_action 2 "运行环境与完整性" "action"
-    ui_action 3 "更新 Server Toolkit" "success"
+    ui_action 3 "更新 keine" "success"
     ui_action 4 "项目变更与撤销" "warning"
     ui_action 5 "卸载项目" "danger" "可先撤销有记录的系统变更"
     ui_action 0 "返回" "muted"

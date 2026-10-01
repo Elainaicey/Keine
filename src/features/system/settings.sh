@@ -177,7 +177,7 @@ system_create_swap() {
 
 system_swap_toggle() {
   local mode="$1"
-  system_swap_managed || { warn "只允许控制由 Server Toolkit 创建的 /swapfile。"; return 1; }
+  system_swap_managed || { warn "只允许控制由 keine 创建的 /swapfile。"; return 1; }
   case "$mode" in
     enable)
       system_swap_active && { info "/swapfile 已经启用。"; return 0; }
@@ -201,11 +201,11 @@ system_swap_toggle() {
 system_remove_swap() {
   local marker temporary
   marker="$(system_swap_marker)"
-  system_swap_managed || { warn "没有检测到由 Server Toolkit 创建的 /swapfile。"; return 1; }
+  system_swap_managed || { warn "没有检测到由 keine 创建的 /swapfile。"; return 1; }
   [[ -f /swapfile && ! -L /swapfile ]] || { warn "/swapfile 不存在或文件类型异常。"; return 1; }
   ui_page "删除托管 Swap" "停用交换文件、移除开机配置并删除项目状态记录"
   ui_danger "该操作会永久删除 /swapfile；内存不足时停用 Swap 可能失败。"
-  confirm "确认删除由 Server Toolkit 管理的 /swapfile？" || return 0
+  confirm "确认删除由 keine 管理的 /swapfile？" || return 0
   require_root
   backup_file /etc/fstab || { warn "无法备份 /etc/fstab。"; return 1; }
   if system_swap_active; then

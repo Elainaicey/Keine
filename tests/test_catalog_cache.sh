@@ -9,11 +9,11 @@ CACHE_TEST_ROOT="$(mktemp -d)"
 trap '[[ "$CACHE_TEST_ROOT" == /tmp/* ]] && rm -rf -- "$CACHE_TEST_ROOT"' EXIT
 CONFIG_DIR="$CACHE_TEST_ROOT"
 ARCH=amd64
-SERVER_TOOLKIT_CATALOG="$CACHE_TEST_ROOT/software.tsv"
+KEINE_CATALOG="$CACHE_TEST_ROOT/software.tsv"
 CALL_LOG="$CACHE_TEST_ROOT/calls"
 printf '%s\n' \
   'one|测试|One|fixture|one|' \
-  'two|测试|Two|fixture|two|' >"$SERVER_TOOLKIT_CATALOG"
+  'two|测试|Two|fixture|two|' >"$KEINE_CATALOG"
 
 command_exists() { case "$1" in dpkg-query|apt|apt-cache) return 0 ;; *) return 1 ;; esac; }
 dpkg-query() {

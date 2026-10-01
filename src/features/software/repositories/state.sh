@@ -16,7 +16,7 @@ software_repository_name() {
 }
 
 software_repository_source_file() {
-  local sources_dir="${SERVER_TOOLKIT_APT_SOURCES_DIR:-/etc/apt/sources.list.d}"
+  local sources_dir="${KEINE_APT_SOURCES_DIR:-/etc/apt/sources.list.d}"
   case "${1:-}" in
     docker_official) printf '%s/docker.sources' "$sources_dir" ;;
     caddy_official) printf '%s/caddy-stable.list' "$sources_dir" ;;
@@ -27,11 +27,11 @@ software_repository_source_file() {
 software_repository_key_file() {
   case "${1:-}" in
     docker_official)
-      printf '%s/docker.asc' "${SERVER_TOOLKIT_APT_KEYRING_DIR:-/etc/apt/keyrings}"
+      printf '%s/docker.asc' "${KEINE_APT_KEYRING_DIR:-/etc/apt/keyrings}"
       ;;
     caddy_official)
       printf '%s/caddy-stable-archive-keyring.gpg' \
-        "${SERVER_TOOLKIT_SHARE_KEYRING_DIR:-/usr/share/keyrings}"
+        "${KEINE_SHARE_KEYRING_DIR:-/usr/share/keyrings}"
       ;;
     *) return 1 ;;
   esac

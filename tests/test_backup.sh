@@ -5,15 +5,15 @@ IFS=$'\n\t'
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)"
 TEST_ROOT="$(mktemp -d)"
 trap 'rm -rf -- "$TEST_ROOT"' EXIT
-SERVER_TOOLKIT_BACKUP_ROOT="$TEST_ROOT/server-toolkit/backups"
+KEINE_BACKUP_ROOT="$TEST_ROOT/keine/backups"
 
 . "$ROOT_DIR/src/core/runtime.sh"
 . "$ROOT_DIR/src/core/validation.sh"
 . "$ROOT_DIR/src/core/backup.sh"
 
-mkdir -p "$SERVER_TOOLKIT_BACKUP_ROOT/20260719-120000-42/etc"
-printf '/etc/example.conf\n' > "$SERVER_TOOLKIT_BACKUP_ROOT/20260719-120000-42/manifest.txt"
-printf 'original\n' > "$SERVER_TOOLKIT_BACKUP_ROOT/20260719-120000-42/etc/example.conf"
+mkdir -p "$KEINE_BACKUP_ROOT/20260719-120000-42/etc"
+printf '/etc/example.conf\n' > "$KEINE_BACKUP_ROOT/20260719-120000-42/manifest.txt"
+printf 'original\n' > "$KEINE_BACKUP_ROOT/20260719-120000-42/etc/example.conf"
 
 [[ "$(backup_manifest 20260719-120000-42)" == "/etc/example.conf" ]] || {
   printf 'FAIL: 无法读取有效备份清单\n' >&2
@@ -33,12 +33,12 @@ if backup_verify '../etc' >/dev/null 2>&1; then
 fi
 
 for snapshot in 20260720-120000-43 20260721-120000-44 20260722-120000-45; do
-  mkdir -p "$SERVER_TOOLKIT_BACKUP_ROOT/$snapshot/etc"
-  printf '/etc/example.conf\n' >"$SERVER_TOOLKIT_BACKUP_ROOT/$snapshot/manifest.txt"
-  printf '%s\n' "$snapshot" >"$SERVER_TOOLKIT_BACKUP_ROOT/$snapshot/etc/example.conf"
+  mkdir -p "$KEINE_BACKUP_ROOT/$snapshot/etc"
+  printf '/etc/example.conf\n' >"$KEINE_BACKUP_ROOT/$snapshot/manifest.txt"
+  printf '%s\n' "$snapshot" >"$KEINE_BACKUP_ROOT/$snapshot/etc/example.conf"
 done
 
-BACKUP_SESSION="$SERVER_TOOLKIT_BACKUP_ROOT/20260720-120000-43"
+BACKUP_SESSION="$KEINE_BACKUP_ROOT/20260720-120000-43"
 mapfile -t cleanup_candidates < <(backup_cleanup_keep_candidates 2)
 [[ "${#cleanup_candidates[@]}" -eq 1 && "${cleanup_candidates[0]}" == "20260719-120000-42" ]] || {
   printf 'FAIL: 保留数量清理没有保护最新快照或当前会话\n' >&2
@@ -91,7 +91,7 @@ backup_set_protection 20260719-120000-42 0 >/dev/null
 DRY_RUN=1
 backup_restore 20260719-120000-42 /etc/example.conf >/dev/null
 backup_delete 20260719-120000-42 >/dev/null
-[[ -d "$SERVER_TOOLKIT_BACKUP_ROOT/20260719-120000-42" ]] || {
+[[ -d "$KEINE_BACKUP_ROOT/20260719-120000-42" ]] || {
   printf 'FAIL: dry-run 删除了备份\n' >&2
   exit 1
 }
@@ -100,7 +100,7 @@ backup_delete 20260719-120000-42 >/dev/null
 # shellcheck disable=SC2034
 DRY_RUN=0
 backup_delete 20260719-120000-42
-[[ ! -e "$SERVER_TOOLKIT_BACKUP_ROOT/20260719-120000-42" ]] || {
+[[ ! -e "$KEINE_BACKUP_ROOT/20260719-120000-42" ]] || {
   printf 'FAIL: 没有删除明确选择的备份\n' >&2
   exit 1
 }

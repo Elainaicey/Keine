@@ -3,8 +3,8 @@ set -Eeuo pipefail
 IFS=$'\n\t'
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)"
-# shellcheck source=../bin/serverctl
-. "$ROOT_DIR/bin/serverctl"
+# shellcheck source=../bin/keine
+. "$ROOT_DIR/bin/keine"
 
 captured=""
 identity_calls=0
@@ -45,10 +45,11 @@ network_tuning_menu() { captured='net-tuning'; }
 network_tuning_adapter_menu() { captured='tuning-adapters'; }
 network_path_trace() { captured="trace:$1"; }
 network_interface_detail() { captured="interface:$1"; }
+terminal_diagnose() { captured='terminal-check'; }
 security_auth_activity() { captured="auth-activity:$1"; }
 apps_service_detail() { captured="app:$1"; }
 
-[[ "$(main --version)" == "Server Toolkit $SERVERCTL_VERSION" ]] || {
+[[ "$(main --version)" == "keine $KEINE_VERSION" ]] || {
   printf 'FAIL: --version 标准选项输出错误\n' >&2
   exit 1
 }
@@ -83,6 +84,8 @@ fi
 
 main doctor
 [[ "$captured" == "doctor" ]] || { printf 'FAIL: doctor 命令没有进入运行环境与项目检查\n' >&2; exit 1; }
+main terminal-check
+[[ "$captured" == terminal-check ]] || { printf 'FAIL: 终端诊断命令分发错误\n' >&2; exit 1; }
 
 main triage
 [[ "$captured" == "triage:0" ]] || { printf 'FAIL: triage 命令没有进入只读快速排查\n' >&2; exit 1; }

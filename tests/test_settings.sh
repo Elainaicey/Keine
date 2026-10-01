@@ -11,7 +11,7 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
 
 test_root="$(mktemp -d)"
 trap 'rm -rf -- "$test_root"' EXIT
-STATE_ROOT="$test_root/server-toolkit"
+STATE_ROOT="$test_root/keine"
 mkdir -p "$STATE_ROOT"
 swap_file="$test_root/swapfile"
 touch "$swap_file"

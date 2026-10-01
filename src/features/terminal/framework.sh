@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 OH_MY_ZSH_REPOSITORY="https://github.com/ohmyzsh/ohmyzsh.git"
-OH_MY_ZSH_BLOCK_BEGIN="# BEGIN Server Toolkit: Oh My Zsh"
-OH_MY_ZSH_BLOCK_END="# END Server Toolkit: Oh My Zsh"
+OH_MY_ZSH_BLOCK_BEGIN="# BEGIN keine: Oh My Zsh"
+OH_MY_ZSH_BLOCK_END="# END keine: Oh My Zsh"
 
 software_target_user() {
   local user="${SUDO_USER:-}"
@@ -61,54 +61,43 @@ software_oh_my_zsh_version() {
 }
 
 software_oh_my_zsh_configure() {
-  local user="$1" home="$2" zshrc="$2/.zshrc" separator=""
+  local user="$1" home="$2" zshrc="$2/.zshrc" payload
   if [[ -f "$zshrc" ]] && grep -Fq 'oh-my-zsh.sh' "$zshrc"; then
     info "$zshrc 已包含 Oh My Zsh 配置，不重复写入。"
     return 0
   fi
-  backup_file "$zshrc" || { warn "无法备份 $zshrc。"; return 1; }
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    info "将向 $zshrc 添加 Server Toolkit 托管的 Oh My Zsh 配置块。"
+    info "将向 $zshrc 添加 keine 托管的 Oh My Zsh 配置块。"
     return 0
   fi
-  [[ ! -s "$zshrc" ]] || separator=$'\n'
-  printf '%s%s\n%s\n%s\n%s\n%s\n%s\n' \
-    "$separator" \
-    "$OH_MY_ZSH_BLOCK_BEGIN" \
-    "export ZSH=\"\$HOME/.oh-my-zsh\"" \
-    'ZSH_THEME="robbyrussell"' \
-    'plugins=(git)' \
-    "source \"\$ZSH/oh-my-zsh.sh\"" \
-    "$OH_MY_ZSH_BLOCK_END" >>"$zshrc" || { warn "无法写入 $zshrc。"; return 1; }
-  if [[ "$EUID" -eq 0 ]]; then chown "$user":"$(id -gn "$user")" "$zshrc" || { warn "无法设置 $zshrc 所有者。"; return 1; }; fi
+  config_file_safe "$zshrc" || return 1
+  # shellcheck disable=SC2016
+  payload="$({
+    [[ ! -f "$zshrc" ]] || cat -- "$zshrc"
+    printf '\n%s\n' "$OH_MY_ZSH_BLOCK_BEGIN" 'export ZSH="$HOME/.oh-my-zsh"' \
+      'ZSH_THEME="robbyrussell"' 'plugins=(git)' 'source "$ZSH/oh-my-zsh.sh"' "$OH_MY_ZSH_BLOCK_END"
+  })"
+  terminal_write_rc "$zshrc" zsh "$payload" "$user" || return 1
 }
 
 software_oh_my_zsh_remove_config() {
-  local user="$1" home="$2" zshrc="$2/.zshrc" temporary
+  local user="$1" home="$2" zshrc="$2/.zshrc" payload
   [[ -f "$zshrc" ]] || return 0
-  grep -Fq "$OH_MY_ZSH_BLOCK_BEGIN" "$zshrc" || return 0
-  if ! grep -Fq "$OH_MY_ZSH_BLOCK_END" "$zshrc"; then
-    warn "$zshrc 中的托管配置块不完整，为避免误删已保留原文件。"
-    return 1
-  fi
-  backup_file "$zshrc" || { warn "无法备份 $zshrc。"; return 1; }
+  grep -Fqx "$OH_MY_ZSH_BLOCK_BEGIN" "$zshrc" || return 0
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    info "将从 $zshrc 移除 Server Toolkit 托管的配置块。"
+    info "将从 $zshrc 移除 keine 托管的配置块。"
     return 0
   fi
-  temporary="$(mktemp)" || { warn "无法创建临时文件。"; return 1; }
-  if ! awk -v begin="$OH_MY_ZSH_BLOCK_BEGIN" -v end="$OH_MY_ZSH_BLOCK_END" '
-    $0 == begin {managed=1; next}
-    $0 == end && managed {managed=0; next}
+  if ! payload="$(awk -v begin="$OH_MY_ZSH_BLOCK_BEGIN" -v end="$OH_MY_ZSH_BLOCK_END" '
+    $0 == begin {if(managed) bad=1; managed=1; next}
+    $0 == end {if(!managed) bad=1; managed=0; next}
     !managed {print}
-  ' "$zshrc" >"$temporary"; then
-    rm -f "$temporary"
-    warn "无法生成新的 $zshrc。"
+    END {if(managed || bad) exit 1}
+  ' "$zshrc")"; then
+    warn "托管配置块不完整，未修改 $zshrc。"
     return 1
   fi
-  install -m 0644 "$temporary" "$zshrc" || { rm -f "$temporary"; warn "无法更新 $zshrc。"; return 1; }
-  rm -f "$temporary"
-  if [[ "$EUID" -eq 0 ]]; then chown "$user":"$(id -gn "$user")" "$zshrc" || { warn "无法设置 $zshrc 所有者。"; return 1; }; fi
+  terminal_write_rc "$zshrc" zsh "$payload" "$user" || return 1
 }
 
 software_install_oh_my_zsh() {

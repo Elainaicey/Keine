@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-BACKUP_ROOT="${SERVER_TOOLKIT_BACKUP_ROOT:-/var/backups/server-toolkit}"
+BACKUP_ROOT="${KEINE_BACKUP_ROOT:-/var/backups/keine}"
 BACKUP_SESSION=""
 
 backup_valid_snapshot() {
@@ -64,7 +64,7 @@ backup_set_protection() {
     return 0
   fi
   if [[ "$enabled" == "1" ]]; then
-    printf 'Managed by Server Toolkit\n' >"$marker"
+    printf 'Managed by keine\n' >"$marker"
     chmod 0600 "$marker" 2>/dev/null || true
   else
     rm -f -- "$marker"

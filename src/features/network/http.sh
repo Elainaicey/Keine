@@ -61,7 +61,7 @@ network_http_diagnose() (
     --disallow-username-in-url \
     --location --max-redirs 8 --connect-timeout 5 --max-time 20 \
     --head \
-    --user-agent "Server-Toolkit/$SERVERCTL_VERSION" \
+    --user-agent "Server-Toolkit/$KEINE_VERSION" \
     --output /dev/null --dump-header "$header_file" \
     --write-out $'http_code=%{http_code}\nurl_effective=%{url_effective}\nremote_ip=%{remote_ip}\nremote_port=%{remote_port}\nlocal_ip=%{local_ip}\nhttp_version=%{http_version}\nnum_redirects=%{num_redirects}\ntime_namelookup=%{time_namelookup}\ntime_connect=%{time_connect}\ntime_appconnect=%{time_appconnect}\ntime_starttransfer=%{time_starttransfer}\ntime_total=%{time_total}\nssl_verify_result=%{ssl_verify_result}\n' \
     -- "$url" 2>"$error_file")"; then

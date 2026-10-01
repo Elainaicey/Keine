@@ -22,7 +22,7 @@ printf '[repository] 文件分类与 Git 属性\n'
 for file in "${repository_files[@]}"; do
   category=""
   case "$file" in
-    install.sh|*.sh|bin/serverctl) category="shell" ;;
+    install.sh|*.sh|bin/keine) category="shell" ;;
     *.md) category="markdown" ;;
     .github/workflows/*.yml) category="workflow" ;;
     .github/assets/badges/*.svg) category="svg" ;;
@@ -117,7 +117,7 @@ for path in paths:
 
     repository_path = path.as_posix()
     if (
-        path.suffix == ".sh" or repository_path == "bin/serverctl"
+        path.suffix == ".sh" or repository_path == "bin/keine"
     ) and (
         repository_path == "install.sh"
         or repository_path.startswith(("scripts/", "src/"))

@@ -1,13 +1,13 @@
 <div align="center">
 
-# Server Toolkit
+# keine
 
 **面向 Debian / Ubuntu VPS 的中文交互式运维控制台**
 
 以清晰的信息架构组织系统、网络、安全、服务、软件、容器与配置恢复；每一次系统修改都强调可见、可确认与可追踪。
 
 [![Version](.github/assets/badges/version.svg)](VERSION)
-[![Checks](https://github.com/Elainaicey/server-toolkit/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Elainaicey/server-toolkit/actions/workflows/ci.yml)
+[![Checks](https://github.com/Elainaicey/keine/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Elainaicey/keine/actions/workflows/ci.yml)
 ![Shell](.github/assets/badges/shell.svg)
 ![Platform](.github/assets/badges/platform.svg)
 ![Language](.github/assets/badges/language.svg)
@@ -21,7 +21,7 @@
 
 ## 项目概览
 
-Server Toolkit 面向由单一 root 管理员维护的 Linux VPS，提供从状态观察、故障定位到常规配置变更的统一终端入口。
+keine 面向由单一 root 管理员维护的 Linux VPS，提供从状态观察、故障定位到常规配置变更的统一终端入口。
 
 项目不追求无边界地收集脚本，而是遵循以下约束：
 
@@ -41,15 +41,15 @@ Server Toolkit 面向由单一 root 管理员维护的 Linux VPS，提供从状�
 root 会话：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Elainaicey/server-toolkit/refs/heads/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Elainaicey/keine/refs/heads/main/install.sh)
 ```
 
-安装器将程序原子部署到 `/opt/server-toolkit`，并创建 `/usr/local/bin/serverctl`。下载或暂存目录会在流程结束后自动清理。
+安装器将程序原子部署到 `/opt/keine`，并创建 `/usr/local/bin/keine`。下载或暂存目录会在流程结束后自动清理。
 
 ### 启动控制台
 
 ```bash
-serverctl
+keine
 ```
 
 控制台主导航按系统依赖层级排列：
@@ -66,10 +66,10 @@ serverctl
 | **运维总览** | 响应式关键指标、内存/Swap/磁盘进度、服务与更新、TCP/Docker、UFW/Fail2ban/时间同步、恢复准备度和状态驱动的关注事项；可直接进入排障、更新、暴露面、服务与备份 |
 | **系统管理** | 当前发行版系统更新、事务预览、来源检查、故障排查、资源压力、进程、内核与重启状态、软件包健康、hold、依赖修复、存储、Swap 与时间设置 |
 | **网络与端口** | 系统 DNS 切换与恢复、SOCKS5 出站配置与验证、可撤销内核参数和第三方调优适配入口；接口、路由、连通性、TCP/HTTP 诊断、链路路径、套接字压力、监听端口、BBR 与地址优先级 |
-| **安全中心** | 扩展安全基线、公网暴露分析、SSH 登录活动与失败来源聚合、Fail2ban/UFW 来源处置、UFW 生命周期与批量规则、SSH 配置/会话/密钥、安全向导、Fail2ban Jail 管理及 TLS 证书检查 |
+| **安全中心** | 安全基线、公网暴露、登录活动、来源处置；UFW 生命周期、批量放行/拒绝与 TCP 连接限速；SSH 认证/端口、九项连接与转发策略、会话/密钥；Fail2ban 生命周期、Jail、封禁策略/白名单与恢复；TLS 证书检查 |
 | **服务与日志** | failed/active 服务浏览、资源与退出结果、正反依赖、启动关键链、失败诊断、经验证的 service 生命周期，以及 Journal 条件查询、完整性验证、按时间/容量维护、内核警告和操作审计 |
 | **软件管理** | 280 个单项软件、15 个用途分类；官方直装、原生安装识别、APT 事务预览、运行影响提示；分类与分页浏览、版本、来源、完整性、安装与更新 |
-| **终端与外观** | Oh My Zsh、Starship、Oh My Posh、Spaceship 独立管理；安装并切换、复用原生引擎、恢复初始配置 |
+| **终端与外观** | Oh My Zsh、Starship、Oh My Posh、Spaceship 独立管理；Bash/Zsh 自动适配、安装并切换、原生复用、生效诊断和初始配置恢复 |
 | **原生集成** | 官方 WARP 客户端、已有 wgcf/WireGuard 隧道；连接、断开、systemd 生命周期与日志 |
 | **恢复与项目维护** | 配置快照、首次修改记录、冲突检测、单项或整体撤销、更新与三种卸载模式 |
 | **应用与容器** | 11 类应用服务的分组资产视图、版本、运行健康、资源、PID、重启次数、关联监听、配置/数据资产、日志和详情页直接生命周期控制；支持官方配置检查、安全 reload 与单项软件更新；Docker 另提供容器、Compose、网络、安全清理和可校验卷备份 |
@@ -82,55 +82,55 @@ serverctl
 ### 查询与导航
 
 ```bash
-serverctl status                 # 一次性只读运维总览
-serverctl doctor                 # 运行环境、项目文件和权限完整性检查
-serverctl triage                 # 只读故障快速排查
-serverctl updates                # 系统软件包更新清单
-serverctl system-update          # 系统更新：刷新、预览、确认与验证
-serverctl storage                # 只读存储概览
-serverctl swap                   # Swap 状态与生命周期管理
-serverctl process 1234           # 查看并管理指定 PID
-serverctl software               # 进入分页软件中心
-serverctl software jq            # 直接打开 jq 的管理详情
-serverctl sources                # 按维护来源浏览软件
-serverctl official-updates       # 检查已托管官方 Release 更新
-serverctl exposure               # 分析公网监听、进程、容器与 UFW
-serverctl ports                  # 监听端口
-serverctl dns example.com        # DNS 解析器与记录诊断
-serverctl dns-config             # 系统 DNS 配置、验证与恢复
-serverctl proxy                  # 连接已有 SOCKS5 代理的配置中心
-serverctl proxy-check https://example.com
+keine status                 # 一次性只读运维总览
+keine doctor                 # 运行环境、项目文件和权限完整性检查
+keine triage                 # 只读故障快速排查
+keine updates                # 系统软件包更新清单
+keine system-update          # 系统更新：刷新、预览、确认与验证
+keine storage                # 只读存储概览
+keine swap                   # Swap 状态与生命周期管理
+keine process 1234           # 查看并管理指定 PID
+keine software               # 进入分页软件中心
+keine software jq            # 直接打开 jq 的管理详情
+keine sources                # 按维护来源浏览软件
+keine official-updates       # 检查已托管官方 Release 更新
+keine exposure               # 分析公网监听、进程、容器与 UFW
+keine ports                  # 监听端口
+keine dns example.com        # DNS 解析器与记录诊断
+keine dns-config             # 系统 DNS 配置、验证与恢复
+keine proxy                  # 连接已有 SOCKS5 代理的配置中心
+keine proxy-check https://example.com
                                 # 显式使用代理的一次性连通验证
-serverctl net-tuning             # 可撤销的网络参数、BBR 与地址优先级
-serverctl tuning-adapters        # 第三方调优适配状态与持久参数来源
-serverctl probe example.com 443  # DNS、路由与 TCP 握手探测
-serverctl http https://example.com/health
+keine net-tuning             # 可撤销的网络参数、BBR 与地址优先级
+keine tuning-adapters        # 第三方调优适配状态与持久参数来源
+keine probe example.com 443  # DNS、路由与 TCP 握手探测
+keine http https://example.com/health
                                 # HTTP HEAD 状态、重定向、TLS 与请求阶段耗时
-serverctl trace example.com      # mtr/traceroute 链路路径
-serverctl interface ens3         # 单个网络接口详情
-serverctl system                 # 系统管理中心
-serverctl network                # 网络与端口中心
-serverctl security               # 安全中心
-serverctl auth-activity          # 最近 24 小时 SSH 登录活动
-serverctl services               # 服务与日志中心
-serverctl service nginx.service  # 直接管理一个 systemd 服务
-serverctl service nginx.service restart
-serverctl journal                # Journal 验证与空间维护
-serverctl logs nginx.service     # 直接查看服务最近日志
-serverctl apps                   # 应用与容器中心
-serverctl app nginx              # Nginx 应用详情、健康、资产与安全 reload
-serverctl compose my-project     # 管理现有 Compose 项目
-serverctl backups                # 备份与恢复中心
-serverctl backup-delete SNAPSHOT # 删除一个明确选择的项目快照
-serverctl backup-cleanup         # 交互式清理历史配置快照
-serverctl about                  # 版本和安装路径
-serverctl version                # 版本号
-serverctl --version              # 标准版本选项
-serverctl self-update            # 检查并原子更新项目自身
-serverctl uninstall              # 卸载程序或彻底清除项目数据
+keine trace example.com      # mtr/traceroute 链路路径
+keine interface ens3         # 单个网络接口详情
+keine system                 # 系统管理中心
+keine network                # 网络与端口中心
+keine security               # 安全中心
+keine auth-activity          # 最近 24 小时 SSH 登录活动
+keine services               # 服务与日志中心
+keine service nginx.service  # 直接管理一个 systemd 服务
+keine service nginx.service restart
+keine journal                # Journal 验证与空间维护
+keine logs nginx.service     # 直接查看服务最近日志
+keine apps                   # 应用与容器中心
+keine app nginx              # Nginx 应用详情、健康、资产与安全 reload
+keine compose my-project     # 管理现有 Compose 项目
+keine backups                # 备份与恢复中心
+keine backup-delete SNAPSHOT # 删除一个明确选择的项目快照
+keine backup-cleanup         # 交互式清理历史配置快照
+keine about                  # 版本和安装路径
+keine version                # 版本号
+keine --version              # 标准版本选项
+keine self-update            # 检查并原子更新项目自身
+keine uninstall              # 卸载程序或彻底清除项目数据
 ```
 
-`serverctl http URL` 发起一次纯前台 HEAD 诊断请求，只接受不含凭据的 `http://` 或 `https://` URL。请求最多跟随 8 次 HTTP/HTTPS 重定向，连接超时为 5 秒、总超时为 20 秒；不会下载响应体、保存 Cookie 或创建后台任务，只展示经过终端字符清理的有限响应头。少数端点不支持 HEAD，返回 405/501 并不表示普通 GET 请求不可用。该命令用于即时定位 DNS、连接、TLS、首字节和应用状态问题，不是浏览器、内容下载器或持续可用性监控。
+`keine http URL` 发起一次纯前台 HEAD 诊断请求，只接受不含凭据的 `http://` 或 `https://` URL。请求最多跟随 8 次 HTTP/HTTPS 重定向，连接超时为 5 秒、总超时为 20 秒；不会下载响应体、保存 Cookie 或创建后台任务，只展示经过终端字符清理的有限响应头。少数端点不支持 HEAD，返回 405/501 并不表示普通 GET 请求不可用。该命令用于即时定位 DNS、连接、TLS、首字节和应用状态问题，不是浏览器、内容下载器或持续可用性监控。
 
 ### 软件管理
 
@@ -139,25 +139,26 @@ serverctl uninstall              # 卸载程序或彻底清除项目数据
 目录覆盖 btop、Micro、Mosh、OpenVPN、NFS、Syncthing、PgBouncer、Podman Compose、Ansible、PHP 常用扩展等工具。条目可用性由当前发行版、架构与软件源决定；不会为了显示“可安装”而自动添加不明仓库。
 
 ```bash
-serverctl list                   # 完整软件目录
-serverctl list python            # 按关键词查询
-serverctl software               # 分页浏览软件中心
-serverctl software jq            # 直接打开软件详情
-serverctl install jq             # 安装一个软件
-serverctl update jq              # 更新一个已安装软件
-serverctl remove jq              # 移除一个软件
-serverctl terminal              # 独立终端外观中心，安装或一键切换
-serverctl warp                  # 原生 WARP / wgcf 管理
-serverctl recovery              # 配置快照与变更撤销
-serverctl changes               # 查看与撤销已记录修改
-serverctl project               # 工具更新、诊断与卸载
-serverctl install ripgrep        # 默认从上游官方下载稳定版
-serverctl update ripgrep         # 检查并更新当前安装来源
+keine list                   # 完整软件目录
+keine list python            # 按关键词查询
+keine software               # 分页浏览软件中心
+keine software jq            # 直接打开软件详情
+keine install jq             # 安装一个软件
+keine update jq              # 更新一个已安装软件
+keine remove jq              # 移除一个软件
+keine terminal              # 独立终端外观中心，安装或一键切换
+keine terminal-check        # 登录 Shell、提示符初始化与程序可用性诊断
+keine warp                  # 原生 WARP / wgcf 管理
+keine recovery              # 配置快照与变更撤销
+keine changes               # 查看与撤销已记录修改
+keine project               # 工具更新、诊断与卸载
+keine install ripgrep        # 默认从上游官方下载稳定版
+keine update ripgrep         # 检查并更新当前安装来源
 ```
 
 `install`、`update` 与 `remove` 只接受一个软件 ID。交互式软件中心将搜索、分类、已安装、待更新与来源结果按 6 项一页展示，可用页内编号或软件 ID 进入详情；`list` 仍可输出完整目录用于终端查询。软件列表会为当前页面一次性批量读取 dpkg、候选版本与更新状态，避免随着目录增长重复启动大量查询进程。发行版仓库条目的 APT 安装，以及可模拟的 APT 更新/移除，会在确认前显示新增、更新、联带移除和空间影响；安装或更新计划若意外包含移除项会被阻止。执行后仍会重新读取 dpkg 版本验证结果。
 
-软件详情还会展示已声明的运行影响。Web、数据库、容器、安全与历史采集类软件可能由发行版安装脚本启动自身服务、Timer/Cron 或监听端口；这不代表 Server Toolkit 创建了后台组件。未声明运行影响的条目也以 APT 最终事务为准，项目不会代替用户自动禁用上游服务或修改防火墙。
+软件详情还会展示已声明的运行影响。Web、数据库、容器、安全与历史采集类软件可能由发行版安装脚本启动自身服务、Timer/Cron 或监听端口；这不代表 keine 创建了后台组件。未声明运行影响的条目也以 APT 最终事务为准，项目不会代替用户自动禁用上游服务或修改防火墙。
 
 Docker 与 Caddy 在首次安装前不要求仓库已经存在：详情页会显示“待配置”，确认安装后才创建官方签名和稳定仓库。Docker 迁移会先验证仓库及全部必需组件候选版本，再移除冲突包，避免上游不可用时先破坏现有运行时。来源诊断可按需检查软件源、签名密钥格式、系统代号、架构与候选版本；文件检查显示“结构完整”不代替 APT 的签名身份验证，安装或更新刷新索引时仍由 APT 完成信任校验。若上游轮换密钥导致刷新失败，可从详情页强制重新获取官方仓库文件。配置不完整时会先备份再修复；检测到符号链接形式的仓库路径时会停止覆盖并要求人工核实。已有发行版 `docker.io` 安装仍沿用原来源更新，不会被静默迁移到 `docker-ce`。
 
@@ -169,7 +170,7 @@ Docker 与 Caddy 在首次安装前不要求仓库已经存在：详情页会显
 
 Nginx、Caddy、Apache、HAProxy 与 Docker 可调用各自的官方只读配置检查；Nginx、Caddy、Apache 与 HAProxy 只有在配置检查通过且 systemd 声明 reload 能力后，才允许重新加载。运行健康页综合服务状态、应用响应、监听、最近错误、重启次数和资源快照，并给出明确结论。应用详情还可进入对应的软件条目检查候选版本和来源。3x-ui 没有声明可验证的安装来源，因此项目不会猜测下载地址或自动升级。
 
-健康检查、日志查询和数据占用统计均由用户手动触发一次。整个 Server Toolkit 都不会创建监控进程、Cron、systemd Timer，不会周期扫描目录，也不会隐式开放防火墙端口。配置资产页只列出路径和文件名，不输出配置内容；数据占用只在用户明确进入该页面时对声明路径运行一次 `du`。
+健康检查、日志查询和数据占用统计均由用户手动触发一次。整个 keine 都不会创建监控进程、Cron、systemd Timer，不会周期扫描目录，也不会隐式开放防火墙端口。配置资产页只列出路径和文件名，不输出配置内容；数据占用只在用户明确进入该页面时对声明路径运行一次 `du`。
 
 ### 软件来源策略
 
@@ -189,41 +190,53 @@ Nginx、Caddy、Apache、HAProxy 与 Docker 可调用各自的官方只读配置
 
 ### 节点主机网络配置
 
-`serverctl dns-config` 识别 systemd-resolved、resolvconf 或普通 `resolv.conf`，提供公共 DNS 和最多三个自定义 IPv4/IPv6 地址。配置通过原生后端加载，并使用系统解析器验证；应用失败时回退，恢复时保留外部修改冲突。不会破坏生成文件的符号链接、锁定 `resolv.conf` 或停用网络管理器。NetworkManager、Netplan 等未适配后端只提供诊断，不强行覆盖。系统 DNS 不等于 Xray、sing-box 等节点软件内部 DNS。[systemd-resolved 配置文档](https://manpages.debian.org/bookworm/systemd-resolved/resolved.conf.5.en.html)
+`keine dns-config` 识别 systemd-resolved、resolvconf 或普通 `resolv.conf`，提供公共 DNS 和最多三个自定义 IPv4/IPv6 地址。配置通过原生后端加载，并使用系统解析器验证；应用失败时回退，恢复时保留外部修改冲突。不会破坏生成文件的符号链接、锁定 `resolv.conf` 或停用网络管理器。NetworkManager、Netplan 等未适配后端只提供诊断，不强行覆盖。系统 DNS 不等于 Xray、sing-box 等节点软件内部 DNS。[systemd-resolved 配置文档](https://manpages.debian.org/bookworm/systemd-resolved/resolved.conf.5.en.html)
 
-`serverctl proxy` 管理连接已有 SOCKS5 代理的客户端配置，可选择本机解析目标域名或交给代理解析，并支持隐藏输入认证密码。配置保存到 root 专用的 `/etc/server-toolkit-socks.conf`，不写入全局代理变量、不修改路由、不开放监听，也不接管 SSH、APT 或节点软件的出站设置。显式使用方式：
+`keine proxy` 管理连接已有 SOCKS5 代理的客户端配置，可选择本机解析目标域名或交给代理解析，并支持隐藏输入认证密码。配置保存到 root 专用的 `/etc/keine-socks.conf`，不写入全局代理变量、不修改路由、不开放监听，也不接管 SSH、APT 或节点软件的出站设置。显式使用方式：
 
 ```bash
-serverctl proxy-check https://example.com
-curl --config /etc/server-toolkit-socks.conf https://example.com
+keine proxy-check https://example.com
+curl --config /etc/keine-socks.conf https://example.com
 ```
 
 SOCKS 认证信息在该文件中以明文保存，权限为 `0600`；配置快照和原始记录也应视为敏感数据。SOCKS5 不是加密隧道，公网连接应使用可信的加密传输。验证只发送一次限时 HEAD 请求，HTTP 错误状态与代理连接失败分别处理。[curl 代理选项](https://curl.se/docs/manpage.html)
 
-`serverctl net-tuning` 提供 TCP MTU 探测、Fast Open、Keepalive 和收发缓冲上限的逐项设置，另保留原生 BBR 与 IPv4 优先级入口。界面显示当前值、范围、单位与适用条件，不套用一键激进模板；Keepalive 和 Fast Open 仍取决于应用支持，缓冲上限不等于预分配内存。项目只应用自己的参数，并同时记录文件和首次修改前的运行值；撤销不猜测默认值，也不删除第三方配置。[Linux 内核网络参数](https://docs.kernel.org/networking/ip-sysctl.html)
+`keine net-tuning` 提供 TCP MTU 探测、Fast Open、Keepalive 和收发缓冲上限的逐项设置，另保留原生 BBR 与 IPv4 优先级入口。界面显示当前值、范围、单位与适用条件，不套用一键激进模板；Keepalive 和 Fast Open 仍取决于应用支持，缓冲上限不等于预分配内存。项目只应用自己的参数，并同时记录文件和首次修改前的运行值；撤销不猜测默认值，也不删除第三方配置。[Linux 内核网络参数](https://docs.kernel.org/networking/ip-sysctl.html)
 
-`serverctl tuning-adapters` 为后续第三方调优提供注册入口与参数来源查询。当前没有选定上游，不下载或执行外部脚本；未知脚本的内核、路由和配置改动不在自动撤销承诺内。适配要求见 [网络调优适配契约](docs/NETWORK-ADAPTERS.md)。所有新增能力仍保持前台按需运行，没有定时监控或自动任务。
+`keine tuning-adapters` 为后续第三方调优提供注册入口与参数来源查询。当前没有选定上游，不下载或执行外部脚本；未知脚本的内核、路由和配置改动不在自动撤销承诺内。适配要求见 [网络调优适配契约](docs/NETWORK-ADAPTERS.md)。所有新增能力仍保持前台按需运行，没有定时监控或自动任务。
 
 ### 终端与原生集成
 
-`serverctl terminal` 提供独立的框架和提示符管理。选择项目后可安装并切换，已存在的受支持原生引擎会直接复用；自动整理可识别的单行初始化语句与 `ZSH_THEME`，保留其他自定义内容。首次修改前保存 `.zshrc` 原始状态，恢复操作保留引擎、还原配置；复杂自定义函数或条件初始化仍需人工检查。登录 Shell 切换是独立确认操作，不随主题切换隐式执行。Nerd Font 应安装在 SSH 客户端终端，不给 VPS 下载无用途字体包。
+`keine terminal` 根据目标用户实际登录 Shell 配置提示符，而不是根据工具自身的 Bash 解释器判断。Starship 与 Oh My Posh 支持 Bash/Zsh，复用已安装引擎，无需为了修复配置重复下载。Oh My Zsh 与 Spaceship 需要 Zsh；切换登录 Shell 必须单独确认，并只在配置成功后执行。
+
+Bash 初始化写入 `.bashrc` 并补齐实际生效的登录入口，Zsh 写入 `.zshrc`；配置先进行语法检查，失败时回退。切换会整理可识别的初始化语句与 `ZSH_THEME`，保留其他自定义内容。首次修改前记录原始文件，恢复操作覆盖已记录的 Bash/Zsh 启动文件与登录 Shell，保留引擎。复杂自定义条件或函数初始化仍需人工检查。
+
+菜单中的“已配置”不等于当前父 Shell 已加载。配置完成后退出工具并重新连接 SSH，无需重启 VPS；`keine terminal-check` 检查登录 Shell、启动配置与引擎可用性，但不会执行用户启动脚本。Nerd Font 应在本机 SSH 客户端设置，不向 VPS 下载字体包。
 
 Oh My Zsh 使用官方 Git 仓库；Starship 与 Oh My Posh 使用官方安装器，Spaceship 使用官方 Git。外部已有的 Oh My Zsh 只复用配置，不自动升级或删除其仓库。移除随机字符画、彩虹文本、重复系统信息和已不维护主题等低价值目录条目，终端项目不再混入软件中心。
 
-`serverctl warp` 不依赖项目安装标记，识别 `warp-cli` 与 `/etc/wireguard/` 下的 WARP/wgcf 配置。官方客户端提供连接、断开与服务管理；wgcf 使用原生 `wg-quick@` 生命周期。不会展示私钥、创建注册、切换协议、删除外部配置或接管未知第三方脚本。路由变更可能影响 SSH，操作前应保留服务商控制台。接口依据 [Cloudflare Linux 文档](https://developers.cloudflare.com/warp-client/get-started/linux/) 与 [WireGuard 原生单元](https://github.com/WireGuard/wireguard-tools/blob/master/src/systemd/wg-quick%40.service)。
+`keine warp` 不依赖项目安装标记，识别 `warp-cli` 与 `/etc/wireguard/` 下的 WARP/wgcf 配置。官方客户端提供连接、断开与服务管理；wgcf 使用原生 `wg-quick@` 生命周期。不会展示私钥、创建注册、切换协议、删除外部配置或接管未知第三方脚本。路由变更可能影响 SSH，操作前应保留服务商控制台。接口依据 [Cloudflare Linux 文档](https://developers.cloudflare.com/warp-client/get-started/linux/) 与 [WireGuard 原生单元](https://github.com/WireGuard/wireguard-tools/blob/master/src/systemd/wg-quick%40.service)。
 
 相关上游：[Starship](https://github.com/starship/starship)、[Oh My Posh](https://github.com/JanDeDobbeleer/oh-my-posh)、[Spaceship Prompt](https://github.com/spaceship-prompt/spaceship-prompt)。Powerlevel10k 因上游已明确进入有限支持状态，暂不纳入正式托管目录。
 
 ### 操作预览
 
 ```bash
-serverctl --dry-run
-serverctl --dry-run install docker
-serverctl --no-color status
-serverctl --help
+keine --dry-run
+keine --dry-run install docker
+keine --no-color status
+keine --help
 ```
 
 `--dry-run` 展示将执行的系统命令，不写入配置、不安装软件，也不创建审计记录。`--no-color` 用于日志采集或不支持 ANSI 色彩的终端；`-h` / `--help` 显示完整命令摘要。
+
+### 安全策略管理
+
+SSH 提供认证与端口向导，以及认证尝试、认证宽限、复用会话、客户端存活探测、Agent/X11/TCP 转发和远程转发监听范围的逐项设置。写入前保存首次基线，检查 `sshd -t`、核对当前 root 连接上下文的有效值，再 reload；失败时补偿回退。存活探测不是交互空闲超时，SSH TCP 转发开关也不控制 Xray 等节点软件的监听。禁用密码或收紧 root 认证前，必须先在另一窗口验证公钥登录。
+
+Fail2ban 的 SSH 策略独立管理封禁时间、观察窗口、失败次数及 IP/CIDR 白名单；保留回环和当前 SSH 来源。运行时验证配置与实际参数，并核对当前来源白名单；停止时仅保存配置，不自动启动服务。撤销只恢复项目配置，不删除其他 Jail。使用 systemd 日志后端，缺少对应支持时停止并提示。
+
+UFW 规则支持多个端口、范围、TCP/UDP 与来源 IP/CIDR；拒绝规则不能覆盖当前 SSH 端口。TCP 连接限速使用 UFW 原生 `limit` 并优先插入，针对连接尝试而非传输带宽；它同时放行所选来源，应先核实既有访问边界。规则顺序、IPv6、云防火墙和容器转发都可能影响最终结果，界面不会把“命令成功”当作已验证公网连通。
 
 ## 安全模型
 
@@ -233,14 +246,14 @@ serverctl --help
 | 运行方式 | 仅在前台按需执行；命令结束后无项目常驻进程、Cron、Timer 或后台监控 |
 | 权限 | 查询不会修改系统；所有写操作仍在执行点验证 root 权限 |
 | 确认 | 修改前显示目标和影响范围，默认答案为拒绝 |
-| 配置备份 | 修改已有文件前写入 `/var/backups/server-toolkit/<snapshot>/` 并生成 manifest |
+| 配置备份 | 修改已有文件前写入 `/var/backups/keine/<snapshot>/` 并生成 manifest |
 | 备份清理 | 只删除格式和目录均可验证的项目快照；支持保留最近数量或按创建天数清理，当前操作和人工保护的快照始终跳过 |
 | Docker 卷 | 独立目录保存；备份只读挂载源卷并校验 SHA-256，恢复前拒绝运行中占用并自动创建安全备份 |
-| SSH | 使用优先加载的独立 drop-in，执行 `sshd -t` 并核对最终生效值；root 公钥不存在时拒绝关闭其密码入口，验证或服务重启失败时恢复旧配置 |
+| SSH | 独立 drop-in、语法与当前连接上下文有效值验证；收紧认证前确认 root 公钥可用，reload 或验证失败时补偿恢复；保留当前会话并在新窗口验证 |
 | 进程 | PID、nice 和信号严格校验；PID 1、工具自身与父进程不可控制；SIGKILL 单独标记为危险操作 |
 | 防火墙 | 启用 UFW 前保留当前 SSH 端口；其他端口必须显式添加 |
 | 来源处置 | 只接受登录失败清单中的明确 IP；拒绝阻止当前 SSH 来源，UFW 持续拒绝与 Fail2ban 临时封禁分开展示 |
-| 审计 | root 修改记录到 `/var/log/server-toolkit/actions.log` |
+| 审计 | root 修改记录到 `/var/log/keine/actions.log` |
 | 官方 Release | 校验上游、架构与 SHA-256；外部普通文件仅在明确确认并备份后接管，拒绝覆盖符号链接 |
 | 安装升级 | 解压前检查源码归档路径、类型与体积，在同一父目录暂存并原子替换；失败时恢复上一安装目录 |
 | 卸载 | 只删除能够确认属于项目的路径，不猜测性删除业务软件或系统设置 |
@@ -252,26 +265,26 @@ serverctl --help
 
 | 内容 | 默认位置 |
 | --- | --- |
-| 程序目录 | `/opt/server-toolkit` |
-| 命令入口 | `/usr/local/bin/serverctl` |
-| 配置快照 | `/var/backups/server-toolkit` |
-| Docker 卷备份 | `/var/backups/server-toolkit-docker` |
-| 操作审计 | `/var/log/server-toolkit/actions.log` |
-| 项目状态 | `/var/lib/server-toolkit` |
-| 官方 Release 状态 | `/var/lib/server-toolkit/software-releases` |
-| 可撤销变更与初始状态 | `/var/lib/server-toolkit/changes` |
+| 程序目录 | `/opt/keine` |
+| 命令入口 | `/usr/local/bin/keine` |
+| 配置快照 | `/var/backups/keine` |
+| Docker 卷备份 | `/var/backups/keine-docker` |
+| 操作审计 | `/var/log/keine/actions.log` |
+| 项目状态 | `/var/lib/keine` |
+| 官方 Release 状态 | `/var/lib/keine/software-releases` |
+| 可撤销变更与初始状态 | `/var/lib/keine/changes` |
 
 安装器会将实际安装路径写入 `config/installation.conf`，以确保自定义路径也能被正确升级和卸载。
 
 ## 项目结构
 
 ```text
-server-toolkit/
+keine/
 ├── .gitattributes               # 跨平台文本与 LF 换行规则
 ├── .github/                     # CI、发布流程、社区规范与徽章资源
 ├── .gitignore                   # Git 忽略规则
 ├── bin/
-│   └── serverctl                # CLI、参数解析与顶层导航
+│   └── keine                   # CLI、参数解析与顶层导航
 ├── config/
 │   ├── software.tsv             # 声明式单项软件目录
 │   ├── navigation.tsv           # 顶层分组、顺序与动作注册
@@ -309,7 +322,7 @@ server-toolkit/
 │       │   ├── catalog.sh       # 软件目录模块入口
 │       │   ├── catalog/         # 状态缓存、查询、事务预览、运行影响、分页浏览、写操作与页面
 │       │   └── releases.sh      # GitHub Release 校验、安装、修复与来源管理
-│       ├── terminal/            # 框架、提示符与切换界面
+│       ├── terminal/            # Shell 启动适配、框架、提示符与切换界面
 │       ├── recovery.sh          # 变更检查、恢复与冲突处理
 │       ├── system/
 │       │   ├── diagnostics.sh   # 单次资源压力与重启状态
@@ -343,18 +356,18 @@ server-toolkit/
 
 ## 更新
 
-### 更新 Server Toolkit
+### 更新 keine
 
 在控制台中进入“项目与扩展”更新工具，或直接运行：
 
 ```bash
-serverctl self-update
+keine self-update
 ```
 
 也可以重新运行安装命令完成原子升级：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Elainaicey/server-toolkit/refs/heads/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Elainaicey/keine/refs/heads/main/install.sh)
 ```
 
 软件中心中的“更新”只更新当前选中的软件，不会升级整个系统。
@@ -364,7 +377,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Elainaicey/server-toolkit/re
 通过“系统管理 → 系统更新”，或运行：
 
 ```bash
-serverctl system-update
+keine system-update
 ```
 
 更新流程先检查 dpkg 与依赖状态，完整刷新 APT 索引，再检查官方系统源所属的发行版、展示升级与新增依赖清单，最后由用户再次确认。使用 `apt-get upgrade --with-new-pkgs --no-remove`，允许补齐必要依赖，但不自动删除软件包、解除 hold、迁移发行版、修改软件源或重启 VPS。该策略依据 [APT 官方手册](https://manpages.debian.org/bookworm/apt/apt-get.8.en.html)。
@@ -376,7 +389,7 @@ serverctl system-update
 ## 卸载
 
 ```bash
-serverctl uninstall
+keine uninstall
 ```
 
 卸载模式：
@@ -387,13 +400,13 @@ serverctl uninstall
 
 前两种模式不撤销系统修改。第三种只对本版开始记录的变更生效：配置文件、官方命令、终端目录、主机名、时区、NTP、root Shell、BBR、受控服务状态、可识别的 WARP 连接，以及 APT 新增软件包。新增包撤销先模拟依赖事务，若会删除原有包或包后来被外部升级则停止；不运行自动清理。
 
-不能保证任意主机“像从未安装过”：旧版本未记录的改动、原有软件升级或删除、数据库/容器业务数据、安装脚本未声明的副作用、网络活动和系统日志不自动逆转。外部修改过的资源会保留并报告冲突；可选择保留资源并解除对应记录。变更记录不是普通历史备份，删除恢复记录即失去对应原始状态。
+不能保证任意主机“像从未安装过”：未记录的历史改动、原有软件升级或删除、数据库/容器业务数据、安装脚本未声明的副作用、网络活动和系统日志不自动逆转。外部修改过的资源会保留并报告冲突；可选择保留资源并解除对应记录。变更记录不是普通历史备份，删除恢复记录即失去对应原始状态。
 
 ## 开发
 
 ```bash
-git clone https://github.com/Elainaicey/server-toolkit.git
-cd server-toolkit
+git clone https://github.com/Elainaicey/keine.git
+cd keine
 bash scripts/check.sh
 ```
 
@@ -403,10 +416,10 @@ bash scripts/check.sh
 
 ## 许可证
 
-Server Toolkit 依据 [MIT License](LICENSE) 开放源代码。你可以自由使用、修改与分发本项目，但必须保留原始版权声明和许可证文本。
+keine 依据 [MIT License](LICENSE) 开放源代码。你可以自由使用、修改与分发本项目，但必须保留原始版权声明和许可证文本。
 
 ---
 
 <div align="center">
-  <sub>Server Toolkit 0.4.0 · Built for deliberate VPS operations</sub>
+  <sub>keine 0.4.0 · Built for deliberate VPS operations</sub>
 </div>

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-NETWORK_PROXY_FILE="${SERVER_TOOLKIT_PROXY_FILE:-/etc/server-toolkit-socks.conf}"
+NETWORK_PROXY_FILE="${KEINE_PROXY_FILE:-/etc/keine-socks.conf}"
 
 network_proxy_host_valid() {
   local host="${1:-}"
@@ -24,7 +24,7 @@ network_proxy_payload() {
   [[ "$mode" == socks5 || "$mode" == socks5h ]] || return 1
   [[ "$username" != *:* && "$username$password" != *[[:cntrl:]]* && ${#username} -le 255 && ${#password} -le 255 ]] || return 1
   [[ "$host" != *:* ]] || host="[$host]"
-  printf '# Managed by Server Toolkit\nproxy = "%s://%s:%s"\n' "$mode" "$host" "$port"
+  printf '# Managed by keine\nproxy = "%s://%s:%s"\n' "$mode" "$host" "$port"
   if [[ -n "$username" ]]; then printf 'proxy-user = "%s"\n' "$(network_proxy_escape "$username:$password")"; fi
   printf 'noproxy = "localhost,127.0.0.1,::1"\n'
 }
@@ -83,7 +83,7 @@ network_proxy_check() {
 
 network_proxy_configure() {
   local host port choice mode=socks5h username password="" payload
-  if [[ -e "$NETWORK_PROXY_FILE" ]] && ! grep -Fqx '# Managed by Server Toolkit' "$NETWORK_PROXY_FILE"; then
+  if [[ -e "$NETWORK_PROXY_FILE" ]] && ! config_project_marker "$NETWORK_PROXY_FILE"; then
     warn "目标文件不属于项目，拒绝覆盖。"; return 1
   fi
   ui_page "SOCKS 出站配置" "连接已有 SOCKS5 代理；不开放服务、不修改系统路由"
@@ -95,17 +95,17 @@ network_proxy_configure() {
   choice="$(read_input "DNS 模式" "1")"
   case "$choice" in 1) ;; 2) mode=socks5 ;; *) warn "DNS 模式无效。"; return 1 ;; esac
   username="$(read_input "用户名；无需认证留空" "")"
-  [[ -z "$username" ]] || password="$(network_read_secret "代理密码")" || return 1
+  [[ -z "$username" ]] || password="$(read_secret "代理密码")" || return 1
   payload="$(network_proxy_payload "$host" "$port" "$mode" "$username" "$password")" || {
     warn "凭据不能包含控制字符，用户名不能含冒号；用户名与密码各不超过 255 字节。"; return 1;
   }
   ui_kv "代理地址" "$host:$port"; ui_kv "DNS 模式" "$mode"; ui_kv "认证" "$([[ -n "$username" ]] && printf '已设置，凭据隐藏' || printf '无需认证')"
   ui_hint "保存为 root 专用 curl 配置；不注入 ALL_PROXY、不影响 APT、SSH、Xray 或现有服务。SOCKS5 本身不加密，公网认证建议使用受信任隧道。"
   confirm "保存此 SOCKS 客户端配置？" || return 0
-  network_config_write "$NETWORK_PROXY_FILE" 0600 "$payload" network_config_no_reload || return 1
+  config_file_write "$NETWORK_PROXY_FILE" 0600 "$payload" config_no_reload || return 1
   unset password payload
   audit 'action=network-socks-configure'
-  ui_success "配置已保存；可通过 serverctl proxy-check URL 或 curl --config $NETWORK_PROXY_FILE URL 显式使用。"
+  ui_success "配置已保存；可通过 keine proxy-check URL 或 curl --config $NETWORK_PROXY_FILE URL 显式使用。"
 }
 
 network_proxy_menu() {
@@ -126,7 +126,7 @@ network_proxy_menu() {
     choice="$(read_input "请选择" "0")"
     case "$choice" in
       1) network_proxy_configure || true ;; 2) network_proxy_check "" || true ;;
-      3) if confirm "移除项目 SOCKS 配置并恢复原始文件？"; then network_config_restore "$NETWORK_PROXY_FILE" network_config_no_reload && audit 'action=network-socks-restore'; fi ;;
+      3) if confirm "移除项目 SOCKS 配置并恢复原始文件？"; then config_file_restore "$NETWORK_PROXY_FILE" config_no_reload && audit 'action=network-socks-restore'; fi ;;
       0) return 0 ;; *) warn "未知选项"; continue ;;
     esac
     pause

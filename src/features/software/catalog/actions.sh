@@ -53,7 +53,7 @@ catalog_switch_source() {
     ui_panel_kv "目标版本" "$candidate"
     ui_panel_kv "系统包" "$packages"
     ui_panel_end
-    ui_note "先安装发行版候选版本，再删除由 Server Toolkit 管理的 /usr/local/bin 命令。"
+    ui_note "先安装发行版候选版本，再删除由 keine 管理的 /usr/local/bin 命令。"
     confirm "切换到发行版软件仓库？" || return 0
     require_root
     package_install_latest "$packages" || return 1
@@ -131,7 +131,7 @@ catalog_install() {
   ui_panel_end
   if catalog_effect_has_persistent_impact "$id"; then
     ui_callout warn "安装后可能出现：$(catalog_effect_summary "$id")" \
-      "$(catalog_effect_note "$id")；Server Toolkit 自身仍只在调用期间运行。"
+      "$(catalog_effect_note "$id")；keine 自身仍只在调用期间运行。"
   else
     ui_note "未声明额外后台服务或计划任务；安装过程仍以 APT 实际事务为准。"
   fi
@@ -309,7 +309,7 @@ catalog_remove() {
   fi
   ui_panel_end
   if [[ "$handler" == "official_release" ]]; then
-    ui_danger "将移除 Server Toolkit 托管的官方命令；如同时安装了对应系统包，也会一并移除。"
+    ui_danger "将移除 keine 托管的官方命令；如同时安装了对应系统包，也会一并移除。"
   else
     ui_danger "只移除软件包，不删除它的数据目录和配置文件。"
   fi

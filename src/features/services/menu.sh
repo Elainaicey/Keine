@@ -10,7 +10,7 @@ services_menu() {
     ui_item 2 "本次启动错误" "当前 boot 的 error 级别 Journal"
     ui_section "日志" "accent"
     ui_item 3 "Journal 中心" "条件查询、验证、内核警告与空间清理"
-    ui_item 4 "项目操作记录" "只记录由 Server Toolkit 确认执行的修改"
+    ui_item 4 "项目操作记录" "只记录由 keine 确认执行的修改"
     ui_item 0 "返回"
     choice="$(read_input "请选择" "0")"
     case "$choice" in

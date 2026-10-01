@@ -9,7 +9,7 @@ mapfile -t shell_files < <(
   while IFS= read -r file; do
     [[ -e "$file" || -L "$file" ]] || continue
     case "$file" in
-      install.sh|*.sh|bin/serverctl) printf '%s\n' "$file" ;;
+      install.sh|*.sh|bin/keine) printf '%s\n' "$file" ;;
     esac
   done < <(git ls-files --cached --others --exclude-standard | LC_ALL=C sort -u)
 )

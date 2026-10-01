@@ -67,7 +67,7 @@ valid_firewall_source() {
   if [[ "$value" == */* ]]; then
     address="${value%/*}"
     prefix="${value##*/}"
-    [[ "$prefix" =~ ^[0-9]+$ ]] || return 1
+    [[ "$prefix" =~ ^[0-9]{1,3}$ ]] || return 1
   fi
   if valid_ipv4_address "$address"; then
     [[ -z "$prefix" ]] || (( 10#$prefix <= 32 ))
@@ -149,7 +149,7 @@ safe_toolkit_path() {
   IFS='/' read -r -a components <<<"${path#/}"
   for component in "${components[@]}"; do
     case "$component" in
-      server-toolkit|server-toolkit-*) return 0 ;;
+      keine|keine-*) return 0 ;;
     esac
   done
   return 1

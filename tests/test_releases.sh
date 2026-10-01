@@ -8,16 +8,16 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
 TEST_ROOT="$(mktemp -d)"
 trap 'rm -rf -- "$TEST_ROOT"' EXIT
 CONFIG_DIR="$TEST_ROOT/config"
-STATE_ROOT="$TEST_ROOT/server-toolkit"
-SERVER_TOOLKIT_RELEASE_CATALOG="$CONFIG_DIR/official-releases.tsv"
-SERVER_TOOLKIT_RELEASE_STATE_DIR="$STATE_ROOT/releases"
-SERVER_TOOLKIT_RELEASE_BIN_DIR="$TEST_ROOT/bin"
+STATE_ROOT="$TEST_ROOT/keine"
+KEINE_RELEASE_CATALOG="$CONFIG_DIR/official-releases.tsv"
+KEINE_RELEASE_STATE_DIR="$STATE_ROOT/releases"
+KEINE_RELEASE_BIN_DIR="$TEST_ROOT/bin"
 ARCH=amd64
 
-mkdir -p "$CONFIG_DIR" "$SERVER_TOOLKIT_RELEASE_BIN_DIR"
+mkdir -p "$CONFIG_DIR" "$KEINE_RELEASE_BIN_DIR"
 printf '%s\n' \
   'sample|owner/sample|sample|sample-{version}-linux-amd64.tar.gz|sample-{version}-linux-arm64.tar.gz|https://github.com/owner/sample' \
-  >"$SERVER_TOOLKIT_RELEASE_CATALOG"
+  >"$KEINE_RELEASE_CATALOG"
 
 . "$ROOT_DIR/src/core/runtime.sh"
 . "$ROOT_DIR/src/core/validation.sh"

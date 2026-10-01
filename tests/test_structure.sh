@@ -20,7 +20,7 @@ required=(
   docs/CHANGELOG.md
   docs/DESIGN.md
   docs/NETWORK-ADAPTERS.md
-  bin/serverctl
+  bin/keine
   config/apps.tsv
   config/software.tsv
   config/software-effects.tsv
@@ -54,6 +54,8 @@ required=(
   src/features/security/certificates.sh
   src/features/security/firewall.sh
   src/features/security/ssh.sh
+  src/features/security/ssh-policy.sh
+  src/features/security/fail2ban-policy.sh
   src/features/security/menu.sh
   src/features/services.sh
   src/features/services/overview.sh
@@ -69,7 +71,7 @@ required=(
   src/features/system/storage.sh
   src/features/system/triage.sh
   src/features/network/diagnostics.sh
-  src/features/network/configuration.sh
+  src/core/configuration.sh
   src/features/network/dns.sh
   src/features/network/proxy.sh
   src/features/network/parameters.sh
@@ -85,6 +87,7 @@ required=(
   src/features/software/repositories/caddy.sh
   src/features/terminal.sh
   src/features/terminal/framework.sh
+  src/features/terminal/shells.sh
   src/features/terminal/prompts.sh
   src/features/terminal/menu.sh
   src/core/changes.sh
@@ -165,7 +168,7 @@ for entry in \
   }
 done
 
-for legacy in serverctl.sh lib features catalog profiles modules; do
+for legacy in lib features catalog profiles modules; do
   [[ ! -e "$ROOT_DIR/$legacy" ]] || { printf 'FAIL: 旧路径仍然存在：%s\n' "$legacy" >&2; exit 1; }
 done
 
@@ -214,7 +217,7 @@ if grep -R -E 'PROFILE_|ASSUME_YES|install_bundle|--profile' \
   printf 'FAIL: 运行时仍包含旧兼容、批量或无人值守逻辑\n' >&2
   exit 1
 fi
-if grep -E -- '--yes([[:space:]]|\))' "$ROOT_DIR/bin/serverctl" "$ROOT_DIR/install.sh" "$ROOT_DIR/scripts/install.sh"; then
+if grep -E -- '--yes([[:space:]]|\))' "$ROOT_DIR/bin/keine" "$ROOT_DIR/install.sh" "$ROOT_DIR/scripts/install.sh"; then
   printf 'FAIL: 用户入口仍提供无人值守确认选项\n' >&2
   exit 1
 fi

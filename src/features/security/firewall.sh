@@ -81,10 +81,12 @@ security_enable_firewall() {
 }
 
 security_firewall_rule() {
-  local raw protocol_choice protocol_label source spec ports protocol
+  local action="${1:-allow}" raw protocol_choice protocol_label source spec ports protocol ssh_port low high label=放行
   local rules=()
+  [[ "$action" == allow || "$action" == deny ]] || return 1
+  [[ "$action" != deny ]] || label=拒绝
   command_exists ufw || { warn "请先安装 UFW。"; return 1; }
-  ui_page "添加 UFW 规则" "单条或批量放行端口，并可限制来源地址"
+  ui_page "添加 UFW $label 规则" "单条或批量端口，并可限制来源地址"
   ui_hint "格式：443/tcp, 80/tcp, 53/udp, 10000:10100/udp"
   raw="$(read_input "端口规则（逗号分隔）" "443/tcp")"
   security_firewall_expand_specs "$raw" tcp >/dev/null || { warn "端口规则格式无效，请参考上方示例。"; return 1; }
@@ -107,26 +109,55 @@ security_firewall_rule() {
   ui_hint "来源格式：any、203.0.113.10、10.0.0.0/8 或 IPv6 CIDR。"
   source="$(read_input "来源" "any")"
   valid_firewall_source "$source" || { warn "来源 IP 或 CIDR 格式无效。"; return 1; }
+  if [[ "$action" == deny ]]; then
+    ssh_port="$(detect_ssh_port)"
+    for spec in "${rules[@]}"; do
+      [[ "$spec" == */tcp ]] || continue
+      ports="${spec%/*}"; low="${ports%%:*}"; high="${ports##*:}"
+      if (( 10#$ssh_port >= 10#$low && 10#$ssh_port <= 10#$high )); then
+        warn "拒绝规则覆盖当前 SSH 端口；请使用来源处置，不从此入口阻断管理端口。"; return 1
+      fi
+    done
+    ui_danger "拒绝规则可能中断已有节点的入站访问；默认保留其他端口不变。"
+  fi
   ui_section "规则预览" "accent"
   ui_kv "规则" "$(security_firewall_specs_label "${rules[@]}")"
   ui_kv "协议" "$protocol_label"
   ui_kv "来源" "$source"
-  confirm "添加以上放行规则？" || return 0
+  confirm "添加以上 $label 规则？" || return 0
   require_root
   for spec in "${rules[@]}"; do
     ports="${spec%/*}"
     protocol="${spec##*/}"
     if [[ "$source" == "any" ]]; then
-      run ufw allow "$spec" || { warn "无法添加 UFW 规则：$spec"; return 1; }
+      run ufw "$action" "$spec" || { warn "无法添加 UFW 规则：$spec"; return 1; }
     else
-      run ufw allow from "$source" to any port "$ports" proto "$protocol" || {
+      run ufw "$action" from "$source" to any port "$ports" proto "$protocol" || {
         warn "无法添加 UFW 来源规则：$source → $spec"
         return 1
       }
     fi
   done
-  audit "action=firewall-rule-add rules=$(printf '%q' "$(security_firewall_specs_label "${rules[@]}")") source=$source"
-  ui_success "已添加 ${#rules[@]} 条 UFW 放行规则"
+  audit "action=firewall-rule-add policy=$action rules=$(printf '%q' "$(security_firewall_specs_label "${rules[@]}")") source=$source"
+  ui_success "已添加 ${#rules[@]} 条 UFW $label 规则；实际效果受规则顺序和 UFW 是否启用影响。"
+}
+
+security_firewall_limit() {
+  local port source
+  command_exists ufw || { warn "请先安装 UFW。"; return 1; }
+  ui_page "UFW / TCP 连接限速" "优先规则，适用于 SSH；不建议限制节点业务端口"
+  port="$(read_input "TCP 端口" "$(detect_ssh_port)")"
+  source="$(read_input "来源 IP / CIDR / any" any)"
+  if ! valid_port "$port" || ! valid_firewall_source "$source"; then warn "端口或来源格式无效。"; return 1; fi
+  ui_kv "规则" "$source → $port/tcp"
+  ui_hint "UFW 限制短时间内的新连接次数，不限制既有连接带宽。规则置于现有规则前，可按编号移除。"
+  ui_danger "该规则也放行所选来源到该端口，可能扩大此前的来源限制；频繁重新连接 SSH 可能暂时被限速。"
+  confirm "在规则首部添加以上 TCP 限速规则？" || return 0
+  require_root
+  if [[ "$source" == any ]]; then run ufw prepend limit "$port/tcp" || return 1
+  else run ufw prepend limit from "$source" to any port "$port" proto tcp || return 1; fi
+  audit "action=firewall-limit port=$port source=$source"
+  ui_success "限速规则已保存；UFW 停用时不生效，请查看编号规则与完整状态。"
 }
 
 security_firewall_delete_rule() {
@@ -261,11 +292,13 @@ security_firewall_manage() {
     fi
     ui_action 7 "调整日志级别" "action"
     ui_action 8 "阻止一个来源 IP" "danger" "拒绝该地址访问所有入站端口"
+    ui_action 9 "添加拒绝端口规则" "danger" "支持批量 TCP/UDP；保护当前 SSH 端口"
+    ui_action 10 "TCP 连接限速" "warning" "优先规则，适用于 SSH；不限制带宽"
     ui_action 0 "返回" "muted"
     action="$(read_input "请选择" "0")"
     case "$action" in
       1) security_firewall_status || true; pause ;;
-      2) security_firewall_rule || true; pause ;;
+      2) security_firewall_rule allow || true; pause ;;
       3) security_firewall_delete_rule || true; pause ;;
       4) security_enable_firewall || true; pause ;;
       5)
@@ -275,6 +308,8 @@ security_firewall_manage() {
       6) security_firewall_reload || true; pause ;;
       7) security_firewall_logging || true; pause ;;
       8) security_firewall_block_source "" || true; pause ;;
+      9) security_firewall_rule deny || true; pause ;;
+      10) security_firewall_limit || true; pause ;;
       0) return 0 ;;
       *) warn "未知选项" ;;
     esac

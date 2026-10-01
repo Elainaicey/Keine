@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Server Toolkit bootstrap installer. The full installer lives in scripts/install.sh.
+# keine bootstrap installer. The full installer lives in scripts/install.sh.
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
@@ -9,9 +9,9 @@ if [[ -f "$LOCAL_INSTALLER" ]]; then
   exec bash "$LOCAL_INSTALLER" "$@"
 fi
 
-REPOSITORY="${SERVER_TOOLKIT_REPO:-Elainaicey/server-toolkit}"
-REF="${SERVER_TOOLKIT_REF:-main}"
-TEMP_FILE="$(mktemp "${TMPDIR:-/tmp}/server-toolkit-installer.XXXXXX")"
+REPOSITORY="${KEINE_REPO:-Elainaicey/keine}"
+REF="${KEINE_REF:-main}"
+TEMP_FILE="$(mktemp "${TMPDIR:-/tmp}/keine-installer.XXXXXX")"
 cleanup() { rm -f -- "$TEMP_FILE"; }
 trap cleanup EXIT
 

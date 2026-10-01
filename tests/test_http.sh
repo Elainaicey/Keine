@@ -9,7 +9,7 @@ HTTP_TEST_ROOT="$(mktemp -d)"
 HTTP_ARGS_FILE="$HTTP_TEST_ROOT/curl-args"
 HTTP_TEST_SCENARIO="success"
 trap '[[ "$HTTP_TEST_ROOT" == /tmp/* ]] && rm -rf -- "$HTTP_TEST_ROOT"' EXIT
-SERVERCTL_VERSION=0.3.0
+KEINE_VERSION=0.3.0
 NO_COLOR=1
 . "$ROOT_DIR/src/core/runtime.sh"
 . "$ROOT_DIR/src/core/validation.sh"

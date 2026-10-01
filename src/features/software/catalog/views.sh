@@ -41,7 +41,7 @@ catalog_repository_diagnostics() {
         ui_callout bad "仓库文件结构完整，但没有候选版本" "请核实系统代号、架构、网络与上游支持范围。"
       fi
       ;;
-    missing) ui_callout good "尚未配置属于正常安装前状态" "选择安装后，Server Toolkit 会创建签名和软件源，再获取官方稳定版。" ;;
+    missing) ui_callout good "尚未配置属于正常安装前状态" "选择安装后，keine 会创建签名和软件源，再获取官方稳定版。" ;;
     incomplete) ui_callout warn "仓库配置不完整" "安装或修复会先备份现有普通文件，再重新写入可信配置。" ;;
     unsafe) ui_callout bad "仓库路径存在安全风险" "请人工核实并移除符号链接；工具不会自动覆盖。" ;;
   esac
@@ -279,7 +279,7 @@ catalog_sources_view() {
 catalog_official_updates_view() {
   local interactive="${1:-1}" record id _category name _description _packages handler current latest input checked=0 updates=0 failed=0
   ui_page "软件管理 / 官方更新检查" "逐项查询已托管 CLI 的 latest stable Release，不自动安装"
-  ui_note "只检查由 Server Toolkit 官方 Release 安装器管理的软件；GitHub API 可能需要数秒。"
+  ui_note "只检查由 keine 官方 Release 安装器管理的软件；GitHub API 可能需要数秒。"
   while IFS= read -r record; do
     IFS='|' read -r id _category name _description _packages handler <<<"$record"
     [[ "$handler" == "official_release" ]] || continue

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-SOFTWARE_EFFECTS_CATALOG="${SERVER_TOOLKIT_SOFTWARE_EFFECTS_CATALOG:-$CONFIG_DIR/software-effects.tsv}"
+SOFTWARE_EFFECTS_CATALOG="${KEINE_SOFTWARE_EFFECTS_CATALOG:-$CONFIG_DIR/software-effects.tsv}"
 
 catalog_effect_rows() {
   [[ -r "$SOFTWARE_EFFECTS_CATALOG" ]] || return 1
