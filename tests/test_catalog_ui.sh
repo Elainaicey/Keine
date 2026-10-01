@@ -37,6 +37,7 @@ software_release_version() { :; }
 software_release_homepage() { printf 'https://example.com'; }
 software_release_repository() { printf 'owner/repo'; }
 software_release_target() { printf '/usr/local/bin/example'; }
+software_release_command() { printf '%s' "$1"; }
 package_installed() { [[ "$1" == "jq" ]]; }
 package_installed_version() { if [[ "$1" == "jq" ]]; then printf '1.6-2.1'; fi; }
 package_candidate_version() {
@@ -48,7 +49,7 @@ package_has_update() { [[ "$1" == "jq" ]]; }
 output="$(catalog_item_menu jq </dev/null)"
 grep -q '软件信息' <<<"$output" || { printf 'FAIL: 软件详情缺少信息面板\n' >&2; exit 1; }
 grep -q '当前版本.*1.6-2.1' <<<"$output" || { printf 'FAIL: 软件详情缺少当前版本\n' >&2; exit 1; }
-grep -q '目标 / 候选版本.*1.7.1-1' <<<"$output" || { printf 'FAIL: 软件详情缺少候选版本\n' >&2; exit 1; }
+grep -q '候选版本.*1.7.1-1' <<<"$output" || { printf 'FAIL: 软件详情缺少候选版本\n' >&2; exit 1; }
 grep -q '可更新' <<<"$output" || { printf 'FAIL: 软件详情没有识别更新状态\n' >&2; exit 1; }
 grep -q '\[2\].*更新' <<<"$output" || { printf 'FAIL: 软件详情缺少更新操作\n' >&2; exit 1; }
 
@@ -66,8 +67,18 @@ output="$(catalog_guide_view nginx </dev/null)"
 grep -q 'Certbot Nginx 插件' <<<"$output" || { printf 'FAIL: Nginx 指南未关联真实软件条目\n' >&2; exit 1; }
 
 output="$(catalog_browse_view search jq "软件搜索" "查询结果" </dev/null)"
-grep -q '共 1 项 · 第 1/1 页' <<<"$output" || { printf 'FAIL: 搜索结果没有按页显示\n' >&2; exit 1; }
-grep -q '\[ 1\].*jq.*可更新' <<<"$output" || { printf 'FAIL: 页内编号与软件状态缺失\n' >&2; exit 1; }
+grep -q '1 项 · 1/1 页' <<<"$output" || { printf 'FAIL: 搜索结果没有按页显示\n' >&2; exit 1; }
+grep -q '\[1\].*jq.*可更新' <<<"$output" || { printf 'FAIL: 页内编号与软件状态缺失\n' >&2; exit 1; }
+output="$(software_catalog_menu </dev/null)"
+if [[ "$output" != *'[0]'*返回* || "$output" != *'[Q]'*退出* || "$output" == *示例：* || "$output" == *输入精确* ]]; then
+  printf 'FAIL: 软件中心导航未统一或仍有重复教程\n' >&2; exit 1
+fi
+output="$(catalog_categories_view </dev/null)"
+if [[ "$output" == *系统信息、包工具* || "$output" != *'[15]'* ]]; then
+  printf 'FAIL: 分类说明未精简或两位菜单键缺失\n' >&2; exit 1
+fi
+output="$(catalog_item_information jq)"
+grep -q '本机 APT 索引，不代表上游最新' <<<"$output" || { printf 'FAIL: 按需来源信息缺失\n' >&2; exit 1; }
 
 # 回退菜单后点击已安装条目的安装按钮，不得引用已移除的提示符变量。
 choice_fixture="$CATALOG_UI_TEST_ROOT/choice"

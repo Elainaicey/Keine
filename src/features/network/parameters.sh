@@ -149,7 +149,7 @@ network_tuning_menu() {
   local rows=() record key label _minimum _maximum _reference _description index choice value
   while true; do
     mapfile -t rows < <(network_tuning_rows)
-    ui_page "网络 / 网络调优" "逐项设置，不套用激进模板，也不保证提高带宽"
+    ui_page "网络 / 网络调优"
     ui_section "内核与连接参数" "primary"
     for index in "${!rows[@]}"; do
       record="${rows[$index]}"; IFS='|' read -r key label _minimum _maximum _reference _description <<<"$record"
@@ -157,13 +157,13 @@ network_tuning_menu() {
       ui_item "$((index + 1))" "$label" "$value"
     done
     ui_section "来源与恢复" "accent"
-    ui_action S "查看持久参数来源" "action" "识别第三方脚本与重复键"
-    ui_action R "撤销本项目参数" "warning" "冲突检查与原始运行值恢复"
-    ui_action B "BBR 拥塞控制" "action" "原生内核能力，不更换内核"
-    ui_action I "IP 地址优先级" "action" "IPv4 优先或恢复托管块"
-    ui_action A "第三方调优适配" "action" "预留入口、参数来源与冲突检查"
-    ui_action 0 "返回" "muted"
-    choice="$(read_input "参数编号 / S / R / B / I / A / 0" "0")"
+    ui_action S "持久参数来源" "action"
+    ui_action R "撤销项目参数" "warning"
+    ui_action B "BBR 拥塞控制" "action"
+    ui_action I "IP 地址优先级" "action"
+    ui_action A "第三方调优适配" "action"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     case "$choice" in
       0) return 0 ;; S|s) network_tuning_sources ;; R|r) network_tuning_restore || true ;;
       B|b) network_bbr_manage || true ;; I|i) network_set_address_preference || true ;;

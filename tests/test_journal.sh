@@ -6,6 +6,7 @@ IFS=$'\n\t'
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)"
 . "$ROOT_DIR/src/core/runtime.sh"
+. "$ROOT_DIR/src/core/ui.sh"
 . "$ROOT_DIR/src/core/validation.sh"
 . "$ROOT_DIR/src/features/services/journal.sh"
 
@@ -13,14 +14,15 @@ ui_page() { :; }
 ui_section() { :; }
 ui_action() { :; }
 ui_action_pair() { :; }
+ui_menu_footer() { :; }
 ui_hint() { :; }
 ui_empty() { :; }
 ui_note() { :; }
 unit_exists() { [[ "$1" == "nginx.service" ]]; }
 read_input() {
   case "$1" in
-    "请选择时间范围") printf '3' ;;
-    "请选择优先级") printf '2' ;;
+    "时间范围") printf '3' ;;
+    "优先级") printf '2' ;;
     "systemd 单元") printf 'nginx.service' ;;
     "关键词") printf 'failure' ;;
     *) printf '%s' "${2:-}" ;;

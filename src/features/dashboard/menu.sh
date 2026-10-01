@@ -8,8 +8,8 @@ dashboard_menu() {
     ui_action_pair 1 "刷新总览" "success" 2 "故障快速排查" "action"
     ui_action_pair 3 "软件包更新" "warning" 4 "公网暴露分析" "action"
     ui_action_pair 5 "服务管理" "action" 6 "备份与恢复" "action"
-    ui_action 0 "返回主菜单" "muted"
-    choice="$(read_input "请选择" "0")"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     case "$choice" in
       1) continue ;;
       2) system_triage; continue ;;

@@ -50,7 +50,7 @@ apps_service_detail() {
         ;;
     esac
 
-    ui_page "应用 / $label" "状态、健康、资产、日志和经过验证的生命周期控制"
+    ui_page "应用 / $label"
     if (( APPS_SERVICE_CACHE_ERROR == 1 )); then ui_callout warn "服务快照读取不完整" "R 重试；没有读取的属性不代表实际为零或未安装。"; fi
     ui_panel_begin "运行信息"
     ui_panel_kv "状态" "● $state" "$state_color"
@@ -70,38 +70,37 @@ apps_service_detail() {
       "内存" "$(services_format_bytes "$memory")" "primary" \
       "任务" "${tasks:-—}" "primary" \
       "累计 CPU" "$(services_format_cpu_time "$cpu_time")" "primary"
-    ui_hint "本次服务快照 · R 刷新；端口扫描、配置与数据占用仅在选择对应操作时读取。"
 
     ui_section "观察与诊断" "primary"
     ui_action_pair 1 "运行健康" "action" 2 "监听端口" "action"
     ui_action_pair 3 "配置资产" "action" 4 "数据与占用" "warning"
     ui_action 5 "最近日志" "action"
 
-    ui_section "应用安全操作" "accent"
+    ui_section "配置" "accent"
     if apps_service_config_validation_supported "$app_id"; then
-      ui_action 6 "检查配置" "action" "使用应用官方只读检查命令"
+      ui_action 6 "检查配置" "action"
     else
-      ui_action 6 "检查配置" "disabled" "没有安全的无副作用检查命令"
+      ui_action 6 "检查配置" "disabled" "不支持"
     fi
     if apps_service_reload_supported "$app_id"; then
-      ui_action 7 "安全 reload" "warning" "先检查配置，再重新加载"
+      ui_action 7 "检查并 reload" "warning"
     else
-      ui_action 7 "安全 reload" "disabled" "该应用未声明 reload 流程"
+      ui_action 7 "检查并 reload" "disabled" "不支持"
     fi
 
     ui_section "生命周期" "primary"
     ui_action_pair 8 "$lifecycle_label" "$lifecycle_style" 9 "重启服务" "$([[ "$state" == "active" ]] && printf 'warning' || printf 'disabled')"
     ui_action_pair 10 "$boot_label" "$boot_style" 11 "完整 systemd 管理" "action"
     if [[ -n "$catalog_id" ]]; then
-      ui_action 12 "软件版本与更新" "action" "候选版本、来源、更新与安全移除"
+      ui_action 12 "软件版本与更新" "action"
     else
-      ui_action 12 "软件版本与更新" "disabled" "未声明可验证的软件目录来源"
+      ui_action 12 "软件版本与更新" "disabled" "未关联"
     fi
     if [[ "$app_id" == "docker" ]]; then ui_action 13 "Docker 专属中心" "action"; fi
-    if [[ "$app_id" == "nginx" ]]; then ui_action 14 "HTTPS / Certbot" "accent" "安装证书客户端或 Nginx 插件；不隐式签发证书"; fi
+    if [[ "$app_id" == "nginx" ]]; then ui_action 14 "HTTPS / Certbot" "accent"; fi
     ui_action R "刷新运行信息" "accent"
-    ui_action 0 "返回应用清单" "muted"
-    action="$(read_input "请选择" "0")"
+    ui_menu_footer "返回"
+    ui_read_choice action
     case "$action" in
       1) apps_service_health "$app_id" ;;
       2) apps_service_listeners_view "$app_id" ;;

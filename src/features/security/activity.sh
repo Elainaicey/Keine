@@ -86,7 +86,6 @@ security_auth_activity() {
     ui_check pass "失败登录数量未达到内置关注阈值"
   fi
   ui_note "统计仅覆盖 OpenSSH 常见日志格式；日志轮转、语言或自定义格式可能影响计数。"
-  ui_note "统计只在打开页面时执行一次，不会持续读取日志或创建封禁任务。"
 }
 
 security_auth_center() {
@@ -95,8 +94,8 @@ security_auth_center() {
     security_auth_activity 24
     ui_section "明确操作" "accent"
     ui_action 1 "处置一个失败来源" "warning" "只允许选择当前清单中的明确 IP"
-    ui_action 0 "返回安全中心" "muted"
-    choice="$(read_input "请选择" "0")"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     case "$choice" in
       1) security_auth_source_response || true; pause ;;
       0) return 0 ;;
@@ -128,8 +127,8 @@ security_auth_source_response() {
   ui_section "处置方式" "accent"
   ui_action 1 "加入 Fail2ban Jail" "warning" "临时封禁，时长由 Jail 配置决定"
   ui_action 2 "添加 UFW 来源拒绝" "danger" "持续阻止该来源访问本机"
-  ui_action 0 "取消" "muted"
-  action="$(read_input "请选择" "0")"
+  ui_menu_footer "取消"
+  ui_read_choice action
   case "$action" in
     1)
       if ! command_exists fail2ban-client || ! fail2ban-client ping >/dev/null 2>&1; then

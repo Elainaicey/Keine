@@ -49,7 +49,8 @@ services_search() {
   systemctl list-units --all --type=service --no-legend --no-pager 2>/dev/null |
     awk -v query="$query" 'BEGIN{query=tolower(query)} index(tolower($0),query){print "  "$0; found=1} END{if(!found)print "  — 没有匹配的服务"}' |
     sed -n '1,80p'
-  service="$(read_input "输入完整服务名进行管理；输入 0 返回" "0")"
+  ui_menu_footer "返回"
+  ui_read_choice service "服务名"
   [[ "$service" == "0" ]] && return 0
   valid_service_name "$service" || { warn "服务名格式无效。"; return 1; }
   services_select "$service"
@@ -158,7 +159,7 @@ services_select() {
     fragment="$(unit_snapshot_value "$snapshot" FragmentPath 2>/dev/null || true)"
     dropins="$(unit_snapshot_value "$snapshot" DropInPaths 2>/dev/null || true)"
     case "$state" in active) state_color="$GREEN" ;; failed) state_color="$RED" ;; *) state_color="$YELLOW" ;; esac
-    ui_page "服务管理 / $service" "状态、资源、退出结果、依赖、日志与生命周期"
+    ui_page "服务 / $service"
     ui_panel_begin "服务信息"
     ui_panel_kv "说明" "$(terminal_safe_text "${description:-—}")"
     ui_panel_kv "状态" "● $state" "$state_color"
@@ -181,26 +182,22 @@ services_select() {
     ui_action 1 "查看状态" "action"
     ui_action 2 "查看日志" "action"
     ui_action 3 "依赖与启动链" "action"
-    ui_action 4 "失败诊断" "$([[ "$state" == "failed" ]] && printf 'danger' || printf 'action')" "Result、退出码与 warning 日志"
+    ui_action 4 "失败诊断" "$([[ "$state" == "failed" ]] && printf 'danger' || printf 'action')"
     ui_section "生命周期" "accent"
     if [[ "$state" == "active" ]]; then
-      ui_action 5 "启动" "muted" "服务已经运行"
       ui_action 6 "停止" "danger"
       ui_action 7 "重启" "warning"
     else
       ui_action 5 "启动" "success"
-      ui_action 6 "停止" "muted" "服务当前未运行"
       ui_action 7 "重启" "warning"
     fi
     if [[ "$enabled" == "enabled" ]]; then
-      ui_action 8 "启用开机启动" "muted" "当前已经启用"
       ui_action 9 "禁用开机启动" "danger"
     else
       ui_action 8 "启用开机启动" "success"
-      ui_action 9 "禁用开机启动" "muted" "当前未启用"
     fi
-    ui_action 0 "返回" "muted"
-    action="$(read_input "请选择" "0")"
+    ui_menu_footer "返回"
+    ui_read_choice action
     case "$action" in
       1) systemctl status "$service" --no-pager || true; pause ;;
       2) services_logs "$service"; pause ;;

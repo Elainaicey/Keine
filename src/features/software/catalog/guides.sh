@@ -15,7 +15,7 @@ catalog_guide_view() {
   IFS='|' read -r _id heading related boundary hint documentation <<<"$record"
   IFS=',' read -r -a entries <<<"$related"
   while true; do
-    ui_page "软件指南 / $heading" "$id · 关联软件按单项管理，不绑定安装"
+    ui_page "软件指南 / $heading" "$id"
     ui_panel_begin "使用边界"
     ui_panel_kv "安装" "$boundary"
     ui_panel_kv "使用" "$hint"
@@ -26,10 +26,10 @@ catalog_guide_view() {
       related_id="${entries[$index]}"
       related_record="$(catalog_record "$related_id")" || continue
       IFS='|' read -r _ _ name _ <<<"$related_record"
-      ui_action "$((index + 1))" "$name" "action" "$related_id · 打开详情后再选择安装"
+      ui_action "$((index + 1))" "$name" "action" "$related_id"
     done
-    ui_action 0 "返回软件详情" "muted"
-    choice="$(read_input "请选择相关软件" "0")"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     [[ "$choice" == 0 ]] && return 0
     if [[ "$choice" =~ ^[1-9][0-9]*$ ]] && (( ${#choice} <= 2 && choice <= ${#entries[@]} )); then
       catalog_item_menu "${entries[$((choice - 1))]}"

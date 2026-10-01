@@ -92,8 +92,9 @@ network_proxy_configure() {
   if ! network_proxy_host_valid "$host" || ! valid_port "$port"; then warn "代理地址或端口格式无效。"; return 1; fi
   ui_action 1 "代理端解析 DNS" "action" "socks5h；目标域名交给代理解析"
   ui_action 2 "本机解析 DNS" "action" "socks5；使用 VPS 当前系统解析器"
-  choice="$(read_input "DNS 模式" "1")"
-  case "$choice" in 1) ;; 2) mode=socks5 ;; *) warn "DNS 模式无效。"; return 1 ;; esac
+  ui_menu_footer "取消"
+  ui_read_choice choice "DNS 模式" "1"
+  case "$choice" in 0) return 0 ;; 1) ;; 2) mode=socks5 ;; *) warn "DNS 模式无效。"; return 1 ;; esac
   username="$(read_input "用户名；无需认证留空" "")"
   [[ -z "$username" ]] || password="$(read_secret "代理密码")" || return 1
   payload="$(network_proxy_payload "$host" "$port" "$mode" "$username" "$password")" || {
@@ -111,19 +112,19 @@ network_proxy_configure() {
 network_proxy_menu() {
   local choice endpoint
   while true; do
-    ui_page "SOCKS 出站代理" "已有代理的配置、验证、使用与撤销"
+    ui_page "SOCKS 出站代理"
     endpoint="未配置"
     if [[ -r "$NETWORK_PROXY_FILE" ]]; then
       if network_proxy_config_valid; then endpoint="$(sed -n 's/^proxy = "\(.*\)"$/\1/p' "$NETWORK_PROXY_FILE" | head -n 1)"
       else endpoint="配置需检查，内容不显示"; fi
     fi
     ui_kv "代理端点" "$(terminal_safe_text "${endpoint:-配置需检查}")"
-    ui_note "该配置仅在显式指定时使用；不创建后台进程，也不接管节点软件的出站配置。"
-    ui_action 1 "配置 / 切换代理" "action" "主机、端口、认证与 DNS 位置"
-    ui_action 2 "验证代理连接" "action" "一次 HTTP / HTTPS HEAD 请求"
-    ui_action 3 "移除项目配置" "warning" "恢复首次修改前状态"
-    ui_action 0 "返回" "muted"
-    choice="$(read_input "请选择" "0")"
+    ui_hint "仅显式使用时生效，不修改全局出站。"
+    ui_action 1 "配置 / 切换代理" "action"
+    ui_action 2 "验证代理连接" "action"
+    ui_action 3 "恢复初始配置" "warning"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     case "$choice" in
       1) network_proxy_configure || true ;; 2) network_proxy_check "" || true ;;
       3) if confirm "移除项目 SOCKS 配置并恢复原始文件？"; then config_file_restore "$NETWORK_PROXY_FILE" config_no_reload && audit 'action=network-socks-restore'; fi ;;

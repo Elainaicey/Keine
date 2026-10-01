@@ -93,15 +93,15 @@ security_ssh_policy_menu() {
   while true; do
     mapfile -t rows < <(security_ssh_policy_rows)
     settings="$(security_ssh_context_values || true)"
-    ui_page "SSH / 连接与转发策略" "逐项设置、有效值验证、reload 与原始恢复"
+    ui_page "SSH / 连接与转发策略"
     for index in "${!rows[@]}"; do
       IFS='|' read -r key label minimum maximum reference description <<<"${rows[$index]}"
       current="$(security_ssh_effective_values "$settings" "${key,,}")"
       ui_item "$((index+1))" "$label" "${current:-未知}"
     done
-    ui_action R "恢复初始策略" "warning" "只撤销本页独立文件，不改变其他 SSH 配置"
-    ui_action 0 "返回" "muted"
-    choice="$(read_input "参数编号 / R / 0" "0")"
+    ui_action R "恢复初始策略" "warning"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     case "$choice" in
       0) return 0 ;;
       R|r) if confirm "恢复初始 SSH 连接与转发策略？"; then require_root; config_file_restore "$SECURITY_SSH_POLICY" security_ssh_reload_only || true; fi ;;

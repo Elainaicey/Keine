@@ -151,25 +151,24 @@ system_update_menu() {
   local choice held
   while true; do
     held="$(apt-mark showhold 2>/dev/null | awk 'NF {count++} END {print count+0}')"
-    ui_page "系统更新" "当前发行版的补丁与软件包更新 · 按需执行"
+    ui_page "系统更新"
     ui_panel_begin "更新范围"
     ui_panel_kv "系统" "${OS_NAME:-Debian / Ubuntu}"
     ui_panel_kv "本地候选" "$(package_upgradable_count) 个"
     ui_panel_kv "被保留" "$held 个"
     ui_panel_kv "索引时间" "$(system_package_index_age)"
     ui_panel_end
-    ui_context "更新已安装的 APT 软件与所需依赖；不更新官方直装 CLI，也不迁移发行版。"
-    ui_note "补丁由已配置来源提供；发行版停止安全支持后，普通更新不能替代迁移至受支持系统。"
+    ui_hint "只更新当前发行版的系统包，不迁移发行版。"
     ui_section "更新与预览" "primary"
-    ui_action 1 "刷新并更新系统" "warning" "完整索引检查、事务预览与二次确认"
-    ui_action 2 "仅预览当前计划" "action" "不刷新索引、不修改系统"
-    ui_action 3 "查看全部候选版本" "action" "已安装版本 → 候选版本"
+    ui_action 1 "刷新并更新系统" "warning"
+    ui_action 2 "预览当前计划" "action"
+    ui_action 3 "全部候选版本" "action"
     ui_section "维护与检查" "accent"
-    ui_action 4 "管理 hold" "action" "保持或取消单个软件包的版本保留"
-    ui_action 5 "查看 APT 来源" "action" "核实已配置仓库与发行版"
-    ui_action 6 "重启与内核状态" "action" "只查看，不执行重启"
-    ui_action 0 "返回" "muted"
-    choice="$(read_input "请选择" "0")"
+    ui_action 4 "管理 hold" "action"
+    ui_action 5 "APT 来源" "action"
+    ui_action 6 "重启与内核状态" "action"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     case "$choice" in
       1) system_update_apply || true ;;
       2)

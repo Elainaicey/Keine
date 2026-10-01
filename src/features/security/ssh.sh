@@ -193,7 +193,7 @@ security_ssh_manage() {
     service=""
     if service_exists ssh.service; then service="ssh.service"; elif service_exists sshd.service; then service="sshd.service"; fi
     if [[ -n "$service" ]]; then state="$(service_state "$service")"; else state="未找到服务"; fi
-    ui_page "SSH 安全中心" "有效配置、会话、公钥、主机身份与安全向导"
+    ui_page "SSH 安全中心"
     ui_panel_begin "运行状态"
     ui_panel_kv "服务" "${service:-—}"
     ui_panel_kv "状态" "$state" "$([[ "$state" == "active" ]] && printf '%s' "$GREEN" || printf '%s' "$YELLOW")"
@@ -203,14 +203,14 @@ security_ssh_manage() {
     ui_section "查看" "primary"
     ui_action_pair 1 "有效配置" "action" 2 "当前会话" "action"
     ui_action_pair 3 "公钥资产" "action" 4 "主机密钥" "action"
-    ui_action 5 "登录事件" "action" "最近 24 小时成功、失败与无效用户"
+    ui_action 5 "登录事件" "action"
     ui_section "配置" "accent"
-    ui_action 6 "SSH 安全向导" "warning" "端口、密码认证与 root 登录策略"
+    ui_action 6 "SSH 安全向导" "warning"
     if [[ -n "$service" ]]; then ui_action 7 "服务与日志" "action" "$service"; else ui_action 7 "服务与日志" "disabled" "未找到 SSH 服务"; fi
-    ui_action 8 "连接与转发策略" "action" "认证次数、宽限、存活探测、Agent / X11 / TCP 转发"
-    ui_action 9 "恢复认证与端口" "warning" "撤销安全向导的独立配置；保留其他 SSH 文件和防火墙规则"
-    ui_action 0 "返回安全中心" "muted"
-    action="$(read_input "请选择" "0")"
+    ui_action 8 "连接与转发策略" "action"
+    ui_action 9 "恢复认证与端口" "warning"
+    ui_menu_footer "返回"
+    ui_read_choice action
     case "$action" in
       1) security_ssh_effective_view || true ;;
       2) security_ssh_sessions ;;

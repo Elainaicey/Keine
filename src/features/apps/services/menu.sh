@@ -5,7 +5,7 @@ apps_service_manage() {
   while true; do
     apps_service_cache_build
     apps_service_summary
-    choice="$(read_input "请选择应用" "0")"
+    ui_read_choice choice
     [[ "$choice" == "0" ]] && return 0
     case "$choice" in R|r) apps_service_cache_invalidate; continue ;; esac
     [[ "$choice" =~ ^[0-9]+$ ]] || { warn "选项无效。"; pause; continue; }

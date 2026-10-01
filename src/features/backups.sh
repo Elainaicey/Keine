@@ -95,8 +95,8 @@ backups_metadata() {
     else
       ui_action 2 "保护快照" "success" "批量清理和直接删除都会跳过"
     fi
-    ui_action 0 "返回" "muted"
-    choice="$(read_input "请选择" "0")"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     case "$choice" in
       1)
         label="$(read_input "快照备注" "$label")"
@@ -134,8 +134,8 @@ backups_create() {
   ui_action 1 "已托管的配置" "action" "备份当前系统配置与 Shell 启动文件，不复制软件目录"
   ui_action 2 "常用系统配置" "action" "主机名、hosts、时区、fstab 和 SSH 主配置"
   ui_action 3 "指定配置文件" "action" "输入一个 /etc 下的完整路径"
-  ui_action 0 "取消" "muted"
-  choice="$(read_input "请选择" "1")"
+  ui_menu_footer "取消"
+  ui_read_choice choice "选择" "1"
   case "$choice" in
     1)
       for entry in "$(changes_root)"/files/*; do
@@ -259,8 +259,8 @@ backups_cleanup() {
   ui_section "清理方式" "accent"
   ui_action 1 "保留最近若干份" "warning" "适合控制快照数量"
   ui_action 2 "删除早于若干天" "warning" "适合按维护周期清理"
-  ui_action 0 "取消" "muted"
-  choice="$(read_input "请选择" "0")"
+  ui_menu_footer "取消"
+  ui_read_choice choice
   case "$choice" in
     1)
       ui_hint "建议至少保留 10 份；当前操作中的快照始终受保护。"
@@ -332,22 +332,22 @@ backups_restore() {
 backups_menu() {
   local choice
   while true; do
-    ui_page "手动备份管理" "快照仅由你主动创建；日常修改不产生历史快照"
+    ui_page "手动备份管理"
     backups_summary
     ui_section "创建与恢复" "accent"
-    ui_item 1 "创建配置快照" "托管配置、常用配置或指定文件"
+    ui_item 1 "创建配置快照"
     ui_item 2 "恢复一个文件"
     ui_section "查看与验证" "primary"
     ui_item 3 "列出备份"
     ui_item 4 "查看备份内容"
-    ui_item 5 "校验备份完整性" "检查清单和所有备份文件"
-    ui_item 6 "与当前配置比较" "恢复前查看文件差异"
-    ui_item 7 "保护与备注" "保护重要快照，并添加简短用途说明"
+    ui_item 5 "校验备份完整性"
+    ui_item 6 "与当前配置比较"
+    ui_item 7 "保护与备注"
     ui_section "空间管理" "warning"
-    ui_item 8 "删除一个快照" "受保护快照必须先取消保护"
-    ui_item 9 "清理历史快照" "按数量或天数清理，自动跳过受保护快照"
-    ui_item 0 "返回"
-    choice="$(read_input "请选择" "0")"
+    ui_item 8 "删除一个快照"
+    ui_item 9 "清理历史快照"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     case "$choice" in
       1) backups_create || true ;;
       2) backups_restore || true ;;

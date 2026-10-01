@@ -91,8 +91,8 @@ network_dns_configure() {
   ui_action 2 "Quad9" "action" "9.9.9.9 / 149.112.112.112"
   ui_action 3 "Google Public DNS" "action" "8.8.8.8 / 8.8.4.4"
   ui_action 4 "自定义" "accent" "IPv4 / IPv6，最多 3 个，逗号或空格分隔"
-  ui_action 0 "返回" "muted"
-  choice="$(read_input "请选择" "0")"
+  ui_menu_footer "返回"
+  ui_read_choice choice
   case "$choice" in
     1) input='1.1.1.1,1.0.0.1' ;; 2) input='9.9.9.9,149.112.112.112' ;; 3) input='8.8.8.8,8.8.4.4' ;;
     4) input="$(read_input "DNS 地址" "")" ;; *) return 0 ;;
@@ -134,18 +134,17 @@ network_dns_menu() {
   local choice backend path
   while true; do
     backend="$(network_dns_backend)"; path="$(network_dns_path || true)"
-    ui_page "系统 DNS 配置" "原生后端识别、服务器切换、解析验证与恢复"
+    ui_page "系统 DNS"
     ui_panel_begin "当前解析器"
     ui_panel_kv "后端" "$backend"
     ui_panel_kv "配置文件" "${path:-由其他网络管理器控制}"
     ui_panel_end
     sed -n '/^nameserver[[:space:]]/p' "$NETWORK_DNS_RESOLV" 2>/dev/null || true
-    ui_note "只调整主机系统 DNS；不锁定 resolv.conf，也不禁用现有网络管理器。"
-    ui_action 1 "配置 DNS" "action" "公共解析器或自定义地址"
-    ui_action 2 "解析诊断" "action" "检查当前生效路径与 DNS 记录"
-    ui_action 3 "恢复初始配置" "warning" "保留外部修改冲突，不强行覆盖"
-    ui_action 0 "返回" "muted"
-    choice="$(read_input "请选择" "0")"
+    ui_action 1 "配置 DNS" "action"
+    ui_action 2 "解析诊断" "action"
+    ui_action 3 "恢复初始配置" "warning"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     case "$choice" in 1) network_dns_configure || true ;; 2) network_dns_diagnose ;; 3) network_dns_restore || true ;; 0) return 0 ;; *) warn "未知选项"; continue ;; esac
     pause
   done

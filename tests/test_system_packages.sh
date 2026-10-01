@@ -67,7 +67,7 @@ package_installed() { [[ "$1" == "curl" ]]; }
 read_input() {
   case "$1" in
     "软件包名") printf 'curl' ;;
-    "请选择") printf '1' ;;
+    "选择") printf '1' ;;
     *) printf '%s' "${2:-}" ;;
   esac
 }

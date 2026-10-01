@@ -145,37 +145,37 @@ dashboard_show() {
 
   ui_section "需要关注" "warning"
   if [[ "$failed_units" =~ ^[0-9]+$ ]] && (( failed_units > 0 )); then
-    ui_callout "bad" "$failed_units 个服务失败" "进入失败服务清单查看退出原因、日志和生命周期操作。"
+    ui_callout "bad" "$failed_units 个服务失败"
     attention=$((attention + 1))
   fi
   if (( root_percent >= 90 )); then
-    ui_callout "bad" "根分区使用率 ${root_percent}%" "进入存储中心定位大目录、已删除占用和 APT 缓存。"
+    ui_callout "bad" "根分区使用率 ${root_percent}%"
     attention=$((attention + 1))
   elif (( root_percent >= 75 )); then
-    ui_callout "warn" "根分区使用率 ${root_percent}%" "空间已进入关注区间，可按需运行一次存储分析。"
+    ui_callout "warn" "根分区使用率 ${root_percent}%"
     attention=$((attention + 1))
   fi
   if (( memory_percent >= 90 )); then
-    ui_callout "bad" "内存使用率 ${memory_percent}%" "进入进程与资源页定位高占用进程，避免直接猜测性终止。"
+    ui_callout "bad" "内存使用率 ${memory_percent}%"
     attention=$((attention + 1))
   elif (( memory_percent >= 75 )); then
-    ui_callout "warn" "内存使用率 ${memory_percent}%" "建议查看进程排行与 OOM 记录。"
+    ui_callout "warn" "内存使用率 ${memory_percent}%"
     attention=$((attention + 1))
   fi
   if [[ "$upgrades" =~ ^[0-9]+$ ]] && (( upgrades > 0 )); then
-    ui_callout "warn" "$upgrades 个系统软件包可更新" "软件包健康中心会列出版本与安全更新；不会自动全量升级。"
+    ui_callout "warn" "$upgrades 个系统软件包可更新"
     attention=$((attention + 1))
   fi
   if [[ "$firewall_state" != "active" ]]; then
-    ui_callout "warn" "UFW 防火墙未启用" "启用前先确认当前 SSH 端口和业务端口，避免中断远程访问。"
+    ui_callout "warn" "UFW 防火墙未启用" "启用前请确认 SSH 与业务端口。"
     attention=$((attention + 1))
   fi
   if [[ "$time_sync" != "已同步" ]]; then
-    ui_callout "warn" "系统时间尚未同步" "时间偏差会影响 TLS、日志定位和软件仓库验证。"
+    ui_callout "warn" "系统时间尚未同步"
     attention=$((attention + 1))
   fi
   if command_exists docker && (( docker_ready == 0 )); then
-    ui_callout "warn" "Docker 已安装但当前不可用" "进入应用与容器中心检查服务状态、配置和最近日志。"
+    ui_callout "warn" "Docker 已安装但当前不可用"
     attention=$((attention + 1))
   elif (( docker_issues > 0 )); then
     ui_callout "bad" "Docker 有 $docker_issues 个异常容器状态" "包含 $docker_unhealthy 个 unhealthy、$docker_restarting 个 restarting。"
@@ -183,7 +183,7 @@ dashboard_show() {
   fi
   if [[ "$MEMORY_MB" =~ ^[0-9]+$ && "$SWAP_MB" =~ ^[0-9]+$ ]] &&
     (( MEMORY_MB < 1024 && SWAP_MB == 0 )); then
-    ui_callout "warn" "低内存主机尚未配置 Swap" "可在系统管理中创建带所有权记录、可安全移除的 Swap 文件。"
+    ui_callout "warn" "低内存主机尚未配置 Swap"
     attention=$((attention + 1))
   fi
   if dashboard_reboot_required; then
@@ -191,8 +191,8 @@ dashboard_show() {
     attention=$((attention + 1))
   fi
   if (( attention == 0 )); then
-    ui_callout "good" "当前总览没有发现明确异常" "仍可运行故障快速排查获取更深入的一次性诊断。"
+    ui_callout "good" "当前未发现明确异常"
   else
-    ui_hint "共 $attention 项需要核实；总览只读取状态，不会自动修复或启动后台监控。"
+    ui_context "$attention 项需要关注"
   fi
 }

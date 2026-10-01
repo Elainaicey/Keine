@@ -118,8 +118,8 @@ recovery_changes_menu() {
       ui_item "$((index + 1))" "$path" "$label"
     done
     ui_action A "撤销全部可记录变更" "warning"
-    ui_action 0 "返回" "muted"
-    choice="$(read_input "资源编号 / A / 0" "0")"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     case "$choice" in
       0) return 0 ;;
       A|a) recovery_restore_all || true; pause ;;
@@ -132,8 +132,8 @@ recovery_changes_menu() {
         ui_kv "类型" "$kind"; ui_kv "状态" "$label"
         ui_action 1 "撤销此资源" "warning" "冲突资源会停止，不覆盖外部修改"
         ui_action 2 "保留资源并解除托管" "danger" "删除这条恢复记录，今后不再撤销它"
-        ui_action 0 "返回" "muted"
-        choice="$(read_input "请选择" "0")"
+        ui_menu_footer "返回"
+        ui_read_choice choice
         if [[ "$choice" == 1 && "$kind" != package ]]; then
           confirm "恢复 $path？" || continue; require_root
           CHANGES_RESTORING=1
@@ -160,14 +160,13 @@ recovery_changes_menu() {
 recovery_menu() {
   local choice
   while true; do
-    ui_page "备份与恢复" "手动配置快照与项目变更撤销"
-    ui_context "不会自动创建历史快照；撤销记录仅保留每项资源的首次原始状态。"
-    ui_action 1 "手动备份管理" "action" "创建快照、恢复文件、差异比较与空间清理"
-    ui_action 2 "Docker 卷备份" "action" "手动归档、验证、恢复与删除业务卷备份"
+    ui_page "备份与恢复"
+    ui_action 1 "手动备份管理" "action"
+    ui_action 2 "Docker 卷备份" "action"
     ui_section "撤销项目修改" "warning"
-    ui_action 3 "项目变更与撤销" "warning" "首次修改前状态、新增资源和冲突处理"
-    ui_action 0 "返回" "muted"
-    choice="$(read_input "请选择" "0")"
+    ui_action 3 "项目变更与撤销" "warning"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     case "$choice" in
       1) backups_menu ;;
       2) docker_volume_backups_menu ;;

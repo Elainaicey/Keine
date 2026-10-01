@@ -6,6 +6,7 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
 
 # shellcheck source=../src/core/runtime.sh
 . "$ROOT_DIR/src/core/runtime.sh"
+. "$ROOT_DIR/src/core/ui.sh"
 . "$ROOT_DIR/src/core/validation.sh"
 # shellcheck source=../src/features/security.sh
 . "$ROOT_DIR/src/features/security.sh"
@@ -176,6 +177,7 @@ run() {
 }
 ui_page() { :; }
 ui_action() { :; }
+ui_menu_footer() { :; }
 ui_hint() { :; }
 ui_section() { :; }
 ui_kv() { :; }

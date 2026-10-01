@@ -88,10 +88,10 @@ toolkit_uninstall() {
   ui_action 1 "仅卸载程序" "warning" "删除程序，保留日志与备份"
   ui_action 2 "彻底清除项目数据" "danger" "同时删除项目日志、备份和状态数据"
   ui_action 3 "撤销已记录修改并卸载" "danger" "先校验恢复；存在冲突或撤销失败时保留项目"
-  ui_action 0 "取消" "muted"
-  ui_note "选项 1/2 不撤销系统修改；选项 3 仅覆盖新版开始记录的可逆操作，不追溯历史。"
+  ui_hint "仅选项 3 撤销已记录的系统修改。"
+  ui_menu_footer "取消"
   (( DRY_RUN == 0 )) || uninstall_args+=(--dry-run)
-  choice="$(read_input "请选择" "0")"
+  ui_read_choice choice
   case "$choice" in
     1) exec bash "$installer" --uninstall --dir "$ROOT_DIR" --bin "$bin_path" "${uninstall_args[@]}" ;;
     2) exec bash "$installer" --uninstall --purge-data --dir "$ROOT_DIR" --bin "$bin_path" "${uninstall_args[@]}" ;;

@@ -47,8 +47,39 @@ catalog_repository_diagnostics() {
   esac
 }
 
+catalog_item_information() {
+  local id="$1" record _id category name description packages handler effect_note
+  record="$(catalog_record "$id")" || return 1
+  IFS='|' read -r _id category name description packages handler <<<"$record"
+  ui_page "软件信息 / $name" "$id · $category"
+  ui_panel_begin "来源与安装"
+  ui_panel_kv "说明" "$description"
+  if [[ "$handler" == official_release ]]; then
+    ui_panel_kv "官方项目" "$(software_release_repository "$id")"
+    ui_panel_kv "项目主页" "$(software_release_homepage "$id")"
+    ui_panel_kv "命令路径" "$(software_release_target "$id")"
+    if software_release_managed "$id"; then
+      if software_release_integrity "$id"; then ui_panel_kv "完整性" "SHA-256 正常" "$GREEN"
+      else ui_panel_kv "完整性" "异常" "$RED"; fi
+    else
+      ui_panel_kv "完整性" "安装时校验 GitHub SHA-256 digest"
+    fi
+    [[ -z "$packages" ]] || ui_panel_kv "发行版备选" "$packages"
+  else
+    ui_panel_kv "系统包" "${packages:-由官方安装器管理}"
+    ui_panel_kv "版本依据" "本机 APT 索引，不代表上游最新" "$MUTED"
+  fi
+  ui_panel_end
+  if catalog_effect_has_persistent_impact "$id"; then
+    ui_section "运行影响" warning
+    ui_kv "组件" "$(catalog_effect_summary "$id")" "$YELLOW"
+    effect_note="$(catalog_effect_note "$id")"
+    [[ -z "$effect_note" ]] || ui_hint "$effect_note"
+  fi
+}
+
 catalog_item_menu() {
-  local id="$1" record _id category name description packages handler choice state source_label installed candidate repository_status installed_flag distribution_docker effect_note
+  local id="$1" record _id category name description packages handler choice state source_label installed candidate repository_status installed_flag distribution_docker
   record="$(catalog_record "$id")" || return 1
   IFS='|' read -r _id category name description packages handler <<<"$record"
   while true; do
@@ -68,114 +99,74 @@ catalog_item_menu() {
       source_label="系统软件仓库（现有安装）"
       distribution_docker=1
     fi
-    ui_page "软件管理 / $name" "$id · $category"
+    ui_page "软件中心 / $name" "$id · $category"
     ui_panel_begin "软件信息"
     ui_panel_kv "状态" "$(catalog_state_badge "$state")"
     ui_panel_kv "当前版本" "$installed"
-    ui_panel_kv "目标 / 候选版本" "$candidate" "$CYAN"
+    ui_panel_kv "候选版本" "$candidate" "$CYAN"
     ui_panel_kv "说明" "$description"
     ui_panel_kv "来源" "$source_label"
-    if [[ "$handler" != official_release ]]; then
-      ui_panel_kv "版本依据" "本机 APT 索引；R 刷新后重新判断，不等于上游最新" "$MUTED"
-    fi
-    effect_note=""
     if catalog_effect_has_persistent_impact "$id"; then
       ui_panel_kv "运行形态" "$(catalog_effect_summary "$id")" "$YELLOW"
-      effect_note="$(catalog_effect_note "$id")"
-    else
-      ui_panel_kv "运行形态" "未声明额外持久组件" "$MUTED"
     fi
-    if [[ "$handler" == "official_release" ]]; then
-      ui_panel_kv "官方项目" "$(software_release_repository "$id")"
-      ui_panel_kv "项目主页" "$(software_release_homepage "$id")"
-      ui_panel_kv "命令路径" "$(software_release_target "$id")"
-      if software_release_managed "$id"; then
-        ui_panel_kv "完整性" "$(software_release_integrity "$id" && printf 'SHA-256 正常' || printf '异常')" \
-          "$(software_release_integrity "$id" && printf '%s' "$GREEN" || printf '%s' "$RED")"
-      else
-        ui_panel_kv "完整性" "安装时校验 GitHub SHA-256 digest"
-      fi
-      [[ -z "$packages" ]] || ui_panel_kv "发行版备选" "$packages"
-    elif software_official_repository_handler "$handler" && (( distribution_docker == 0 )); then
+    if software_official_repository_handler "$handler" && (( distribution_docker == 0 )); then
       ui_panel_kv "仓库状态" "$(software_repository_status_label "$repository_status")" \
         "$(catalog_repository_status_color "$repository_status")"
-      ui_panel_kv "安装策略" "按需配置官方稳定仓库并验证候选版本"
-    elif (( distribution_docker == 1 )); then
-      ui_panel_kv "系统包" "docker.io"
-      ui_panel_kv "更新策略" "沿用当前 Debian / Ubuntu 软件仓库"
-    else
-      ui_panel_kv "系统包" "${packages:-由官方安装器管理}"
     fi
     ui_panel_end
-    [[ -z "$effect_note" ]] || ui_hint "运行影响：$effect_note"
-    case "$id" in
-      nginx) ui_hint "需要 Let's Encrypt HTTPS？G 打开 Certbot 与 Nginx 插件；Nginx 本身不自带 Certbot。" ;;
-      certbot-nginx|certbot-apache) ui_hint "安装插件时 APT 会解析 Certbot 依赖，不必重复安装；续期 Timer 属于 Certbot 自身。" ;;
-    esac
-    ui_section "可用操作" "primary"
+    ui_section "软件操作" "primary"
     if [[ "$state" == "unavailable" ]]; then
-      ui_action 1 "重新检查并安装" "warning" "确认刷新后再判断；不直接执行安装"
-      ui_action 2 "更新" "disabled" "需要先安装"
-      ui_action 3 "移除" "disabled" "当前未安装"
+      ui_action 1 "重新检查并安装" "warning"
     elif [[ "$state" == "absent" || "$state" == "setup" || "$state" == "index-needed" ]]; then
       if [[ "$state" == "setup" ]]; then
-        ui_action 1 "配置仓库并安装" "success" "自动配置签名与 stable 仓库，再安装官方最新版本"
+        ui_action 1 "配置仓库并安装" "success"
       elif [[ "$state" == index-needed ]]; then
-        ui_action 1 "刷新确认并安装" "warning" "本地没有候选版本；刷新后预览事务"
+        ui_action 1 "刷新确认并安装" "warning"
       else
-        ui_action 1 "安装" "success" "安装候选版本 $candidate"
+        ui_action 1 "安装" "success"
       fi
-      ui_action 2 "更新" "disabled" "需要先安装"
-      ui_action 3 "移除" "disabled" "当前未安装"
     elif [[ "$state" == "source-warning" && "$installed_flag" -eq 0 ]]; then
-      ui_action 1 "修复仓库并安装" "warning" "保存首次原始状态后重新建立官方来源"
-      ui_action 2 "更新" "disabled" "需要先安装"
-      ui_action 3 "移除" "disabled" "当前未安装"
+      ui_action 1 "修复仓库并安装" "warning"
     else
-      ui_action 1 "安装" "disabled" "已经安装"
       if [[ "$handler" == "official_release" ]] && software_release_managed "$id"; then
-        ui_action 2 "检查官方更新" "action" "查询 latest stable Release 并验证 SHA-256"
+        ui_action 2 "检查官方更新" "action"
       elif [[ "$state" == "update" ]]; then
         ui_action 2 "更新" "warning" "$installed → $candidate"
       else
-        ui_action 2 "检查更新" "action" "刷新索引并重新检查"
+        ui_action 2 "检查更新" "action"
       fi
-      if [[ "$state" == external ]]; then ui_action 3 "移除" "disabled" "外部程序未接管，不删除原文件"
-      else ui_action 3 "移除" "danger" "保留配置和业务数据"; fi
+      if [[ "$state" != external ]]; then ui_action 3 "移除" "danger"; fi
     fi
+    ui_section "来源与信息" "accent"
     if [[ "$handler" == "official_release" ]]; then
       if [[ "$state" == external || ( "$state" != absent && "$state" != unavailable && -n "$packages" ) ]]; then
-        ui_action 4 "切换来源 / 确认接管" "accent" "官方稳定版与现有安装；外部同路径文件保留首次基线"
-      else
-        ui_action 4 "切换来源" "disabled" "当前没有可切换的第二来源"
+        ui_action 4 "切换来源 / 接管" "accent"
       fi
       if software_release_managed "$id"; then
         if [[ "$state" == "damaged" ]]; then
-          ui_action 5 "修复官方安装" "danger" "验证首次基线并重新安装可信版本"
+          ui_action 5 "修复官方安装" "danger"
         else
-          ui_action 5 "重新安装官方版" "warning" "重新下载、校验并部署当前最新稳定版"
+          ui_action 5 "重新安装官方版" "warning"
         fi
-      else
-        ui_action 5 "修复官方安装" "disabled" "当前不由官方 Release 安装器管理"
       fi
     elif software_official_repository_handler "$handler" && (( distribution_docker == 0 )); then
-      ui_action 4 "来源诊断" "accent" "检查官方地址、签名、软件源文件和候选版本"
+      ui_action 4 "来源诊断" "accent"
       if [[ "$repository_status" == "configured" ]]; then
-        ui_action 5 "重新验证仓库" "action" "刷新索引并确认当前系统存在候选版本"
-      elif [[ "$repository_status" == "unsafe" ]]; then
-        ui_action 5 "修复官方仓库" "disabled" "符号链接路径需要先人工核实"
-      elif [[ "$state" == "setup" ]]; then
-        ui_action 5 "修复官方仓库" "disabled" "安装时将自动完成配置"
-      else
-        ui_action 5 "修复官方仓库" "warning" "保存首次原始状态后重新配置稳定来源"
+        ui_action 5 "重新验证仓库" "action"
+      elif [[ "$repository_status" != unsafe && "$state" != setup ]]; then
+        ui_action 5 "修复官方仓库" "warning"
       fi
     else
-      ui_action 4 "来源与版本诊断" "accent" "查看 APT 版本优先级；不联网、不修改"
+      ui_action 4 "来源诊断" "accent"
     fi
-    if catalog_guide_record "$id" >/dev/null; then ui_action G "使用指南与相关软件" "accent" "独立安装，不添加捆绑依赖"; fi
-    ui_action R "刷新软件索引" "accent" "确认后获取最新元数据"
-    ui_action 0 "返回软件中心" "muted"
-    choice="$(read_input "请选择" "0")"
+    ui_action D "安装信息" "action"
+    if catalog_guide_record "$id" >/dev/null; then
+      if [[ "$id" == nginx ]]; then ui_action G "相关软件 / Certbot" "accent"
+      else ui_action G "指南与相关软件" "accent"; fi
+    fi
+    ui_action R "刷新索引" "accent"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     case "$choice" in
       1)
         if [[ "$state" == "absent" || "$state" == "setup" || "$state" == index-needed || ( "$state" == unavailable && "$handler" != official_release ) || ( "$state" == "source-warning" && "$installed_flag" -eq 0 ) ]]; then
@@ -232,6 +223,7 @@ catalog_item_menu() {
         pause
         ;;
       0) return 0 ;;
+      D|d) catalog_item_information "$id" || true; pause ;;
       G|g) catalog_guide_view "$id" || true ;;
       R|r) catalog_refresh_index || true; pause ;;
       *) warn "未知选项" ;;
@@ -243,7 +235,7 @@ catalog_categories_view() {
   local entries=() category count choice index selected
   mapfile -t entries < <(catalog_categories)
   while true; do
-    ui_page "软件管理 / 分类浏览" "按用途浏览 ${#entries[@]} 个分类"
+    ui_page "软件中心 / 分类"
     for index in "${!entries[@]}"; do
       IFS='|' read -r category count <<<"${entries[$index]}"
       case "$category" in
@@ -251,10 +243,10 @@ catalog_categories_view() {
         网络诊断) ui_section "运维与防护" "accent" ;;
         Web与代理) ui_section "应用与开发" "warning" ;;
       esac
-      ui_item "$((index + 1))" "$category" "$count 项 · $(catalog_category_description "$category")"
+      ui_item "$((index + 1))" "$category" "$count 项"
     done
-    ui_action 0 "返回软件中心" "muted"
-    choice="$(read_input "请选择分类" "0")"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     [[ "$choice" == "0" ]] && return 0
     if [[ ! "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#entries[@]} )); then
       warn "无效分类编号：$choice"
@@ -263,28 +255,28 @@ catalog_categories_view() {
     fi
     selected="${entries[$((choice - 1))]}"
     IFS='|' read -r category count <<<"$selected"
-    catalog_browse_view category "$category" "软件管理 / $category" "$(catalog_category_description "$category") · $count 项"
+    catalog_browse_view category "$category" "软件中心 / $category" ""
   done
 }
 
 catalog_installed_view() {
-  catalog_browse_view installed "" "软件管理 / 已安装" "仅显示目录中已经安装的条目"
+  catalog_browse_view installed "" "软件中心 / 已安装" ""
 }
 
 catalog_updates_view() {
-  catalog_browse_view updates "" "软件管理 / 仓库更新" "APT 候选版本有更新 · 官方 Release 请单独检查"
+  catalog_browse_view updates "" "软件中心 / 仓库更新" ""
 }
 
 catalog_sources_view() {
   local choice kind title
   while true; do
-    ui_page "软件管理 / 来源浏览" "按维护渠道查看软件，系统组件与上游工具采用不同策略"
+    ui_page "软件中心 / 来源"
     ui_section "来源类型" "primary"
-    ui_action 1 "发行版软件仓库" "action" "Debian / Ubuntu 维护，系统兼容优先"
-    ui_action 2 "项目官方 Release" "success" "独立 CLI · amd64/arm64 · SHA-256 校验"
-    ui_action 3 "项目官方 APT 仓库" "accent" "Docker、Caddy 等长期运行服务"
-    ui_action 0 "返回软件中心" "muted"
-    choice="$(read_input "请选择来源" "0")"
+    ui_action 1 "发行版软件仓库" "action"
+    ui_action 2 "项目官方 Release" "success"
+    ui_action 3 "项目官方 APT 仓库" "accent"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     case "$choice" in
       1) kind="distribution"; title="发行版软件仓库" ;;
       2) kind="official-release"; title="项目官方 Release" ;;
@@ -292,14 +284,13 @@ catalog_sources_view() {
       0) return 0 ;;
       *) warn "未知来源编号：$choice"; pause; continue ;;
     esac
-    catalog_browse_view source "$kind" "软件来源 / $title" "按维护渠道筛选 · 一次只管理一个软件"
+    catalog_browse_view source "$kind" "软件来源 / $title" ""
   done
 }
 
 catalog_official_updates_view() {
   local interactive="${1:-1}" record id _category name _description _packages handler current latest input checked=0 updates=0 failed=0
-  ui_page "软件管理 / 官方更新检查" "逐项查询已托管 CLI 的 latest stable Release，不自动安装"
-  ui_note "只检查由 keine 官方 Release 安装器管理的软件；GitHub API 可能需要数秒。"
+  ui_page "软件中心 / 官方更新" "GitHub Release · 仅检查托管软件"
   while IFS= read -r record; do
     IFS='|' read -r id _category name _description _packages handler <<<"$record"
     [[ "$handler" == "official_release" ]] || continue
@@ -331,14 +322,14 @@ catalog_official_updates_view() {
   ui_panel_kv "异常 / 失败" "$failed 项" "$([[ "$failed" -eq 0 ]] && printf '%s' "$GREEN" || printf '%s' "$RED")"
   ui_panel_end
   [[ "$interactive" -eq 1 ]] || return 0
-  ui_note "输入软件 ID 可单独更新、修复或切换来源。"
-  input="$(read_input "软件 ID；输入 0 返回" "0")"
+  ui_menu_footer "返回"
+  ui_read_choice input "软件 ID"
   [[ "$input" == "0" ]] && return 0
   if catalog_record "$input" >/dev/null 2>&1; then catalog_item_menu "$input"; else warn "未知软件 ID：$input"; pause; fi
 }
 
 catalog_refresh_index() {
-  ui_page "软件管理 / 刷新索引" "从已配置的软件仓库获取最新版本元数据"
+  ui_page "软件中心 / 刷新索引"
   confirm "现在刷新 APT 软件索引？" || return 0
   require_root
   package_invalidate_index
@@ -354,20 +345,18 @@ software_catalog_menu() {
     [[ -n "$CATALOG_STATISTICS_CACHE" ]] || CATALOG_STATISTICS_CACHE="$(catalog_statistics)"
     stats="$CATALOG_STATISTICS_CACHE"
     IFS='|' read -r total installed updates <<<"$stats"
-    ui_page "软件管理" "独立软件的搜索、版本检查、安装、更新与移除"
+    ui_page "软件中心"
     ui_stats "目录" "$total" "已安装" "$installed" "仓库更新" "$updates"
-    ui_section "快捷操作" "primary"
-    ui_action A "按分类浏览" "action" "在分类内查看版本、状态与可用操作"
-    ui_action I "仅看已安装" "success" "快速进入已安装软件的更新与移除"
-    ui_action U "查看仓库更新" "warning" "只列出 APT 候选版本更新"
-    ui_action O "检查官方更新" "success" "查询已托管 CLI 的 latest stable Release"
-    ui_action S "按来源浏览" "action" "区分发行版、官方仓库与官方下载"
-    ui_action R "刷新软件索引" "accent" "从已配置仓库获取最新元数据"
-    ui_section "搜索软件" "accent"
-    ui_context "输入精确 ID 打开详情，或输入名称、分类、用途进行搜索。"
-    ui_empty "示例：python、网络、nginx、certbot、https、docker"
-    printf '\n'
-    input="$(read_input "搜索 / ID / A / I / U / O / S / R；输入 0 返回" "0")"
+    ui_section "浏览" "primary"
+    ui_item A "分类浏览"
+    ui_item I "已安装"
+    ui_item S "软件来源"
+    ui_section "更新" "accent"
+    ui_action U "仓库更新" "warning"
+    ui_action O "官方更新" "success"
+    ui_action R "刷新索引" "accent"
+    ui_menu_footer "返回"
+    ui_read_choice input "选择或搜索"
     case "$input" in
       0) return 0 ;;
       A|a|all) catalog_categories_view ;;
@@ -381,7 +370,7 @@ software_catalog_menu() {
         if catalog_record "$input" >/dev/null 2>&1; then
           catalog_item_menu "$input"
         else
-          catalog_browse_view search "$input" "软件搜索" "按 ID、名称、包名、分类或用途匹配"
+          catalog_browse_view search "$input" "软件中心 / 搜索" ""
         fi
         ;;
     esac

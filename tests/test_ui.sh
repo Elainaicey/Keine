@@ -17,13 +17,14 @@ output="$(ui_banner; ui_page "测试中心"; ui_item 1 "测试操作" "测试说
 grep -q 'KEINE' <<<"$output" || { printf 'FAIL: UI 横幅缺失\n' >&2; exit 1; }
 grep -q '测试操作' <<<"$output" || { printf 'FAIL: UI 菜单项缺失\n' >&2; exit 1; }
 grep -q '╭─ 信息' <<<"$output" || { printf 'FAIL: UI 信息面板缺失\n' >&2; exit 1; }
-grep -q '\[ 2\].*Nginx.*active' <<<"$output" || { printf 'FAIL: UI 状态菜单项缺失\n' >&2; exit 1; }
+grep -q '\[2\].*Nginx.*active' <<<"$output" || { printf 'FAIL: UI 状态菜单项缺失\n' >&2; exit 1; }
 grep -q '\[3\].*更新' <<<"$output" || { printf 'FAIL: UI 语义操作缺失\n' >&2; exit 1; }
 grep -q '\[4\].*启动.*\[5\].*停止' <<<"$output" || { printf 'FAIL: UI 双列操作缺失\n' >&2; exit 1; }
 grep -q '内存.*46%.*磁盘.*81%.*失败服务.*1' <<<"$output" || { printf 'FAIL: UI 响应式指标组件缺失\n' >&2; exit 1; }
 grep -q '需要关注' <<<"$output" || { printf 'FAIL: UI 状态提示组件缺失\n' >&2; exit 1; }
 grep -q '格式示例' <<<"$output" || { printf 'FAIL: UI 紧凑输入提示缺失\n' >&2; exit 1; }
 [[ "$(ui_display_width "系统")" -eq 4 ]] || { printf 'FAIL: 中文显示宽度计算错误\n' >&2; exit 1; }
+[[ "$(ui_display_width $'\033[0;92m系统\033[0m')" -eq 4 ]] || { printf 'FAIL: ANSI 颜色影响中文显示宽度\n' >&2; exit 1; }
 progress="$(ui_progress "内存" 50 100 MiB)"
 grep -q '50%' <<<"$progress" || { printf 'FAIL: 资源进度条计算错误\n' >&2; exit 1; }
 health_summary="$(ui_health_summary 12 2 1)"
@@ -45,6 +46,34 @@ long_metrics="$(ui_metric_row "内存使用" "123456 MiB / 1024 MiB" "warn" "磁
 [[ "$(grep -c '●' <<<"$long_metrics")" -eq 3 ]] || { printf 'FAIL: 长指标没有退化为逐行状态\n' >&2; exit 1; }
 long_pair="$(ui_action_pair 1 "重新验证官方软件仓库和候选版本及签名" "action" 2 "返回" "muted")"
 [[ "$(grep -c '\[' <<<"$long_pair")" -eq 2 ]] || { printf 'FAIL: 过长双列操作没有退化为纵向布局\n' >&2; exit 1; }
+
+banner="$(ui_banner)"
+if [[ "$banner" != *KEINE* || "$banner" == *SERVER* || "$banner" == *TOOLKIT* ]]; then
+  printf 'FAIL: 首页品牌不一致\n' >&2; exit 1
+fi
+keys="$(ui_item 4 测试; ui_action 4 测试; ui_state_item 4 测试 正常 good; ui_action 14 测试; ui_action R 测试)"
+if grep -Eq '\[[[:space:]]|[[:space:]]\]' <<<"$keys"; then
+  printf 'FAIL: 菜单键仍存在括号内空格\n' >&2; exit 1
+fi
+for row in "$(ui_item 4 测试)" "$(ui_action 14 测试)" "$(ui_state_item R 测试 正常 good)"; do
+  [[ "${row:7:2}" == 测试 ]] || { printf 'FAIL: 菜单标签列未对齐\n' >&2; exit 1; }
+done
+footer="$(ui_menu_footer)"
+[[ "$footer" == *'[0]'*返回* && "$footer" == *'[Q]'*退出* ]] || { printf 'FAIL: 缺少统一菜单返回栏\n' >&2; exit 1; }
+long_state="$(ui_state_item 12 'Prometheus Node Exporter' 已安装 good)"
+[[ "$(grep -c . <<<"$long_state")" == 2 ]] || { printf 'FAIL: 长名称状态未退为纵向布局\n' >&2; exit 1; }
+read_input() { printf '%s' "${UI_TEST_CHOICE:-$2}"; }
+test_choice_assignment() {
+  local choice=""
+  ui_read_choice choice
+  [[ "$choice" == 0 ]]
+}
+test_choice_assignment || { printf 'FAIL: 菜单默认输入未写入调用方\n' >&2; exit 1; }
+# 菜单退出发生在当前 Shell，不能继续执行后续动作。
+UI_TEST_CHOICE=q
+quit_output="$(ui_read_choice choice; printf 'unexpected')"
+[[ -z "$quit_output" ]] || { printf 'FAIL: 菜单退出后仍继续执行\n' >&2; exit 1; }
+[[ "$(read_input 普通文本 '')" == q ]] || { printf 'FAIL: 普通输入被菜单快捷键拦截\n' >&2; exit 1; }
 
 UI_WIDTH_CACHE=()
 ui_measure_width "系统"

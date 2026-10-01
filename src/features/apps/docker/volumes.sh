@@ -234,15 +234,15 @@ docker_volume_backup_delete() {
 docker_volume_backups_menu() {
   local choice
   while true; do
-    ui_page "Docker / 卷备份" "压缩归档、完整性校验、安全恢复与空间清理"
-    ui_context "数据库卷备份前应暂停写入；恢复仅允许覆盖原卷，且运行中容器会阻止操作。"
+    ui_page "Docker / 卷备份"
+    ui_hint "数据库备份前请暂停写入；恢复会覆盖原卷。"
     ui_item 1 "列出卷备份"
-    ui_item 2 "创建卷备份" "首次使用会询问拉取官方 Alpine 辅助镜像"
-    ui_item 3 "校验卷备份" "检查元数据、SHA-256 与归档路径"
-    ui_item 4 "恢复原卷" "覆盖停用的原卷；如需保留当前数据请先手动备份"
-    ui_item 5 "删除一个卷备份" "不删除 Docker 卷"
-    ui_item 0 "返回"
-    choice="$(read_input "请选择" "0")"
+    ui_item 2 "创建卷备份"
+    ui_item 3 "校验卷备份"
+    ui_item 4 "恢复原卷"
+    ui_item 5 "删除一个卷备份"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     case "$choice" in
       1) docker_volume_backups_list ;;
       2) docker_volume_backup_create || true ;;

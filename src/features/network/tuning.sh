@@ -60,8 +60,8 @@ network_bbr_manage() {
   else
     ui_action 2 "恢复系统设置" "muted" "没有工具管理的配置"
   fi
-  ui_action 0 "返回" "muted"
-  action="$(read_input "请选择" "0")"
+  ui_menu_footer "返回"
+  ui_read_choice action
   case "$action" in
     1) network_enable_bbr ;;
     2) network_restore_bbr ;;
@@ -74,9 +74,9 @@ network_set_address_preference() {
   ui_page "IP 地址优先级" "设置 IPv4 优先或恢复系统默认地址选择"
   ui_action 1 "IPv4 优先" "action"
   ui_action 2 "恢复系统默认" "warning"
-  ui_action 0 "取消" "muted"
+  ui_menu_footer "取消"
   local choice action="恢复系统默认地址选择"
-  choice="$(read_input "请选择" "0")"
+  ui_read_choice choice
   [[ "$choice" == "1" || "$choice" == "2" ]] || return 0
   if [[ "$choice" == "1" ]]; then
     action="设置 IPv4 优先"

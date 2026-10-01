@@ -3,8 +3,8 @@
 services_pick_from_output() {
   local units="$1" expected_state="$2" service
   [[ -n "$units" ]] || return 0
-  ui_hint "输入清单中的完整名称，例如 nginx.service；输入 0 返回。"
-  service="$(read_input "输入完整服务名进入管理；输入 0 返回" "0")"
+  ui_menu_footer "返回"
+  ui_read_choice service "服务名"
   [[ "$service" == "0" ]] && return 0
   valid_service_name "$service" || { warn "服务名格式无效。"; return 1; }
   awk '{print $1}' <<<"$units" | grep -Fxq "$service" || {
@@ -40,13 +40,13 @@ services_browser() {
   while true; do
     running="$(systemctl --type=service --state=running --no-legend --no-pager 2>/dev/null | grep -c . || true)"
     failed="$(systemctl --failed --type=service --no-legend --no-pager 2>/dev/null | grep -c . || true)"
-    ui_page "服务浏览与管理" "按状态、关键词或完整名称进入 systemd 服务详情"
+    ui_page "服务浏览与管理"
     ui_stats "运行中" "$running" "失败" "$failed" "管理范围" "service"
     ui_section "浏览方式" "primary"
     ui_action_pair 1 "失败服务" "danger" 2 "运行中服务" "success"
     ui_action_pair 3 "按关键词查找" "action" 4 "输入完整服务名" "action"
-    ui_action 0 "返回服务中心" "muted"
-    choice="$(read_input "请选择" "0")"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     case "$choice" in
       1) services_failed ;;
       2) services_running ;;

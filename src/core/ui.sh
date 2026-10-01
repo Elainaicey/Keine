@@ -28,12 +28,16 @@ ui_repeat() {
 }
 
 ui_measure_width() {
-  local value="$1" width
+  local value="$1" width measured ansi_pattern=$'\033''\[[0-9;]*m'
   if [[ -z "$value" ]]; then UI_TEXT_WIDTH=0; return 0; fi
   if [[ -n "${UI_WIDTH_CACHE[$value]:-}" ]]; then UI_TEXT_WIDTH="${UI_WIDTH_CACHE[$value]}"; return 0; fi
-  width="$(printf '%s' "$value" | wc -L 2>/dev/null)"
+  measured="$value"
+  while [[ "$measured" =~ $ansi_pattern ]]; do
+    measured="${measured//"${BASH_REMATCH[0]}"/}"
+  done
+  width="$(printf '%s' "$measured" | wc -L 2>/dev/null)"
   width="${width//[[:space:]]/}"
-  [[ "$width" =~ ^[0-9]+$ ]] || width="${#value}"
+  [[ "$width" =~ ^[0-9]+$ ]] || width="${#measured}"
   # 缓存仅存在于当前进程；限制动态内容的数量，不在磁盘上留下 UI 状态。
   ((${#UI_WIDTH_CACHE[@]} < 1024)) || UI_WIDTH_CACHE=()
   UI_WIDTH_CACHE["$value"]="$width"
@@ -97,45 +101,40 @@ ui_badge() {
 ui_banner() {
   ui_clear
   ui_detect_width
-  printf '\n  %b◆ SERVER%b %bTOOLKIT%b  %bv%s%b\n' \
-    "$MAGENTA$BOLD" "$NC" "$CYAN$BOLD" "$NC" "$YELLOW" "$KEINE_VERSION" "$NC"
-  printf '  %bDebian / Ubuntu · 安全、清晰、可恢复的 VPS 控制台%b\n' "$MUTED" "$NC"
+  printf '\n%b◆%b %bKEINE%b  %bv%s%b\n' \
+    "$MAGENTA$BOLD" "$NC" "$CYAN$BOLD" "$NC" "$MUTED" "$KEINE_VERSION" "$NC"
   ui_rule
 }
 
 ui_context() { printf '  %b›%b %b%s%b\n' "$MAGENTA" "$NC" "$MUTED" "$1" "$NC"; }
 
+ui_menu_key() {
+  local key="$1" color="${2:-$CYAN}" width
+  ui_measure_width "[$key]"; width="$UI_TEXT_WIDTH"
+  printf '%b[%s]%b' "$color$BOLD" "$key" "$NC"
+  (( width >= 4 )) || ui_repeat ' ' "$((4 - width))"
+}
+
 ui_item() {
-  local number="$1" title="$2" hint="${3:-}" number_color="$CYAN" title_color="$BLUE" marker="›" hint_width=0
-  if [[ "$number" == "0" ]]; then
-    number_color="$MUTED"; title_color="$MUTED"; marker="←"
-  fi
-  printf '  %b%s%b %b[%2s]%b  %b' "$MAGENTA" "$marker" "$NC" "$number_color$BOLD" "$number" "$NC" "$title_color$BOLD"
-  ui_pad "$title" 22
-  printf '%b' "$NC"
-  if [[ -n "$hint" ]]; then
-    ui_measure_width "$hint"; hint_width="$UI_TEXT_WIDTH"
-    if (( hint_width > UI_WIDTH - 34 )); then
-      printf '\n         %b└─ %s%b' "$MUTED" "$hint" "$NC"
-    else
-      printf ' %b%s%b' "$MUTED" "$hint" "$NC"
-    fi
-  fi
-  printf '\n'
+  local style=primary
+  [[ "$1" != 0 ]] || style=muted
+  ui_action "$1" "$2" "$style" "${3:-}"
 }
 
 ui_action() {
-  local number="$1" title="$2" style="${3:-action}" hint="${4:-}" color hint_width=0
+  local number="$1" title="$2" style="${3:-action}" hint="${4:-}" color hint_width=0 title_width
   color="$(ui_color_for_state "$style")"
-  printf '  %b[%s]%b  %b' "$color$BOLD" "$number" "$NC" "$color$BOLD"
-  ui_pad "$title" 18
-  printf '%b' "$NC"
+  printf '  '
+  ui_menu_key "$number" "$color"
+  printf ' %b%s%b' "$color$BOLD" "$title" "$NC"
   if [[ -n "$hint" ]]; then
+    ui_measure_width "$title"; title_width="$UI_TEXT_WIDTH"
     ui_measure_width "$hint"; hint_width="$UI_TEXT_WIDTH"
-    if (( hint_width > UI_WIDTH - 28 )); then
-      printf '\n       %b└─ %s%b' "$MUTED" "$hint" "$NC"
+    if (( title_width > 22 || hint_width > UI_WIDTH - 30 )); then
+      printf '\n       %b%s%b' "$MUTED" "$hint" "$NC"
     else
-      printf ' %b%s%b' "$MUTED" "$hint" "$NC"
+      ui_repeat ' ' "$((23 - title_width))"
+      printf '%b%s%b' "$MUTED" "$hint" "$NC"
     fi
   fi
   printf '\n'
@@ -155,28 +154,58 @@ ui_action_pair() {
   fi
   color1="$(ui_color_for_state "$style1")"
   color2="$(ui_color_for_state "$style2")"
-  printf '  %b[%s]%b  %b' "$color1$BOLD" "$number1" "$NC" "$color1$BOLD"
+  printf '  '
+  ui_menu_key "$number1" "$color1"
+  printf ' %b' "$color1$BOLD"
   ui_pad "$title1" "$title_width"
-  printf '%b  %b[%s]%b  %b' "$NC" "$color2$BOLD" "$number2" "$NC" "$color2$BOLD"
+  printf '%b  ' "$NC"
+  ui_menu_key "$number2" "$color2"
+  printf ' %b' "$color2$BOLD"
   ui_pad "$title2" "$title_width"
   printf '%b\n' "$NC"
 }
 
+ui_menu_footer() {
+  printf '\n'
+  if [[ "${1:-返回}" == 退出 ]]; then
+    ui_action 0 "退出" muted
+  else
+    ui_action_pair 0 "${1:-返回}" muted Q "退出" muted
+  fi
+  printf '\n'
+}
+
+ui_read_choice() {
+  local ui_choice_target="$1" ui_choice_answer
+  [[ "$ui_choice_target" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]] || return 1
+  ui_choice_answer="$(read_input "${2:-选择}" "${3:-0}")"
+  case "$ui_choice_answer" in Q|q) exit 0 ;; esac
+  printf -v "$ui_choice_target" '%s' "$ui_choice_answer"
+}
+
 ui_state_item() {
   local number="$1" title="$2" value="$3" state="${4:-neutral}" hint="${5:-}"
-  local color number_color="$CYAN" title_color="$BLUE" detail_width=0
+  local color number_color="$CYAN" title_color="$BLUE" detail_width=0 title_width value_width
   color="$(ui_color_for_state "$state")"
   if [[ "$number" == "0" ]]; then
     number_color="$MUTED"
     title_color="$MUTED"
   fi
-  printf '  %b[%2s]%b  %b' "$number_color$BOLD" "$number" "$NC" "$title_color$BOLD"
-  ui_pad "$title" 22
-  printf '%b%b● %s%b' "$NC" "$color$BOLD" "$value" "$NC"
+  printf '  '
+  ui_menu_key "$number" "$number_color"
+  printf ' %b%s%b' "$title_color$BOLD" "$title" "$NC"
+  ui_measure_width "$title"; title_width="$UI_TEXT_WIDTH"
+  ui_measure_width "$value"; value_width="$UI_TEXT_WIDTH"
+  if (( title_width > 22 || value_width > UI_WIDTH - 33 )); then
+    printf '\n       '
+  else
+    ui_repeat ' ' "$((23 - title_width))"
+  fi
+  printf '%b● %s%b' "$color$BOLD" "$value" "$NC"
   if [[ -n "$hint" ]]; then
-    ui_measure_width "$value $hint"; detail_width="$UI_TEXT_WIDTH"
-    if (( detail_width > UI_WIDTH - 36 )); then
-      printf '\n         %b└─ %s%b' "$MUTED" "$hint" "$NC"
+    ui_measure_width "● $value  $hint"; detail_width="$UI_TEXT_WIDTH"
+    if (( detail_width > UI_WIDTH - 33 )); then
+      printf '\n       %b%s%b' "$MUTED" "$hint" "$NC"
     else
       printf '  %b%s%b' "$MUTED" "$hint" "$NC"
     fi
@@ -234,7 +263,7 @@ ui_progress() {
 ui_section() {
   local title="$1" style="${2:-accent}" color
   color="$(ui_color_for_state "$style")"
-  printf '\n%b◆%b %b%s%b\n' "$color" "$NC" "$color$BOLD" "$title" "$NC"
+  printf '\n  %b%s%b\n' "$color$BOLD" "$title" "$NC"
 }
 
 ui_panel_begin() {

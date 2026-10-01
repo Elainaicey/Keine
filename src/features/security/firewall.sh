@@ -95,8 +95,10 @@ security_firewall_rule() {
     ui_action 1 "TCP" "action"
     ui_action 2 "UDP" "action"
     ui_action 3 "TCP + UDP" "warning"
-    protocol_choice="$(read_input "公共协议" "1")"
+    ui_menu_footer "取消"
+    ui_read_choice protocol_choice "公共协议" "1"
     case "$protocol_choice" in
+      0) return 0 ;;
       1) protocol_label="TCP"; mapfile -t rules < <(security_firewall_expand_specs "$raw" tcp) ;;
       2) protocol_label="UDP"; mapfile -t rules < <(security_firewall_expand_specs "$raw" udp) ;;
       3) protocol_label="TCP + UDP"; mapfile -t rules < <(security_firewall_expand_specs "$raw" both) ;;
@@ -212,8 +214,10 @@ security_firewall_logging() {
   ui_action 1 "关闭日志" "muted"
   ui_action 2 "低级别" "success" "适合日常运行"
   ui_action 3 "中级别" "warning"
-  choice="$(read_input "请选择" "2")"
+  ui_menu_footer "取消"
+  ui_read_choice choice "选择" "2"
   case "$choice" in
+    0) return 0 ;;
     1) level=off ;;
     2) level=low ;;
     3) level=medium ;;
@@ -269,7 +273,7 @@ security_firewall_manage() {
       defaults="—"
       logging="—"
     fi
-    ui_page "UFW 防火墙管理" "状态、规则、协议、来源限制与日志"
+    ui_page "UFW 防火墙"
     ui_panel_begin "防火墙状态"
     ui_panel_kv "状态" "● $state" "$state_style"
     ui_panel_kv "默认策略" "${defaults:-未知}"
@@ -278,24 +282,21 @@ security_firewall_manage() {
     ui_panel_end
     ui_section "规则" "primary"
     ui_action 1 "查看完整状态" "action"
-    ui_action 2 "添加放行规则" "success" "支持逗号分隔批量输入"
+    ui_action 2 "添加放行规则" "success"
     ui_action 3 "删除编号规则" "danger"
     ui_section "运行控制" "accent"
     if [[ "$state" == "active" ]]; then
-      ui_action 4 "启用基础防火墙" "muted" "当前已经启用"
       ui_action 5 "禁用防火墙" "danger"
       ui_action 6 "重新加载规则" "warning"
     else
-      ui_action 4 "启用基础防火墙" "success" "自动保留当前 SSH 端口"
-      ui_action 5 "禁用防火墙" "muted" "当前未启用"
-      ui_action 6 "重新加载规则" "muted" "启用后可用"
+      ui_action 4 "启用基础防火墙" "success"
     fi
     ui_action 7 "调整日志级别" "action"
-    ui_action 8 "阻止一个来源 IP" "danger" "拒绝该地址访问所有入站端口"
-    ui_action 9 "添加拒绝端口规则" "danger" "支持批量 TCP/UDP；保护当前 SSH 端口"
-    ui_action 10 "TCP 连接限速" "warning" "优先规则，适用于 SSH；不限制带宽"
-    ui_action 0 "返回" "muted"
-    action="$(read_input "请选择" "0")"
+    ui_action 8 "阻止来源 IP" "danger"
+    ui_action 9 "添加拒绝规则" "danger"
+    ui_action 10 "TCP 连接限速" "warning"
+    ui_menu_footer "返回"
+    ui_read_choice action
     case "$action" in
       1) security_firewall_status || true; pause ;;
       2) security_firewall_rule allow || true; pause ;;

@@ -142,8 +142,8 @@ system_process_select() {
     ui_action_pair 3 "调整 nice 优先级" "warning" 4 "发送 SIGTERM" "warning"
     ui_action 5 "发送 SIGKILL" "danger" "仅在无法优雅退出时使用"
     process_is_protected "$pid" && ui_note "PID 1、工具自身和父进程受保护，控制操作不可用。"
-    ui_action 0 "返回" "muted"
-    action="$(read_input "请选择" "0")"
+    ui_menu_footer "返回"
+    ui_read_choice action
     case "$action" in
       1) process_files_summary "$pid"; pause ;;
       2)
@@ -170,8 +170,8 @@ system_processes() {
     ps -eo pid,user,%cpu,%mem,etime,stat,comm --sort=-%cpu 2>/dev/null | sed -n '1,16p'
     ui_section "操作" "primary"
     ui_action 1 "按 PID 查看进程详情" "action" "资源、文件、套接字、优先级与终止信号"
-    ui_action 0 "返回" "muted"
-    action="$(read_input "请选择" "0")"
+    ui_menu_footer "返回"
+    ui_read_choice action
     case "$action" in
       1)
         ui_hint "输入排行榜或 ps 输出中的数字 PID。"

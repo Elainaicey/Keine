@@ -10,7 +10,7 @@ services_audit_safe_line() {
 }
 
 services_audit_log() {
-  ui_page "项目操作记录" "最近 100 条系统修改审计 · 旧版失败命令已脱敏"
+  ui_page "项目操作记录" "最近 100 条"
   if [[ -r "$AUDIT_LOG" ]]; then
     tail -n 100 "$AUDIT_LOG" | while IFS= read -r line; do
       printf '%s\n' "$(services_audit_safe_line "$line")"

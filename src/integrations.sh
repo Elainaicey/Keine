@@ -17,8 +17,8 @@ integrations_menu() {
       IFS='|' read -r id name _backend _probe _handler description <<<"${rows[$index]}"
       ui_item "$((index+1))" "$name" "$description"
     done
-    ui_action 0 "返回" "muted"
-    choice="$(read_input "请选择" "0")"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     [[ "$choice" != 0 ]] || return 0
     if [[ ! "$choice" =~ ^[1-9][0-9]?$ ]] || (( choice > ${#rows[@]} )); then warn "编号无效。"; pause; continue; fi
     record="${rows[$((choice-1))]}"; IFS='|' read -r id name _backend _probe _handler description <<<"$record"

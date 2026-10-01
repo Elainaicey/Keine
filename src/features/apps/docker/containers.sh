@@ -15,7 +15,6 @@ docker_cleanup() {
 docker_container_action() {
   docker_require || return 1
   local container action state health restart_policy image created pid expected snapshot="" refresh=1
-  ui_hint "输入 docker ps 中的容器名称或十六进制 ID。"
   container="$(read_input "容器名称或 ID" "")"; [[ -n "$container" ]] || return 0
   docker_container_ref_valid "$container" || { warn "容器名称或 ID 格式无效。"; return 1; }
   while true; do
@@ -27,7 +26,7 @@ docker_container_action() {
       created="${created%%.*}"
       refresh=0
     fi
-    ui_page "容器 / $container" "状态、端口、挂载、日志与生命周期"
+    ui_page "容器 / $container"
     ui_panel_begin "容器信息"
     if [[ "$state" == "running" ]]; then ui_panel_kv "状态" "● $state" "$GREEN"; else ui_panel_kv "状态" "● $state" "$YELLOW"; fi
     ui_panel_kv "健康检查" "$health"
@@ -36,12 +35,11 @@ docker_container_action() {
     ui_panel_kv "进程 PID" "$pid"
     ui_panel_kv "创建时间" "${created:-未知}"
     ui_panel_end
-    ui_hint "当前为一次只读快照；R 刷新，端口与挂载按需查看。"
     ui_section "查看" "primary"
-    ui_action 1 "查看日志" "action" "最近 150 条"
-    ui_action 2 "资源快照" "action" "CPU、内存、网络和 IO"
-    ui_action 3 "完整检查信息" "action" "输出 docker inspect JSON"
-    ui_action P "端口与挂载" "action" "仅在打开时查询"
+    ui_action 1 "最近日志" "action"
+    ui_action 2 "资源快照" "action"
+    ui_action 3 "完整检查信息" "action"
+    ui_action P "端口与挂载" "action"
     ui_section "生命周期" "accent"
     ui_action 4 "启动" "success"
     ui_action 5 "停止" "danger"
@@ -51,10 +49,10 @@ docker_container_action() {
     else
       ui_action 7 "暂停" "warning"
     fi
-    ui_action 8 "修改重启策略" "action" "no、on-failure、unless-stopped 或 always"
+    ui_action 8 "修改重启策略" "action"
     ui_action R "刷新容器状态" "accent"
-    ui_action 0 "返回" "muted"
-    action="$(read_input "请选择" "0")"
+    ui_menu_footer "返回"
+    ui_read_choice action
     case "$action" in
       1) runtime_with_timeout 5 docker logs --tail 150 "$container" 2>&1 || warn "读取日志失败或超时。"; pause ;;
       2) runtime_with_timeout 8 docker stats --no-stream "$container" || warn "资源采样失败或超时。"; pause ;;
@@ -93,9 +91,16 @@ docker_container_action() {
         ;;
       8)
         local policy policy_choice
+        ui_page "容器 / $container / 重启策略"
+        ui_action 1 "no" "action"
+        ui_action 2 "on-failure" "action"
+        ui_action 3 "unless-stopped" "success"
+        ui_action 4 "always" "action"
         ui_hint "unless-stopped 适合常驻服务；no 表示 Docker 不自动拉起容器。"
-        policy_choice="$(read_input "策略：1 no / 2 on-failure / 3 unless-stopped / 4 always" "3")"
+        ui_menu_footer "取消"
+        ui_read_choice policy_choice "选择" "3"
         case "$policy_choice" in
+          0) continue ;;
           1) policy=no ;;
           2) policy=on-failure ;;
           3) policy=unless-stopped ;;

@@ -27,7 +27,7 @@ catalog_browse_rows() {
 }
 
 catalog_browse_view() {
-  local mode="$1" filter="$2" title="$3" subtitle="$4"
+  local mode="$1" filter="$2" title="$3" subtitle="${4:-}"
   local rows=() page=0 page_size=6 total pages start end index shown=0
   local record id name state_label state_style state current candidate choice filter_preview
   local rows_generation=-1
@@ -41,8 +41,11 @@ catalog_browse_view() {
     if (( total == 0 )); then
       ui_page "$title" "$subtitle"
       ui_empty "当前条件下没有软件条目"
-      pause
-      return 0
+      ui_menu_footer "返回"
+      ui_read_choice choice
+      [[ "$choice" == 0 ]] && return 0
+      warn "没有可选择的软件。"
+      continue
     fi
     pages=$(((total + page_size - 1) / page_size))
     (( page < pages )) || page=$((pages - 1))
@@ -53,10 +56,10 @@ catalog_browse_view() {
     if [[ "$mode" == "search" ]]; then
       filter_preview="$(terminal_safe_text "$filter")"
       (( ${#filter_preview} <= 40 )) || filter_preview="${filter_preview:0:39}…"
-      ui_context "搜索词：$filter_preview"
+      ui_context "$filter_preview"
     fi
-    ui_context "共 $total 项 · 第 $((page + 1))/$pages 页 · 页内编号打开详情"
-    ui_section "软件条目" "primary"
+    ui_context "$total 项 · $((page + 1))/$pages 页"
+    printf '\n'
     shown=0
     for (( index=start; index<end; index++ )); do
       record="${rows[$index]}"
@@ -65,16 +68,21 @@ catalog_browse_view() {
       candidate="$(catalog_candidate_version "$record")"
       state="$(catalog_state "$record" "$candidate")"
       IFS='|' read -r state_label state_style <<<"$(catalog_state_info "$state")"
-      ui_state_item "$((index - start + 1))" "$id" "$state_label" "$state_style" "$name"
-      printf '         %b当前 %s  ·  候选 %s%b\n' "$MUTED" "$current" "$candidate" "$NC"
+      ui_state_item "$((index - start + 1))" "$name" "$state_label" "$state_style"
+      case "$state" in
+        update) printf '       %b%s · %s → %s%b\n' "$MUTED" "$id" "$current" "$candidate" "$NC" ;;
+        current|managed|external|damaged) printf '       %b%s · %s%b\n' "$MUTED" "$id" "$current" "$NC" ;;
+        absent) printf '       %b%s · %s%b\n' "$MUTED" "$id" "$candidate" "$NC" ;;
+        *) printf '       %b%s%b\n' "$MUTED" "$id" "$NC" ;;
+      esac
       shown=$((shown + 1))
     done
-    ui_section "翻页与选择" "accent"
+    ui_section "操作" "accent"
     (( page > 0 )) && ui_action P "上一页" "action"
     (( page + 1 < pages )) && ui_action N "下一页" "action"
-    ui_action R "刷新软件索引" "accent" "仅在确认后联网"
-    ui_action 0 "返回" "muted"
-    choice="$(read_input "页内编号 / 软件 ID / N / P / R / 0" "0")"
+    ui_action R "刷新索引" "accent"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     case "$choice" in
       0) return 0 ;;
       N|n) if (( page + 1 < pages )); then page=$((page + 1)); else warn "已经是最后一页。"; pause; fi ;;

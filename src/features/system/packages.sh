@@ -131,21 +131,21 @@ system_package_hold_manage() {
   ui_page "系统软件包 / 保留状态" "使用 apt-mark 管理一个明确的软件包"
   ui_section "当前 hold" "primary"
   if [[ -n "$held" ]]; then printf '%s\n' "$held"; else ui_empty "没有被保留的软件包"; fi
-  ui_hint "输入精确 Debian 软件包名，例如 linux-image-amd64；输入 0 返回。"
-  package="$(read_input "软件包名" "0")"
+  ui_menu_footer "返回"
+  ui_read_choice package "软件包名"
   [[ "$package" == "0" ]] && return 0
   valid_package_name "$package" || { warn "软件包名格式无效。"; return 1; }
   package_installed "$package" || { warn "$package 尚未安装。"; return 1; }
   if grep -Fxq "$package" <<<"$held"; then
     ui_action 1 "取消保留" "warning" "允许 APT 后续更新该软件包"
-    ui_action 0 "返回" "muted"
-    choice="$(read_input "请选择" "0")"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     [[ "$choice" == "1" ]] || return 0
     verb="unhold"
   else
     ui_action 1 "设为保留" "warning" "阻止 APT 自动更新该软件包"
-    ui_action 0 "返回" "muted"
-    choice="$(read_input "请选择" "0")"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     [[ "$choice" == "1" ]] || return 0
     verb="hold"
   fi
@@ -244,7 +244,7 @@ system_package_health() {
     cache_size="$(du -sh /var/cache/apt/archives 2>/dev/null | awk '{print $1}' || printf '未知')"
     if apt-get -o Debug::NoLocking=true check >/dev/null 2>&1; then apt_state="正常"; else apt_state="异常"; fi
 
-    ui_page "系统软件包健康中心" "dpkg、更新、安全补丁、hold、软件源、缓存与残留依赖"
+    ui_page "软件包健康"
     ui_stats "可更新" "$updates" "安全更新" "$security_updates" "自动清理" "$autoremove"
     ui_panel_begin "状态摘要"
     ui_panel_kv "dpkg" "$([[ -z "$audit" ]] && printf '正常' || printf '存在未完成配置')" "$([[ -z "$audit" ]] && printf '%s' "$GREEN" || printf '%s' "$RED")"
@@ -262,17 +262,17 @@ system_package_health() {
     fi
 
     ui_section "查看与管理" "primary"
-    ui_action 1 "查看全部更新" "action" "$updates 个候选版本"
-    ui_action 2 "查看安全更新" "warning" "$security_updates 个安全仓库候选版本"
-    ui_action 3 "管理 hold" "action" "$held 个被保留软件包"
-    ui_action 4 "查看 APT 来源" "action" "$sources 个启用条目"
-    ui_action 5 "检查并修复状态" "$([[ -z "$audit" && "$apt_state" == "正常" ]] && printf 'success' || printf 'danger')" "dpkg 配置与依赖关系"
-    ui_action 6 "清理残留依赖" "$([[ "$autoremove" -eq 0 ]] && printf 'disabled' || printf 'warning')" "$autoremove 个自动安装软件包"
-    ui_action 7 "清理下载缓存" "warning" "当前占用 $cache_size"
-    ui_action 8 "刷新 APT 索引" "accent" "重新读取所有配置的软件源"
-    ui_action 9 "系统更新" "warning" "刷新、事务预览与人工确认"
-    ui_action 0 "返回系统管理" "muted"
-    choice="$(read_input "请选择" "0")"
+    ui_action 1 "全部更新" "action"
+    ui_action 2 "安全更新" "warning"
+    ui_action 3 "管理 hold" "action"
+    ui_action 4 "APT 来源" "action"
+    ui_action 5 "检查并修复状态" "$([[ -z "$audit" && "$apt_state" == "正常" ]] && printf 'success' || printf 'danger')"
+    ui_action 6 "清理残留依赖" "$([[ "$autoremove" -eq 0 ]] && printf 'disabled' || printf 'warning')"
+    ui_action 7 "清理下载缓存" "warning"
+    ui_action 8 "刷新索引" "accent"
+    ui_action 9 "系统更新" "warning"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     case "$choice" in
       1) system_package_updates_view all ;;
       2) system_package_updates_view security ;;

@@ -74,8 +74,8 @@ warp_menu() {
       profile="${profiles[$index]}"; unit="wg-quick@$profile.service"
       ui_item "$((index + 4))" "$profile" "$(systemctl is-active "$unit" 2>/dev/null || true) · 原生 systemd 管理"
     done
-    ui_action 0 "返回" "muted"
-    choice="$(read_input "请选择" "0")"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     case "$choice" in
       0) return 0 ;;
       1|2)

@@ -193,10 +193,10 @@ security_exposure_analysis() {
     ui_context "显式拒绝 $denied 项 · Docker 发布 $docker_count 项"
     [[ "$interactive" -eq 1 ]] || return 0
     ui_section "后续操作" "accent"
-    ui_action F "打开 UFW 管理" "action" "查看、添加或删除主机防火墙规则"
-    ui_action R "重新扫描" "success" "重新读取监听端口、容器和规则"
-    ui_action 0 "返回安全中心" "muted"
-    input="$(read_input "请选择" "0")"
+    ui_action F "UFW 防火墙" "action"
+    ui_action R "重新扫描" "success"
+    ui_menu_footer "返回"
+    ui_read_choice input
     case "$input" in
       F|f) security_firewall_manage ;;
       R|r) continue ;;

@@ -271,8 +271,8 @@ system_swap_manage() {
       ui_action 3 "临时停用" "muted" "仅控制工具创建的 Swap"
     fi
     ui_action 4 "删除托管 Swap" "danger" "同时移除 fstab 配置"
-    ui_action 0 "返回" "muted"
-    action="$(read_input "请选择" "0")"
+    ui_menu_footer "返回"
+    ui_read_choice action
     case "$action" in
       1) system_create_swap || true; pause ;;
       2) system_swap_toggle enable || true; pause ;;
@@ -312,8 +312,8 @@ system_time_sync() {
   ui_action 1 "启用 NTP 时间同步" "success"
   ui_action 2 "禁用 NTP 时间同步" "danger"
   ui_action 3 "管理同步服务" "action" "查看日志、启停、重启与开机策略"
-  ui_action 0 "返回" "muted"
-  action="$(read_input "请选择" "0")"
+  ui_menu_footer "返回"
+  ui_read_choice action
   case "$action" in
     1|2)
       if [[ "$action" == "1" ]]; then target=true; else target=false; fi

@@ -49,7 +49,8 @@ docker_compose_manage() {
   local context=() compose=()
   if [[ -z "$project" ]]; then
     docker_compose_projects
-    project="$(read_input "Compose 项目名称；输入 0 返回" "0")"
+    ui_menu_footer "返回"
+    ui_read_choice project "项目名称"
   fi
   [[ "$project" == "0" ]] && return 0
   docker_compose_project_valid "$project" || { warn "Compose 项目名称格式无效。"; return 1; }
@@ -76,14 +77,13 @@ docker_compose_manage() {
       done <<<"$states"
       refresh=0
     fi
-    ui_page "Compose / $project" "项目状态、配置、日志、镜像与生命周期"
+    ui_page "Compose / $project"
     ui_panel_begin "项目上下文"
     ui_panel_kv "项目" "$project"
     ui_panel_kv "工作目录" "${context[0]}"
     ui_panel_kv "配置文件" "$config_count 个"
     ui_panel_kv "容器" "$running 运行 / $total 总计"
     ui_panel_end
-    ui_hint "状态来自本次快照；R 刷新，项目操作后自动重新读取。"
     ui_section "配置来源" "primary"
     for ((index = 1; index < ${#context[@]}; index++)); do
       printf '  %b•%b %s\n' "$CYAN" "$NC" "${context[$index]}"
@@ -96,8 +96,8 @@ docker_compose_manage() {
     ui_action_pair 6 "停止并保留容器" "danger" 7 "重启项目服务" "warning"
     ui_action 8 "移除项目运行资源" "danger" "保留存储卷和镜像"
     ui_action R "刷新项目状态" "accent"
-    ui_action 0 "返回" "muted"
-    action="$(read_input "请选择" "0")"
+    ui_menu_footer "返回"
+    ui_read_choice action
     case "$action" in
       1)
         ui_page "Compose / $project / 状态" "当前服务、容器与端口"

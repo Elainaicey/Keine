@@ -5,6 +5,8 @@ set -Eeuo pipefail
 IFS=$'\n\t'
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)"
+. "$ROOT_DIR/src/core/runtime.sh"
+. "$ROOT_DIR/src/core/ui.sh"
 . "$ROOT_DIR/src/core/validation.sh"
 . "$ROOT_DIR/src/features/apps/docker.sh"
 
@@ -114,6 +116,7 @@ docker() {
 GREEN=''; YELLOW=''
 ui_page() { :; }; ui_panel_begin() { :; }; ui_panel_kv() { :; }; ui_panel_end() { :; }
 ui_hint() { :; }; ui_section() { :; }; ui_action() { :; }; pause() { :; }
+ui_menu_footer() { :; }
 docker_container_action
 [[ "$(grep -c '^inspect$' "$query_counter")" == 1 ]] || { printf 'FAIL: 容器返回详情时重复 inspect\n' >&2; exit 1; }
 

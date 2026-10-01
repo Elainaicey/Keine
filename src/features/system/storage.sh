@@ -8,21 +8,23 @@ system_storage_allowed_root() {
 }
 
 system_storage_pick_root() {
-  local choice
+  local choice storage_target="$1" selected_root
+  [[ "$storage_target" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]] || return 1
   ui_action_pair 1 "/var" "action" 2 "/home" "action"
   ui_action_pair 3 "/opt" "action" 4 "/srv" "action"
   ui_action 5 "/tmp" "action"
-  ui_action 0 "取消" "muted"
-  choice="$(read_input "请选择扫描范围" "0")"
+  ui_menu_footer "取消"
+  ui_read_choice choice
   case "$choice" in
-    1) printf '/var' ;;
-    2) printf '/home' ;;
-    3) printf '/opt' ;;
-    4) printf '/srv' ;;
-    5) printf '/tmp' ;;
+    1) selected_root=/var ;;
+    2) selected_root=/home ;;
+    3) selected_root=/opt ;;
+    4) selected_root=/srv ;;
+    5) selected_root=/tmp ;;
     0) return 1 ;;
     *) warn "未知范围：$choice"; return 1 ;;
   esac
+  printf -v "$storage_target" '%s' "$selected_root"
 }
 
 system_storage_category_rows() {
@@ -56,7 +58,7 @@ system_storage_categories_view() {
 
 system_storage_largest_directories() {
   local root bytes path count=0
-  root="$(system_storage_pick_root)" || return 0
+  system_storage_pick_root root || return 0
   system_storage_allowed_root "$root" || { warn "扫描目录不在允许范围内。"; return 1; }
   ui_page "存储中心 / 最大目录" "$root · 同一文件系统 · 最多显示 30 项"
   while IFS=$'\t' read -r bytes path; do
@@ -71,7 +73,7 @@ system_storage_largest_directories() {
 
 system_storage_largest_files() {
   local root bytes path count=0
-  root="$(system_storage_pick_root)" || return 0
+  system_storage_pick_root root || return 0
   system_storage_allowed_root "$root" || { warn "扫描目录不在允许范围内。"; return 1; }
   ui_page "存储中心 / 最大文件" "$root · 同一文件系统 · 最多显示 30 项"
   while IFS='|' read -r bytes path; do
@@ -154,10 +156,9 @@ system_disk_usage() {
     ui_section "按需分析" "accent"
     ui_action_pair 1 "分类占用" "action" 2 "最大目录" "action"
     ui_action_pair 3 "最大文件" "action" 4 "挂载与 fstab" "action"
-    ui_action 5 "已删除占用" "action" "定位已删除但仍被进程占用的文件"
-    ui_action 0 "返回系统管理" "muted"
-    ui_note "清理操作保留在软件包、Journal、备份和 Docker 各自中心，避免重复入口。"
-    choice="$(read_input "请选择" "0")"
+    ui_action 5 "已删除占用" "action"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     case "$choice" in
       1) system_storage_categories_view ;;
       2) system_storage_largest_directories ;;

@@ -17,7 +17,7 @@ navigation_dispatch() {
 }
 
 navigation_menu() {
-  local choice row number _id section title handler hint previous section_style
+  local choice row number _id section title handler _hint previous section_style
   local rows=()
   platform_detect
   while true; do
@@ -26,19 +26,19 @@ navigation_menu() {
     ui_context "$OS_NAME · $ARCH · ${MEMORY_MB} MB RAM"
     previous=""
     for row in "${rows[@]}"; do
-      IFS='|' read -r number _id section title handler hint <<<"$row"
+      IFS='|' read -r number _id section title handler _hint <<<"$row"
       if [[ "$section" != "$previous" ]]; then
         case "$section" in 主机管理) section_style=primary ;; 软件与应用) section_style=accent ;; *) section_style=warning ;; esac
         ui_section "$section" "$section_style"; previous="$section"
       fi
-      ui_item "$number" "$title" "$hint"
+      ui_item "$number" "$title"
     done
-    ui_item 0 "退出"
-    choice="$(read_input "请选择" "0")"
+    ui_menu_footer "退出"
+    ui_read_choice choice
     [[ "$choice" != 0 ]] || return 0
     handler=""
     for row in "${rows[@]}"; do
-      IFS='|' read -r number _id section title handler hint <<<"$row"
+      IFS='|' read -r number _id section title handler _hint <<<"$row"
       [[ "$number" != "$choice" ]] || break
       handler=""
     done

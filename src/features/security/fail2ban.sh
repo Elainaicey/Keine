@@ -72,8 +72,8 @@ security_fail2ban_jail_manage() {
     ui_action 1 "解除一个 IP 的封禁" "warning"
     ui_action 2 "手动封禁一个 IP" "danger" "立即加入当前 Jail 的封禁集合"
     ui_action 3 "重新加载当前 Jail" "warning" "应用该 Jail 的磁盘配置"
-    ui_action 0 "返回" "muted"
-    action="$(read_input "请选择" "0")"
+    ui_menu_footer "返回"
+    ui_read_choice action
     case "$action" in
       1)
         [[ -n "$banned" ]] || { warn "当前 Jail 没有封禁 IP。"; pause; continue; }
@@ -165,8 +165,8 @@ security_fail2ban() {
       ui_panel_end
       ui_section "操作" "accent"
       ui_action 1 "安装 Fail2ban" "success" "通过软件目录安装单个系统包"
-      ui_action 0 "返回" "muted"
-      action="$(read_input "请选择" "0")"
+      ui_menu_footer "返回"
+      ui_read_choice action
       case "$action" in
         1) catalog_install fail2ban || true; pause ;;
         0) return 0 ;;
@@ -198,7 +198,7 @@ security_fail2ban() {
       style="$YELLOW"
     fi
 
-    ui_page "Fail2ban 管理" "服务、Jail、日志与误封处理"
+    ui_page "Fail2ban 管理"
     ui_panel_begin "运行状态"
     ui_panel_kv "状态" "● $state" "$style"
     ui_panel_kv "开机启动" "$enabled"
@@ -211,30 +211,26 @@ security_fail2ban() {
     fi
     ui_section "观察与处置" "primary"
     ui_action 1 "查看全部 Jail" "action"
-    ui_action 2 "管理一个 Jail" "action" "查看详情并解除误封 IP"
+    ui_action 2 "管理一个 Jail" "action"
     ui_action 3 "查看服务日志" "action"
     ui_action 4 "重新加载配置" "warning"
-    ui_action C "配置 SSH Jail 策略" "action" "封禁时间、观察窗口、重试与白名单"
-    ui_action R "撤销项目 Jail 策略" "warning" "保留其他 Jail 和当前服务"
+    ui_action C "配置 SSH Jail 策略" "action"
+    ui_action R "撤销项目 Jail 策略" "warning"
     ui_section "服务生命周期" "accent"
     if [[ "$state" == "active" ]]; then
-      ui_action 5 "启动服务" "muted" "当前已经运行"
       ui_action 6 "停止服务" "danger"
       ui_action 7 "重启服务" "warning"
     else
       ui_action 5 "启动服务" "success"
-      ui_action 6 "停止服务" "muted" "当前未运行"
       ui_action 7 "重启服务" "warning"
     fi
     if [[ "$enabled" == "enabled" ]]; then
-      ui_action 8 "启用开机启动" "muted" "当前已经启用"
       ui_action 9 "禁用开机启动" "danger"
     else
       ui_action 8 "启用开机启动" "success"
-      ui_action 9 "禁用开机启动" "muted" "当前未启用"
     fi
-    ui_action 0 "返回" "muted"
-    action="$(read_input "请选择" "0")"
+    ui_menu_footer "返回"
+    ui_read_choice action
     case "$action" in
       1)
         ui_page "Fail2ban Jail" "全部已启用 Jail 的封禁统计"

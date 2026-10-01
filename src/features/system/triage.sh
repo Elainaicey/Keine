@@ -141,8 +141,8 @@ system_triage() {
     ui_action_pair 3 "进程与资源" "action" 4 "存储中心" "action"
     ui_action_pair 5 "网络诊断" "action" 6 "安全基线" "action"
     if command_exists docker; then ui_action 7 "Docker 健康" "action"; else ui_action 7 "Docker 健康" "disabled" "Docker 未安装"; fi
-    ui_action 0 "返回系统管理" "muted"
-    choice="$(read_input "请选择" "0")"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     case "$choice" in
       1) services_failed ;;
       2) services_journal_query || true ;;

@@ -54,11 +54,10 @@ terminal_menu() {
   local rows=() record id name _kind _handler project description index choice provider installed version action user home shell result
   while true; do
     mapfile -t rows < <(awk -F '|' '!/^#/ && NF==6' "$CONFIG_DIR/terminal.tsv")
-    ui_page "系统 / 终端与美化" "默认 Shell、框架与提示符；自动识别已有安装"
+    ui_page "系统 / 终端与美化"
     user="$(software_target_user)"; home="$(software_target_home "$user")"
     shell="$(terminal_login_shell "$user" || printf unsupported)"
     ui_kv "登录 Shell" "$shell"
-    ui_hint "远程终端字体由你的本机终端设置；无需给 VPS 安装字体包。"
     for index in "${!rows[@]}"; do
       IFS='|' read -r id name _kind _handler project description <<<"${rows[$index]}"
       installed="未安装"; version="官方安装"; action="muted"
@@ -69,11 +68,12 @@ terminal_menu() {
       if [[ "$id" != oh-my-zsh ]] && software_prompt_active "$id"; then installed="已配置 · $shell"; action="primary"; fi
       ui_state_item "$((index + 1))" "$name" "$installed" "$action" "$version"
     done
-    ui_action D "生效诊断" "action" "登录 Shell、初始化文件与程序可用性"
-    ui_action R "恢复原始终端配置" "warning" "Bash / Zsh 配置及记录的登录 Shell"
-    ui_action S "默认 Shell" "action" "查看并切换 root 的登录 Shell"
-    ui_action 0 "返回" "muted"
-    choice="$(read_input "项目编号 / D / R / S / 0" "0")"
+    ui_section "配置" "accent"
+    ui_action D "生效诊断" "action"
+    ui_action R "恢复原始配置" "warning"
+    ui_action S "默认 Shell" "action"
+    ui_menu_footer "返回"
+    ui_read_choice choice
     case "$choice" in
       0) return 0 ;;
       D|d) terminal_diagnose || true; pause ;;
@@ -94,11 +94,12 @@ terminal_menu() {
         ui_kv "官方项目" "$project"; ui_kv "配置文件" "$(terminal_prompt_rc "$provider" "$user" "$home" || printf '不受支持')"
         if [[ "$provider" != oh-my-zsh ]] && software_prompt_managed "$provider"; then ui_kv "安装归属" "项目安装，可更新或删除"
         else ui_kv "安装归属" "原生安装只复用配置；新安装会记录所有权"; fi
-        ui_action 1 "安装并切换 / 直接切换" "success" "已有程序会复用；切换前记录原始配置"
-        ui_action 2 "更新项目安装的引擎" "action"
-        ui_action 3 "移除项目安装的引擎" "danger" "外部安装不删除；恢复初始配置请使用 R"
-        ui_action 0 "返回" "muted"
-        action="$(read_input "请选择" "0")"
+        if terminal_installed "$provider"; then ui_action 1 "切换" "success"
+        else ui_action 1 "安装并切换" "success"; fi
+        ui_action 2 "更新引擎" "action"
+        ui_action 3 "移除引擎" "danger" "仅项目安装"
+        ui_menu_footer "返回"
+        ui_read_choice action
         if [[ "$action" == 1 ]] && confirm "切换到 $name？"; then terminal_apply "$provider" || true; pause
         elif [[ "$action" == 2 ]] && confirm "更新 $name？"; then
           require_root
