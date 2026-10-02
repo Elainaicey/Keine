@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
 
+navigation_home() {
+  local options=()
+  [[ "$DRY_RUN" -eq 0 ]] || options+=(--dry-run)
+  [[ "$NO_COLOR" -eq 0 ]] || options+=(--no-color)
+  [[ -r "$ROOT_DIR/bin/keine" ]] || die "无法打开首页：命令入口不存在。"
+  # 替换当前进程，结束整个子菜单调用链；不递归叠加首页或遗留后台进程。
+  exec "$BASH" "$ROOT_DIR/bin/keine" "${options[@]}" menu
+}
+
 navigation_dispatch() {
   # 目录仅声明展示内容；执行目标必须进入白名单，不能 eval 配置或远端文本。
   case "$1" in

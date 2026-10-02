@@ -70,7 +70,7 @@ output="$(catalog_browse_view search jq "软件搜索" "查询结果" </dev/null
 grep -q '1 项 · 1/1 页' <<<"$output" || { printf 'FAIL: 搜索结果没有按页显示\n' >&2; exit 1; }
 grep -q '\[1\].*jq.*可更新' <<<"$output" || { printf 'FAIL: 页内编号与软件状态缺失\n' >&2; exit 1; }
 output="$(software_catalog_menu </dev/null)"
-if [[ "$output" != *'[0]'*返回* || "$output" != *'[Q]'*退出* || "$output" == *示例：* || "$output" == *输入精确* ]]; then
+if [[ "$output" != *'[0]'*返回* || "$output" != *'[H]'*首页* || "$output" != *'[Q]'*退出* || "$output" == *示例：* || "$output" == *输入精确* ]]; then
   printf 'FAIL: 软件中心导航未统一或仍有重复教程\n' >&2; exit 1
 fi
 output="$(catalog_categories_view </dev/null)"

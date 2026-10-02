@@ -91,13 +91,13 @@ catalog_print_record() {
   elif [[ "$state" == "managed" ]]; then
     printf '    %b当前版本%b  %b%s%b  %b· 可检查官方更新%b\n' "$BLUE" "$NC" "$GREEN" "$installed" "$NC" "$MUTED" "$NC"
   elif [[ "$state" == "setup" ]]; then
-    printf '    %b安装方式%b  %b确认后自动配置官方 APT 仓库%b\n' "$BLUE" "$NC" "$CYAN" "$NC"
+    printf '    %b安装方式%b  %b安装时自动配置官方 APT 仓库%b\n' "$BLUE" "$NC" "$CYAN" "$NC"
   elif [[ "$state" == "source-warning" ]]; then
     printf '    %b来源状态%b  %b官方仓库配置需要核实或修复%b\n' "$BLUE" "$NC" "$YELLOW" "$NC"
   elif [[ "$state" == "unavailable" ]]; then
     printf '    %b可用性%b  %b当前系统软件源未提供此软件包%b\n' "$BLUE" "$NC" "$YELLOW" "$NC"
   elif [[ "$state" == "index-needed" ]]; then
-    printf '    %b可用性%b  %b本地索引没有候选版本；R 刷新或在安装时确认%b\n' "$BLUE" "$NC" "$YELLOW" "$NC"
+    printf '    %b可用性%b  %b本地索引没有候选版本；安装时自动刷新%b\n' "$BLUE" "$NC" "$YELLOW" "$NC"
   else
     printf '    %b仓库版本%b  %b%s%b\n' "$BLUE" "$NC" "$WHITE" "$candidate" "$NC"
   fi

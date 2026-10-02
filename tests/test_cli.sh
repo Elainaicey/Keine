@@ -192,4 +192,27 @@ fi
 main uninstall
 [[ "$captured" == "uninstall" ]] || { printf 'FAIL: uninstall 命令没有进入卸载流程\n' >&2; exit 1; }
 
+# 首页跳转复用实际 Bash，保留预览和无颜色模式，不携带原子菜单参数。
+home_arguments=()
+# shellcheck disable=SC2317,SC2329
+exec() { home_arguments=("$@"); }
+# shellcheck disable=SC2034
+DRY_RUN=1
+# shellcheck disable=SC2034
+NO_COLOR=1
+navigation_home
+[[ "${#home_arguments[@]}" == 5 && "${home_arguments[0]}" == "$BASH" &&
+  "${home_arguments[1]}" == "$ROOT_DIR/bin/keine" && "${home_arguments[2]}" == --dry-run &&
+  "${home_arguments[3]}" == --no-color && "${home_arguments[4]}" == menu ]] || {
+  printf 'FAIL: 首页跳转未保留运行选项或未替换当前进程\n' >&2; exit 1
+}
+# shellcheck disable=SC2034
+DRY_RUN=0
+# shellcheck disable=SC2034
+NO_COLOR=0
+navigation_home
+[[ "${#home_arguments[@]}" == 3 && "${home_arguments[2]}" == menu ]] || {
+  printf 'FAIL: 常规首页跳转携带多余参数\n' >&2; exit 1
+}
+
 printf 'PASS: cli\n'

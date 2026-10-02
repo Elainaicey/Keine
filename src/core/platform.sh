@@ -114,7 +114,7 @@ package_install() {
   ((${#missing[@]} > 0)) || { info "已经安装，无需操作。"; return 0; }
   package_update_index || return 1
   printf -v display '%s ' "${missing[@]}"; info "将安装系统包：${display% }"
-  apt_run install -y "${missing[@]}" || { warn "APT 软件安装失败。"; return 1; }
+  apt_run install --no-remove -y "${missing[@]}" || { warn "APT 软件安装失败。"; return 1; }
   for package in "${missing[@]}"; do package_verify_candidate "$package" || failed=1; done
   (( failed == 0 ))
 }
@@ -135,7 +135,7 @@ package_install_latest() {
   ((${#targets[@]} > 0)) || { info "所选软件已经是当前软件源中的最新版本。"; return 0; }
   printf -v display '%s ' "${targets[@]}"
   info "将安装软件源最新候选版本：${display% }"
-  apt_run install -y "${targets[@]}" || { warn "APT 最新候选版本安装失败。"; return 1; }
+  apt_run install --no-remove -y "${targets[@]}" || { warn "APT 最新候选版本安装失败。"; return 1; }
   for package in "${targets[@]}"; do package_verify_candidate "$package" || failed=1; done
   (( failed == 0 ))
 }

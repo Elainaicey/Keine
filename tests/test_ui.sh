@@ -59,7 +59,17 @@ for row in "$(ui_item 4 测试)" "$(ui_action 14 测试)" "$(ui_state_item R 测
   [[ "${row:7:2}" == 测试 ]] || { printf 'FAIL: 菜单标签列未对齐\n' >&2; exit 1; }
 done
 footer="$(ui_menu_footer)"
-[[ "$footer" == *'[0]'*返回* && "$footer" == *'[Q]'*退出* ]] || { printf 'FAIL: 缺少统一菜单返回栏\n' >&2; exit 1; }
+[[ "$footer" == *'[0]'*返回* && "$footer" == *'[H]'*首页* && "$footer" == *'[Q]'*退出* ]] || { printf 'FAIL: 缺少统一菜单导航栏\n' >&2; exit 1; }
+root_footer="$(ui_menu_footer 退出)"
+[[ "$root_footer" == *'[0]'*退出* && "$root_footer" != *'[H]'* ]] || { printf 'FAIL: 首页重复显示首页入口\n' >&2; exit 1; }
+# shellcheck disable=SC2034
+UI_WIDTH=64
+narrow_footer="$(ui_menu_footer)"
+[[ "$(ui_display_width "$narrow_footer")" -le 64 && "$(grep -c '\[H\]' <<<"$narrow_footer")" == 1 ]] || {
+  printf 'FAIL: 窄终端导航栏超宽或缺少首页入口\n' >&2; exit 1
+}
+# shellcheck disable=SC2034
+UI_WIDTH=80
 long_state="$(ui_state_item 12 'Prometheus Node Exporter' 已安装 good)"
 [[ "$(grep -c . <<<"$long_state")" == 2 ]] || { printf 'FAIL: 长名称状态未退为纵向布局\n' >&2; exit 1; }
 read_input() { printf '%s' "${UI_TEST_CHOICE:-$2}"; }
@@ -74,6 +84,17 @@ UI_TEST_CHOICE=q
 quit_output="$(ui_read_choice choice; printf 'unexpected')"
 [[ -z "$quit_output" ]] || { printf 'FAIL: 菜单退出后仍继续执行\n' >&2; exit 1; }
 [[ "$(read_input 普通文本 '')" == q ]] || { printf 'FAIL: 普通输入被菜单快捷键拦截\n' >&2; exit 1; }
+# 首页必须结束整个调用链，而不是在子菜单内部嵌套新首页。
+# shellcheck disable=SC2317,SC2329
+navigation_home() { printf home; exit 0; }
+UI_TEST_CHOICE=h
+home_output="$(ui_read_choice choice; printf unexpected)"
+[[ "$home_output" == home ]] || { printf 'FAIL: 首页跳转后仍继续执行子菜单\n' >&2; exit 1; }
+[[ "$(read_input 普通文本 '')" == h ]] || { printf 'FAIL: 普通文本 H 被导航拦截\n' >&2; exit 1; }
+if [[ -t 0 || -r /dev/tty ]]; then
+  home_output="$(pause; printf unexpected)"
+  [[ "$home_output" == home ]] || { printf 'FAIL: 操作结果页不能直接回首页\n' >&2; exit 1; }
+fi
 
 UI_WIDTH_CACHE=()
 ui_measure_width "系统"

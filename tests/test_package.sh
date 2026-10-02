@@ -38,8 +38,8 @@ package_verify_candidate() { :; }
 
 package_install curl jq >/dev/null
 [[ "$updates" -eq 1 ]] || { printf 'FAIL: 缺失包没有触发一次索引刷新\n' >&2; exit 1; }
-[[ "${#captured[@]}" -eq 3 && "${captured[0]}" == "install" && "${captured[1]}" == "-y" && "${captured[2]}" == "jq" ]] || {
-  printf 'FAIL: 已安装的包没有被排除\n' >&2
+[[ "${#captured[@]}" -eq 4 && "${captured[0]}" == "install" && "${captured[1]}" == "--no-remove" && "${captured[2]}" == "-y" && "${captured[3]}" == "jq" ]] || {
+  printf 'FAIL: 已安装的包没有被排除或缺少禁止移除保护\n' >&2
   exit 1
 }
 
@@ -61,9 +61,9 @@ package_has_update() { [[ "$1" == "curl" ]]; }
 # shellcheck disable=SC2034
 DRY_RUN=1
 package_install_latest curl jq >/dev/null
-[[ "$updates" -eq 1 && "${#captured[@]}" -eq 4 && "${captured[0]}" == "install" &&
-  "${captured[1]}" == "-y" && "${captured[2]}" == "curl" && "${captured[3]}" == "jq" ]] || {
-  printf 'FAIL: 最新候选版本安装没有包含缺失或可更新软件\n' >&2
+[[ "$updates" -eq 1 && "${#captured[@]}" -eq 5 && "${captured[0]}" == "install" &&
+  "${captured[1]}" == "--no-remove" && "${captured[2]}" == "-y" && "${captured[3]}" == "curl" && "${captured[4]}" == "jq" ]] || {
+  printf 'FAIL: 最新候选版本安装没有包含目标软件或缺少禁止移除保护\n' >&2
   exit 1
 }
 # package_verify_candidate 从运行时读取该全局开关。

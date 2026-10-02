@@ -121,7 +121,7 @@ catalog_item_menu() {
       if [[ "$state" == "setup" ]]; then
         ui_action 1 "配置仓库并安装" "success"
       elif [[ "$state" == index-needed ]]; then
-        ui_action 1 "刷新确认并安装" "warning"
+        ui_action 1 "刷新索引并安装" "warning"
       else
         ui_action 1 "安装" "success"
       fi

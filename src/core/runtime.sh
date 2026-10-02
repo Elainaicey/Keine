@@ -102,8 +102,13 @@ confirm() {
 }
 
 pause() {
+  local answer
   [[ -t 0 || -r /dev/tty ]] || return 0
-  read_input "按 Enter 返回" "" >/dev/null
+  answer="$(read_input "Enter 返回 · H 首页 · Q 退出" "")"
+  case "$answer" in
+    H|h) navigation_home ;;
+    Q|q) exit 0 ;;
+  esac
 }
 
 runtime_error() {

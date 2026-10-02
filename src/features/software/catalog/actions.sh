@@ -106,6 +106,8 @@ catalog_install() {
     return 1
   fi
   selected_handler="$handler"
+  require_root || return 1
+  package_invalidate_index
   # 独立工具默认直装官方稳定版；系统软件包仅作为详情页的显式备选。
   ui_page "安装软件 / $name" "$id · $category"
   ui_panel_begin "变更摘要"
@@ -145,10 +147,6 @@ catalog_install() {
     ui_note "未声明额外后台服务或计划任务；安装过程仍以 APT 实际事务为准。"
   fi
   if [[ -z "$selected_handler" ]]; then
-    ui_note "事务预览会先刷新 APT 索引；确认后的安装沿用同一份索引，不会再次改变计划。"
-    confirm "刷新索引并生成 $name 的安装事务预览？" || { warn "已取消。"; return 0; }
-    require_root
-    package_invalidate_index
     package_update_index || return 1
     catalog_cache_invalidate
     candidate="$(package_candidate_version "$packages")"
@@ -159,10 +157,6 @@ catalog_install() {
     ui_status "刷新后候选版本" "$packages · $candidate" "primary"
     mapfile -t plan_packages < <(catalog_apt_target_packages install "$selected_handler" "$packages")
     catalog_apt_plan_render install "${plan_packages[@]}" || return 1
-    confirm "按以上 APT 事务安装 $name？" || { warn "已取消。"; return 0; }
-  else
-    confirm "确认安装 $name？" || { warn "已取消。"; return 0; }
-    require_root
   fi
   catalog_cache_invalidate
   case "$selected_handler" in

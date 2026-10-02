@@ -175,22 +175,43 @@ software_install_release() { captured="handler:release:$1"; installed_state=1; }
 
 catalog_install jq >/dev/null
 [[ "$captured" == "package:jq" ]] || die "普通软件没有精确分发到单个包"
-[[ "$operation_events" == "confirm>root>invalidate>refresh>plan>confirm>install>" ]] ||
-  die "APT 安装没有遵循刷新、预览、最终确认、执行的固定顺序：$operation_events"
-# 未建立本地索引时仍允许进入刷新与事务预览，不会绕过最终确认。
+[[ "$operation_events" == "root>invalidate>refresh>plan>install>" ]] ||
+  die "APT 安装没有直接刷新、校验并执行：$operation_events"
+# 未建立本地索引时仍直接刷新与校验，无额外确认。
 installed_state=0
 operation_events=""
 package_candidate_version() { if [[ "$operation_events" == *refresh* ]]; then printf '1.0.0'; else printf '(none)'; fi; }
 catalog_install jq >/dev/null
-[[ "$captured" == "package:jq" && "$operation_events" == "confirm>root>invalidate>refresh>plan>confirm>install>" ]] || die "缺失候选版本阻止了确认后的安装流程"
+[[ "$captured" == "package:jq" && "$operation_events" == "root>invalidate>refresh>plan>install>" ]] || die "缺失本地索引阻止了直接安装流程"
 package_candidate_version() { printf '1.0.0'; }
 operation_events=""
 installed_state=0
 catalog_install docker >/dev/null
-[[ "$captured" == "handler:docker" ]] || die "Docker 专用安装器分发错误"
+[[ "$captured" == "handler:docker" && "$operation_events" == "root>invalidate>" ]] || die "Docker 安装仍要求重复确认或分发错误"
 installed_state=0
+operation_events=""
 catalog_install gh >/dev/null
-[[ "$captured" == "handler:release:gh" ]] || die "默认官方直装分发错误"
+[[ "$captured" == "handler:release:gh" && "$operation_events" == "root>invalidate>" ]] || die "官方直装仍要求重复确认或分发错误"
+
+# 移除确认后，权限、索引、候选版本和危险事务仍必须阻止安装。
+installed_state=0
+captured=""
+require_root() { return 1; }
+if catalog_install jq >/dev/null 2>&1; then die "缺少权限仍继续安装"; fi
+[[ -z "$captured" ]] || die "权限失败后仍执行了安装器"
+require_root() { operation_events+="root>"; }
+package_update_index() { return 1; }
+if catalog_install jq >/dev/null 2>&1; then die "索引刷新失败仍继续安装"; fi
+[[ -z "$captured" ]] || die "刷新失败后仍执行了安装器"
+package_update_index() { operation_events+="refresh>"; }
+package_candidate_version() { printf '(none)'; }
+if catalog_install jq >/dev/null 2>&1; then die "没有候选版本仍继续安装"; fi
+[[ -z "$captured" ]] || die "缺失候选版本后仍执行了安装器"
+package_candidate_version() { printf '1.0.0'; }
+catalog_apt_plan_render() { return 1; }
+if catalog_install jq >/dev/null 2>&1; then die "事务检查失败仍继续安装"; fi
+[[ -z "$captured" ]] || die "危险事务仍执行了安装器"
+catalog_apt_plan_render() { operation_events+="plan>"; }
 
 installed_state=0
 package_install_latest() { return 1; }

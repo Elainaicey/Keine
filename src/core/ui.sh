@@ -166,11 +166,30 @@ ui_action_pair() {
 }
 
 ui_menu_footer() {
+  local label="${1:-返回}" key title color width column index
+  local keys=(0 H Q) titles=("$label" 首页 退出) colors=("$MUTED" "$CYAN" "$MUTED")
   printf '\n'
-  if [[ "${1:-返回}" == 退出 ]]; then
+  if [[ "$label" == 退出 ]]; then
     ui_action 0 "退出" muted
   else
-    ui_action_pair 0 "${1:-返回}" muted Q "退出" muted
+    column=$(((UI_WIDTH - 2) / 3))
+    ui_measure_width "$label"; width="$UI_TEXT_WIDTH"
+    if (( width + 7 >= column )); then
+      ui_action 0 "$label" muted
+      ui_action_pair H "首页" primary Q "退出" muted
+    else
+      printf '  '
+      for index in 0 1 2; do
+        key="${keys[index]}"; title="${titles[index]}"; color="${colors[index]}"
+        ui_menu_key "$key" "$color"
+        printf ' %b%s%b' "$color$BOLD" "$title" "$NC"
+        if (( index < 2 )); then
+          ui_measure_width "$title"; width="$UI_TEXT_WIDTH"
+          ui_repeat ' ' "$((column - 5 - width))"
+        fi
+      done
+      printf '\n'
+    fi
   fi
   printf '\n'
 }
@@ -179,7 +198,10 @@ ui_read_choice() {
   local ui_choice_target="$1" ui_choice_answer
   [[ "$ui_choice_target" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]] || return 1
   ui_choice_answer="$(read_input "${2:-选择}" "${3:-0}")"
-  case "$ui_choice_answer" in Q|q) exit 0 ;; esac
+  case "$ui_choice_answer" in
+    Q|q) exit 0 ;;
+    H|h) navigation_home; return ;;
+  esac
   printf -v "$ui_choice_target" '%s' "$ui_choice_answer"
 }
 
