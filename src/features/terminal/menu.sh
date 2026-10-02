@@ -4,11 +4,6 @@
 
 TERMINAL_SWITCHING=0
 
-terminal_prompt_command() {
-  local provider="$1" bin="$2"
-  if [[ -x "$bin/$provider" ]]; then printf '%s/%s' "$bin" "$provider"; else command -v "$provider"; fi
-}
-
 terminal_installed() {
   if [[ "$1" == oh-my-zsh ]]; then software_oh_my_zsh_installed; else software_prompt_installed "$1"; fi
 }
@@ -38,16 +33,27 @@ terminal_apply() {
     case "$provider" in starship) software_install_starship ;; oh-my-posh) software_install_oh_my_posh ;; spaceship) software_install_spaceship ;; *) result=1 ;; esac || result=$?
   fi
   TERMINAL_SWITCHING=0
-  audit "action=terminal-switch provider=$provider result=$result"
-  (( result == 0 )) || return "$result"
+  if (( result != 0 )); then
+    audit "action=terminal-switch user=$user provider=$provider result=$result"
+    return "$result"
+  fi
   if (( switch_shell == 1 )); then
     zsh_path="$(command -v zsh)" || return 1
     run chsh -s "$zsh_path" "$user" || { warn "引擎已配置，但登录 Shell 切换失败。"; return 1; }
     (( DRY_RUN == 1 )) || [[ "$(terminal_login_shell "$user")" == zsh ]] || return 1
     shell=zsh
   fi
-  ui_success "已为 $shell 配置 $provider；退出工具后重新连接 SSH 即可，无需重启 VPS。"
-  ui_note "安装程序不能修改已经打开的父 Shell。生效异常可运行 keine terminal-check。"
+  if (( DRY_RUN == 1 )); then
+    info "将为 $user 的 $shell 配置 $provider；预览不会安装或修改配置。"
+    return 0
+  fi
+  terminal_installed "$provider" || { warn "$provider 配置后未通过安装状态验证。"; return 1; }
+  if [[ "$provider" != oh-my-zsh ]]; then
+    software_prompt_active "$provider" || { warn "$user 的提示符配置未通过验证。"; return 1; }
+  fi
+  audit "action=terminal-switch user=$user shell=$shell provider=$provider result=0"
+  ui_success "已为 $user 的 $shell 配置 $provider；新开该用户的 Shell 后生效。"
+  ui_note "当前会话不会自动改变；root 环境可用 sudo -i 或 su - 进入，无需重启 VPS。"
 }
 
 terminal_menu() {
@@ -57,15 +63,18 @@ terminal_menu() {
     ui_page "系统 / 终端与美化"
     user="$(software_target_user)"; home="$(software_target_home "$user")"
     shell="$(terminal_login_shell "$user" || printf unsupported)"
+    ui_kv "配置用户" "$user"
     ui_kv "登录 Shell" "$shell"
     for index in "${!rows[@]}"; do
       IFS='|' read -r id name _kind _handler project description <<<"${rows[$index]}"
       installed="未安装"; version="官方安装"; action="muted"
       if terminal_installed "$id"; then
         installed="已安装"; action="good"
-        if [[ "$id" == oh-my-zsh ]]; then version="$(software_oh_my_zsh_version)"; else version="$(software_prompt_version "$id")"; fi
+        if [[ "$id" == oh-my-zsh ]]; then version="$(software_oh_my_zsh_version 2>/dev/null || true)"
+        else version="$(software_prompt_version "$id" 2>/dev/null || true)"; fi
+        if [[ -z "$version" ]]; then installed="需检查"; version="版本未知"; action="warning"; fi
       fi
-      if [[ "$id" != oh-my-zsh ]] && software_prompt_active "$id"; then installed="已配置 · $shell"; action="primary"; fi
+      if [[ "$id" != oh-my-zsh && "$action" != warning ]] && software_prompt_active "$id"; then installed="已配置 · $shell"; action="primary"; fi
       ui_state_item "$((index + 1))" "$name" "$installed" "$action" "$version"
     done
     ui_section "配置" "accent"
@@ -91,6 +100,7 @@ terminal_menu() {
         if [[ ! "$choice" =~ ^[1-9][0-9]?$ ]] || (( choice > ${#rows[@]} )); then warn "编号无效。"; pause; continue; fi
         record="${rows[$((choice - 1))]}"; IFS='|' read -r provider name _kind _handler project description <<<"$record"
         ui_page "终端配置 / $name" "$description"
+        ui_kv "配置用户" "$user"
         ui_kv "官方项目" "$project"; ui_kv "配置文件" "$(terminal_prompt_rc "$provider" "$user" "$home" || printf '不受支持')"
         if [[ "$provider" != oh-my-zsh ]] && software_prompt_managed "$provider"; then ui_kv "安装归属" "项目安装，可更新或删除"
         else ui_kv "安装归属" "原生安装只复用配置；新安装会记录所有权"; fi

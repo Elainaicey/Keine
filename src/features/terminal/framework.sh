@@ -5,8 +5,9 @@ OH_MY_ZSH_BLOCK_BEGIN="# BEGIN keine: Oh My Zsh"
 OH_MY_ZSH_BLOCK_END="# END keine: Oh My Zsh"
 
 software_target_user() {
-  local user="${SUDO_USER:-}"
-  [[ -n "$user" && "$user" != "root" ]] || user="$(id -un)"
+  local user
+  # sudo/su 进入 root 后，配置属于实际运行用户，不属于最初登录的云主机账户。
+  user="$(id -un)" || die "无法读取当前有效用户。"
   [[ "$user" =~ ^[a-zA-Z0-9_.-]+$ ]] || die "目标用户名格式无效：$user"
   getent passwd "$user" >/dev/null 2>&1 || die "无法读取目标用户信息：$user"
   printf '%s' "$user"

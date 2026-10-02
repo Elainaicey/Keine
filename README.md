@@ -226,6 +226,10 @@ SOCKS 认证信息在该文件中以明文保存，权限为 `0600`；配置快�
 
 `keine terminal` 根据目标用户实际登录 Shell 配置提示符，而不是根据工具自身的 Bash 解释器判断。Starship 与 Oh My Posh 支持 Bash/Zsh，复用已安装引擎，无需为了修复配置重复下载。Oh My Zsh 与 Spaceship 需要 Zsh；切换登录 Shell 必须单独确认，并只在配置成功后执行。
 
+配置目标以运行工具的有效用户为准，不使用 `SUDO_USER`、`USER` 或 `HOME` 推断身份。通过 `sudo -i`、`su -` 或 `sudo keine terminal` 以 root 运行时，安装与配置属于 root，主目录从系统账户记录读取；菜单明确展示配置用户。只复用该用户或标准系统路径内的提示符程序，不借用继承 PATH 中其他用户的私有引擎。依赖已齐全时不再输出笼统的“已经安装”；新安装先验证程序及版本，再登记所有权和配置，成功提示不代表当前父 Shell 已立即加载。
+
+Bash 登录桥接按用户与 Shell 进程识别初始化状态；继承其他会话的标记不会阻止当前用户加载 `.bashrc`。云主机普通用户登录后，可先执行 `sudo -i`，再运行 `keine terminal` 为 root 应用美化；退出工具后新开 root 登录 Shell 生效，无需重启 VPS。升级工具不会自动覆盖普通用户的已有配置，也不会自动替 root 应用主题。
+
 Bash 初始化写入 `.bashrc` 并补齐实际生效的登录入口，Zsh 写入 `.zshrc`；配置先进行语法检查，失败时回退。切换会整理可识别的初始化语句与 `ZSH_THEME`，保留其他自定义内容。首次修改前记录原始文件，恢复操作覆盖已记录的 Bash/Zsh 启动文件与登录 Shell，保留引擎。复杂自定义条件或函数初始化仍需人工检查。
 
 菜单中的“已配置”不等于当前父 Shell 已加载。配置完成后退出工具并重新连接 SSH，无需重启 VPS；`keine terminal-check` 检查登录 Shell、启动配置与引擎可用性，但不会执行用户启动脚本。Nerd Font 应在本机 SSH 客户端设置，不向 VPS 下载字体包。
@@ -440,5 +444,5 @@ keine 依据 [MIT License](LICENSE) 开放源代码。你可以自由使用、�
 ---
 
 <div align="center">
-  <sub>keine 0.5.1 · Built for deliberate VPS operations</sub>
+  <sub>keine 0.5.2 · Built for deliberate VPS operations</sub>
 </div>

@@ -1,5 +1,25 @@
 #!/usr/bin/env bash
 
+terminal_prompt_command() {
+  local provider="$1" home="${2%/.local/bin}" directory path resolved
+  local inherited=() directories=("$2")
+  case "$provider" in starship|oh-my-posh) ;; *) return 1 ;; esac
+  # 保留本用户的 Cargo 等原生安装，但过滤 sudo/su 继承的其他用户 PATH。
+  IFS=: read -r -a inherited <<<"${PATH:-}"
+  directories+=("${inherited[@]}" /usr/local/bin /usr/bin /bin)
+  for directory in "${directories[@]}"; do
+    case "$directory" in "$home/"*|/usr/local/bin|/usr/bin|/bin) ;; *) continue ;; esac
+    path="$directory/$provider"
+    [[ -x "$path" && ! -d "$path" ]] || continue
+    resolved="$(readlink -f -- "$path")" || continue
+    case "$resolved" in
+      "$home/"*|/usr/local/*|/usr/bin/*|/usr/lib/*|/bin/*)
+        printf '%s' "$path"; return 0 ;;
+    esac
+  done
+  return 1
+}
+
 terminal_login_shell() {
   local path
   path="$(getent passwd "$1" | awk -F: 'NR==1 {print $7}')"
@@ -48,16 +68,22 @@ terminal_bash_login_setup() {
   local home="$1" owner="$2" profile payload
   profile="$(terminal_bash_profile "$home")"
   config_file_safe "$profile" || { warn "Bash 登录配置不是安全的普通文件：$profile"; return 1; }
-  if grep -Fqx '# BEGIN keine: Bash login' "$profile" 2>/dev/null; then return 0; fi
+  payload=""
+  if [[ -f "$profile" ]]; then
+    payload="$(awk '
+      $0=="# BEGIN keine: Bash login" {if(block) bad=1; block=1; next}
+      $0=="# END keine: Bash login" {if(!block) bad=1; block=0; next}
+      !block {print}
+      END {if(block || bad) exit 1}
+    ' "$profile")" || { warn "Bash 登录托管块不完整，未修改配置。"; return 1; }
+  fi
   # 字面量启动配置只在用户之后进入交互式 Bash 时执行。
   # shellcheck disable=SC2016
-  payload="$({
-    [[ ! -f "$profile" ]] || cat -- "$profile"
-    printf '\n%s\n' '# BEGIN keine: Bash login' \
-      'case "$-" in *i*)' \
-      '  if [ -n "${BASH_VERSION:-}" ] && [ -z "${KEINE_PROMPT_LOADED:-}" ] && [ -f "$HOME/.bashrc" ]; then' \
-      '    . "$HOME/.bashrc"' '  fi' ';; esac' '# END keine: Bash login'
-  })"
+  payload+="$(printf '\n%s\n' '# BEGIN keine: Bash login' \
+    'case "$-" in *i*)' \
+    '  if [ -n "${BASH_VERSION:-}" ] && [ -f "$HOME/.bashrc" ]; then' \
+    '    if [ -z "${KEINE_PROMPT_LOADED:-}" ] || [ "${KEINE_PROMPT_UID:-}" != "${EUID:-}" ] || [ "${KEINE_PROMPT_PID:-}" != "$$" ]; then' \
+    '      . "$HOME/.bashrc"' '    fi' '  fi' ';; esac' '# END keine: Bash login')"
   terminal_write_rc "$profile" bash "$payload" "$owner"
 }
 

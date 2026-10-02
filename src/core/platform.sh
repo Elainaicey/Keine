@@ -111,7 +111,7 @@ package_verify_candidate() {
 package_install() {
   local requested=("$@") missing=() package display="" failed=0
   for package in "${requested[@]}"; do [[ -n "$package" ]] && ! package_installed "$package" && missing+=("$package"); done
-  ((${#missing[@]} > 0)) || { info "已经安装，无需操作。"; return 0; }
+  ((${#missing[@]} > 0)) || return 0
   package_update_index || return 1
   printf -v display '%s ' "${missing[@]}"; info "将安装系统包：${display% }"
   apt_run install --no-remove -y "${missing[@]}" || { warn "APT 软件安装失败。"; return 1; }

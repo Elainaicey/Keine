@@ -45,7 +45,9 @@ package_install curl jq >/dev/null
 
 updates=0
 captured=()
-package_install curl >/dev/null
+noop_output="$(package_install curl)"
+[[ -z "$noop_output" ]] || { printf 'FAIL: 依赖已齐全时输出了误导性安装提示\n' >&2; exit 1; }
+package_install curl
 [[ "$updates" -eq 0 && "${#captured[@]}" -eq 0 ]] || {
   printf 'FAIL: 已安装软件仍触发了 APT\n' >&2
   exit 1

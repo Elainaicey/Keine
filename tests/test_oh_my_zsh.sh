@@ -14,17 +14,32 @@ DRY_RUN=1
 runtime_colors
 
 fake_passwd='alice:x:1000:1000:Alice:/home/alice:/bin/bash'
-getent() { [[ "$1" == "passwd" && "$2" == "alice" ]] && printf '%s\n' "$fake_passwd"; }
+effective_user=root
+getent() {
+  [[ "$1" == passwd ]] || return 1
+  case "$2" in
+    root) printf 'root:x:0:0:root:/root:/bin/bash\n' ;;
+    alice) printf '%s\n' "$fake_passwd" ;;
+    *) return 1 ;;
+  esac
+}
 id() {
   case "$1" in
-    -un) printf 'root' ;;
+    -un) printf '%s' "$effective_user" ;;
     -gn) printf 'alice' ;;
     *) return 1 ;;
   esac
 }
 SUDO_USER=alice
 
-[[ "$(software_target_user)" == "alice" ]] || die "没有优先选择 sudo 发起用户"
+[[ "$(software_target_user)" == root ]] || die "root 会话被 sudo 发起用户覆盖"
+[[ "$(software_target_home)" == /root ]] || die "root 主目录被普通用户环境覆盖"
+[[ "$(software_oh_my_zsh_path)" == /root/.oh-my-zsh ]] || die "root 框架配置没有隔离到 root 主目录"
+SUDO_USER=missing-user
+[[ "$(software_target_user)" == root ]] || die "残留 sudo 用户破坏了 root 身份识别"
+effective_user=alice
+SUDO_USER=root
+[[ "$(software_target_user)" == alice ]] || die "普通用户的有效身份未被保留"
 [[ "$(software_target_home alice)" == "/home/alice" ]] || die "目标用户主目录解析错误"
 [[ "$(software_oh_my_zsh_path)" == "/home/alice/.oh-my-zsh" ]] || die "Oh My Zsh 目标路径错误"
 

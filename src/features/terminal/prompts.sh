@@ -24,6 +24,7 @@ software_prompt_managed() {
 
 software_prompt_active() {
   local provider="$1" paths user home _bin _state rc
+  software_prompt_installed "$provider" || return 1
   paths="$(software_prompt_paths)"; IFS='|' read -r user home _bin _state <<<"$paths"
   if [[ "$provider" == spaceship && "$(terminal_login_shell "$user" || true)" != zsh ]]; then return 1; fi
   rc="$(terminal_prompt_rc "$provider" "$user" "$home")" || return 1
@@ -47,8 +48,8 @@ software_prompt_version() {
   paths="$(software_prompt_paths)"
   IFS='|' read -r _user home bin _state <<<"$paths"
   case "$provider" in
-    starship) "$(terminal_prompt_command starship "$bin")" --version 2>/dev/null | awk 'NR == 1 {print $2}' ;;
-    oh-my-posh) "$(terminal_prompt_command oh-my-posh "$bin")" version 2>/dev/null | awk 'NR == 1 {print $1}' ;;
+    starship) runtime_with_timeout 5 "$(terminal_prompt_command starship "$bin")" --version 2>/dev/null | awk 'NR == 1 {print $2}' ;;
+    oh-my-posh) runtime_with_timeout 5 "$(terminal_prompt_command oh-my-posh "$bin")" version 2>/dev/null | awk 'NR == 1 {print $1}' ;;
     spaceship)
       directory="$(terminal_spaceship_directory "$home")" || return 1
       git -C "$directory" rev-parse --short=12 HEAD 2>/dev/null || true
@@ -61,8 +62,7 @@ software_prompt_installed() {
   paths="$(software_prompt_paths)"
   IFS='|' read -r _user home bin _state <<<"$paths"
   case "$provider" in
-    starship) [[ -x "$bin/starship" ]] || command_exists starship ;;
-    oh-my-posh) [[ -x "$bin/oh-my-posh" ]] || command_exists oh-my-posh ;;
+    starship|oh-my-posh) terminal_prompt_command "$provider" "$bin" >/dev/null ;;
     spaceship) terminal_spaceship_directory "$home" >/dev/null ;;
     *) return 1 ;;
   esac
@@ -117,7 +117,7 @@ software_prompt_activate() {
   # shellcheck disable=SC2016
   payload+="$(printf '\n%s\n' "$PROMPT_BLOCK_BEGIN" \
     "# provider: $provider" 'if [[ $- == *i* ]]; then' '  export PATH="$HOME/.local/bin:$PATH"' \
-    "  $init_line" "  KEINE_PROMPT_LOADED=$provider" 'fi' "$PROMPT_BLOCK_END")"
+    "  $init_line" "  KEINE_PROMPT_LOADED=$provider" '  KEINE_PROMPT_UID=$EUID' '  KEINE_PROMPT_PID=$$' 'fi' "$PROMPT_BLOCK_END")"
   terminal_write_rc "$rc" "$shell" "$payload" "$user" || return 1
   if [[ "$shell" == bash ]]; then terminal_bash_login_setup "$home" "$user" || return 1; fi
 }
@@ -141,6 +141,17 @@ software_prompt_download_installer() {
   printf '%s' "$target"
 }
 
+software_prompt_verify_binary() {
+  local provider="$1" bin="$2" version
+  [[ -x "$bin/$provider" && ! -d "$bin/$provider" ]] || { warn "$provider 安装后未找到可执行程序。"; return 1; }
+  case "$provider" in
+    starship) version="$(runtime_with_timeout 5 "$bin/$provider" --version 2>/dev/null)" ;;
+    oh-my-posh) version="$(runtime_with_timeout 5 "$bin/$provider" version 2>/dev/null)" ;;
+    *) return 1 ;;
+  esac || { warn "$provider 安装后的版本验证失败。"; return 1; }
+  [[ -n "$version" ]] || { warn "$provider 安装后未返回版本信息。"; return 1; }
+}
+
 software_install_starship() {
   local paths user home bin _state installer
   paths="$(software_prompt_paths)"; IFS='|' read -r user home bin _state <<<"$paths"
@@ -154,6 +165,7 @@ software_install_starship() {
     if declare -F changes_prepare_file >/dev/null && ! changes_prepare_file "$bin/starship"; then rm -f "$installer"; return 1; fi
     software_run_as_target "$user" "$home" sh "$installer" -y -b "$bin" || { rm -f "$installer"; warn "Starship 官方安装器执行失败。"; return 1; }
     rm -f "$installer"
+    software_prompt_verify_binary starship "$bin" || return 1
   fi
   software_prompt_mark starship "$user" "$home" || return 1
   software_prompt_activate starship "$user" "$home" || return 1
@@ -175,6 +187,7 @@ software_install_oh_my_posh() {
     fi
     software_run_as_target "$user" "$home" bash "$installer" -d "$bin" || { rm -f "$installer"; warn "Oh My Posh 官方安装器执行失败。"; return 1; }
     rm -f "$installer"
+    software_prompt_verify_binary oh-my-posh "$bin" || return 1
   fi
   software_prompt_mark oh-my-posh "$user" "$home" || return 1
   software_prompt_activate oh-my-posh "$user" "$home" || return 1
@@ -220,12 +233,19 @@ software_update_prompt() {
       software_run_as_target "$user" "$home" git -C "$state/spaceship" pull --ff-only || { warn "Spaceship Prompt 更新失败。"; return 1; }
       ;;
   esac
+  case "$provider" in
+    starship|oh-my-posh) software_prompt_verify_binary "$provider" "$bin" || return 1 ;;
+  esac
 }
 
 software_activate_prompt() {
-  local provider="$1" paths user home _bin _state
-  paths="$(software_prompt_paths)"; IFS='|' read -r user home _bin _state <<<"$paths"
-  software_prompt_installed "$provider" || die "$provider 未由 keine 安装。"
+  local provider="$1" paths user home bin _state command
+  paths="$(software_prompt_paths)"; IFS='|' read -r user home bin _state <<<"$paths"
+  software_prompt_installed "$provider" || { warn "未找到 $user 可使用的 $provider 引擎。"; return 1; }
+  if (( DRY_RUN == 0 )) && [[ "$provider" == starship || "$provider" == oh-my-posh ]]; then
+    command="$(terminal_prompt_command "$provider" "$bin")" || return 1
+    software_prompt_verify_binary "$provider" "${command%/*}" || return 1
+  fi
   software_prompt_activate "$provider" "$user" "$home" || return 1
 }
 
