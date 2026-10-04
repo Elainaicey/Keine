@@ -57,22 +57,25 @@ tuning_runtime_menu() {
     iface="$(tuning_select_interface)" || continue
     case "$choice" in
       1)
-        confirm "将 $iface 当前队列切换为 FQ？已有总出口限速将解除。" &&
-          tuning_runtime_apply qdisc "$iface" fq || true ;;
+        if confirm "将 $iface 当前队列切换为 FQ？已有总出口限速将解除。"; then
+          tuning_runtime_apply qdisc "$iface" fq || true
+        fi ;;
       2)
         rate="$(read_input '总出口限速（Mbps）' 100)"
         tuning_strategy_integer "$rate" 100000 || { warn "请输入 1–100000。"; pause; continue; }
         ui_note "限制该网卡所有出口流量，包括 SSH、UDP 与代理连接；不是单个应用限速。"
-        confirm "对 $iface 应用 $rate Mbps HTB + FQ？" &&
-          tuning_runtime_apply qdisc "$iface" htb "$rate" || true ;;
+        if confirm "对 $iface 应用 $rate Mbps HTB + FQ？"; then
+          tuning_runtime_apply qdisc "$iface" htb "$rate" || true
+        fi ;;
       3)
         family="$(read_input '地址族（4 / 6）' 4)"
         [[ "$family" == 4 || "$family" == 6 ]] || { warn "请选择 4 或 6。"; pause; continue; }
         window="$(read_input '初始窗口（1–64 个报文段）' 32)"
         tuning_strategy_integer "$window" 64 || { warn "请输入 1–64。"; pause; continue; }
         ui_note "仅调整默认路由 initcwnd / initrwnd，不改网关；作用于新建 TCP 连接，增大可能加剧突发。"
-        confirm "调整 $iface IPv$family 初始窗口为 $window？" &&
-          tuning_runtime_apply "route$family" "$iface" window "$window" || true ;;
+        if confirm "调整 $iface IPv$family 初始窗口为 $window？"; then
+          tuning_runtime_apply "route$family" "$iface" window "$window" || true
+        fi ;;
     esac
     pause
   done
