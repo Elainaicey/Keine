@@ -11,6 +11,7 @@ bin/keine
 ├── src/core/validation.sh
 ├── src/core/ui.sh
 ├── src/core/platform.sh
+├── src/core/firewall.sh
 ├── src/core/backup.sh
 ├── src/core/configuration.sh
 ├── src/features/*.sh
@@ -21,6 +22,8 @@ bin/keine
 ├── src/features/apps/docker.sh
 ├── src/features/apps/docker/*.sh
 ├── src/features/security/*.sh
+├── src/features/security/firewall/{ufw,native,menu}.sh
+├── src/features/security/certificates/{inspect,certbot,menu}.sh
 ├── src/features/services/*.sh
 ├── src/features/software/catalog.sh
 ├── src/features/software/catalog/*.sh
@@ -32,6 +35,7 @@ bin/keine
 ├── src/core/navigation.sh
 ├── src/integrations/warp.sh
 ├── src/integrations/network-tuning.sh
+├── src/integrations/network-tuning/  # 独立计划、事务、菜单与固定上游计算
 ├── config/navigation.tsv
 ├── config/terminal.tsv
 ├── config/integrations.tsv
@@ -107,6 +111,10 @@ keine 必须保持前台、按需、短生命周期运行。运行时代码不�
 终端适配以当前有效用户为目标，从 passwd 读取其主目录与登录 Shell，不把 sudo 发起用户或继承环境当作配置目标。root 与普通用户的引擎、配置和标记独立，菜单必须明确配置用户。程序解析位于 Shell 适配层，只允许目标用户的本地 bin 与标准系统目录，不能沿用其他用户 PATH；新安装验证程序可执行和版本后才能登记成功，复用引擎也须验证。Bash 与 Zsh 的初始化文件不可混用；Zsh 专属引擎的 Shell 切换必须先单独确认，配置成功后才执行。诊断不执行用户 rc 文件；状态只表示配置，不宣称当前父 Shell 已加载。Bash 登录桥接要兼容 `.profile` 的 POSIX 语法，按有效 UID 和 Shell PID 避免重复初始化，继承其他用户或进程的标记不能跳过加载。
 
 SSH 的认证文件和连接策略文件独立管理，逐项更新必须保留同一文件内未选择的参数。语法和当前连接上下文最终值验证通过后才 reload；不自动停止 SSH 或清理旧端口防火墙规则。Fail2ban 只管理独立 sshd Jail 文件，配置检查失败停止，运行时还需核对封禁参数与当前来源白名单。UFW 拒绝规则保护当前 SSH 端口；limit 明确说明其放行与连接限速语义，不承诺全局防护。
+
+防火墙识别属于 core 平台能力，领域菜单不承担安装前保护。Oracle Cloud 通过本地 DMI / cloud-init 信息识别，不调用云元数据接口；UFW 安装必须预先检查云平台、持久规则组件和其他管理器。原生端口适配只支持已有 netfilter-persistent 配置，不自动安装、启用或迁移后端。持久文件保留所有外部规则，仅增删经过严格解析、带归属标记的 INPUT 放行项；运行时通过精确参数数组增删，不执行完整 restore、flush 或规则策略变更。写入与撤销在原生配置目录上获取互斥锁，验证语法、运行状态与文件冲突；失败补偿仅作用于本次托管规则。IPv4/IPv6 明确选择，删除覆盖任一管理 SSH 端口的规则时停止。
+
+证书中心区分只读检查与手动续期。Certbot 证书名来自默认续期目录并按白名单校验，不执行配置文件中的文本；实际续期由原生命令复用现有插件和钩子，执行前提示运行影响。测试续期不是只读操作，仍需确认；keine 的全局 `--dry-run` 只显示命令。普通续期不强制签发，通过前后证书指纹区分已更新与未变化。证书中心不读取或输出私钥，不创建或控制续期 Timer；在线验证必须同时核实信任链与目标身份，握手失败不能被解释为证书有效。
 
 网络参数由六字段 `config/network-tuning.tsv` 声明键、标签、上下限、参考值和说明，执行键另由代码白名单限制。只对项目独立文件中的键执行 `sysctl -w`，不运行 `sysctl --system` 重新加载第三方配置。写入前检查所有原始记录和外部冲突；文件与运行值成组撤销，失败时保留恢复记录并尝试补偿。设置记录使用便携目录名并独立保存逻辑键。第三方入口遵守 [网络调优适配契约](NETWORK-ADAPTERS.md)，不提供任意 URL 执行器。
 

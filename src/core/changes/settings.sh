@@ -4,10 +4,35 @@ changes_sysctl_key() {
   case "$1" in
     net.ipv4.tcp_congestion_control) printf bbr ;;
     net.core.default_qdisc) printf qdisc ;;
-    net.ipv4.tcp_mtu_probing|net.ipv4.tcp_fastopen|net.ipv4.tcp_keepalive_time|net.ipv4.tcp_keepalive_intvl|net.ipv4.tcp_keepalive_probes|net.core.rmem_max|net.core.wmem_max)
+    net.ipv4.tcp_mtu_probing|net.ipv4.tcp_fastopen|net.ipv4.tcp_keepalive_time|net.ipv4.tcp_keepalive_intvl|net.ipv4.tcp_keepalive_probes|net.core.rmem_max|net.core.wmem_max|\
+    net.core.rmem_default|net.core.wmem_default|net.ipv4.tcp_rmem|net.ipv4.tcp_wmem|net.ipv4.tcp_mem|\
+    net.ipv4.tcp_window_scaling|net.ipv4.tcp_moderate_rcvbuf|net.ipv4.tcp_adv_win_scale|net.core.netdev_max_backlog|\
+    net.core.netdev_budget|net.core.optmem_max|net.core.somaxconn|net.ipv4.tcp_max_syn_backlog|\
+    net.ipv4.tcp_slow_start_after_idle|net.ipv4.tcp_no_metrics_save|net.ipv4.tcp_sack|net.ipv4.tcp_dsack|\
+    net.ipv4.tcp_timestamps|net.ipv4.tcp_syncookies|net.ipv4.tcp_tw_reuse|net.ipv4.tcp_fin_timeout|\
+    net.ipv4.ip_local_port_range|vm.min_free_kbytes|fs.file-max|net.ipv4.tcp_notsent_lowat|\
+    net.ipv4.tcp_max_tw_buckets|net.ipv4.udp_rmem_min|net.ipv4.udp_wmem_min|vm.swappiness|vm.dirty_ratio|\
+    vm.dirty_background_ratio|vm.overcommit_memory|vm.vfs_cache_pressure|kernel.sched_autogroup_enabled|kernel.numa_balancing)
       printf 'sysctl:%s' "$1" ;;
     *) return 1 ;;
   esac
+}
+
+changes_sysctl_value_valid() {
+  changes_sysctl_key "$1" >/dev/null || return 1
+  case "$1" in
+    net.ipv4.tcp_congestion_control|net.core.default_qdisc) [[ "$2" =~ ^[a-z0-9_]+$ ]] ;;
+    net.ipv4.tcp_rmem|net.ipv4.tcp_wmem|net.ipv4.tcp_mem) [[ "$2" =~ ^[0-9]{1,20}\ [0-9]{1,20}\ [0-9]{1,20}$ ]] ;;
+    net.ipv4.ip_local_port_range) [[ "$2" =~ ^[0-9]{1,5}\ [0-9]{1,5}$ ]] ;;
+    net.ipv4.tcp_adv_win_scale) [[ "$2" =~ ^-?[0-9]{1,2}$ ]] ;;
+    *) [[ "$2" =~ ^[0-9]{1,20}$ ]] ;;
+  esac
+}
+
+changes_sysctl_read() {
+  local value
+  value="$(sysctl -n "$1" 2>/dev/null)" || return 1
+  awk '{$1=$1; print}' <<<"$value"
 }
 
 changes_sysctl_arguments() {
@@ -38,7 +63,7 @@ changes_setting_value() {
     shell) getent passwd root | awk -F: '{print $7}' ;;
     bbr) sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null ;;
     qdisc) sysctl -n net.core.default_qdisc 2>/dev/null ;;
-    sysctl:*) changes_sysctl_key "${key#sysctl:}" >/dev/null || return 1; sysctl -n "${key#sysctl:}" 2>/dev/null ;;
+    sysctl:*) changes_sysctl_key "${key#sysctl:}" >/dev/null || return 1; changes_sysctl_read "${key#sysctl:}" ;;
     warp) warp_connection_value ;;
     service:*)
       unit="${key#service:}"; valid_service_name "$unit" || return 1
@@ -156,7 +181,7 @@ changes_restore_setting() {
       qdisc) [[ "$before" =~ ^[a-z0-9_]+$ ]] && run sysctl -w "net.core.default_qdisc=$before" || return 1 ;;
       sysctl:*)
         changes_sysctl_key "${key#sysctl:}" >/dev/null || return 1
-        [[ "$before" =~ ^[0-9]{1,10}$ ]] || return 1
+        changes_sysctl_value_valid "${key#sysctl:}" "$before" || return 1
         run sysctl -w "${key#sysctl:}=$before" || return 1
         ;;
       warp)

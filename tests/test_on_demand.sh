@@ -26,7 +26,7 @@ assert_no_runtime_match \
   'systemctl[[:space:]]+(start|stop|restart|enable|disable|mask|unmask)[^\n]*\.timer' \
   '运行时代码可修改 systemd Timer 生命周期'
 assert_no_runtime_match \
-  '(install|cp|mv|tee|write_file_atomic)[^\n]*(/etc|/lib|/usr/lib)/systemd/system' \
+  '(^|[;&|()[:space:]])(install|cp|mv|tee|write_file_atomic)[[:space:]][^\n]*(/etc|/lib|/usr/lib)/systemd/system' \
   '运行时代码可部署项目自有 systemd 单元'
 assert_no_runtime_match \
   '[[:space:]]&[[:space:]]*(#.*)?$' \

@@ -47,6 +47,9 @@ network_path_trace() { captured="trace:$1"; }
 network_interface_detail() { captured="interface:$1"; }
 terminal_diagnose() { captured='terminal-check'; }
 security_auth_activity() { captured="auth-activity:$1"; }
+security_firewall_manage() { captured=firewall; }
+security_certificates_menu() { captured=certificates; }
+security_tls_inspect() { captured="tls:$1:$2"; }
 apps_service_detail() { captured="app:$1"; }
 
 [[ "$(main --version)" == "keine $KEINE_VERSION" ]] || {
@@ -86,6 +89,13 @@ main doctor
 [[ "$captured" == "doctor" ]] || { printf 'FAIL: doctor 命令没有进入运行环境与项目检查\n' >&2; exit 1; }
 main terminal-check
 [[ "$captured" == terminal-check ]] || { printf 'FAIL: 终端诊断命令分发错误\n' >&2; exit 1; }
+main firewall
+[[ "$captured" == firewall ]] || die '防火墙入口分发错误'
+main certificates
+[[ "$captured" == certificates ]] || die '证书入口分发错误'
+main tls example.com
+[[ "$captured" == tls:example.com:443 ]] || die 'TLS 默认端口错误'
+if (main tls >/dev/null 2>&1) || (main firewall extra >/dev/null 2>&1); then die '新入口未验证参数数量'; fi
 
 main triage
 [[ "$captured" == "triage:0" ]] || { printf 'FAIL: triage 命令没有进入只读快速排查\n' >&2; exit 1; }

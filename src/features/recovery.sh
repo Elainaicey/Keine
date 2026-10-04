@@ -4,14 +4,21 @@
 
 recovery_entries() {
   local entry status label
+  local -A grouped=()
+  if declare -F tuning_strategy_id >/dev/null && [[ -d "$(changes_file_entry "$TUNING_STRATEGY_FILE")" ]]; then
+    printf 'tuning|%s|整组撤销|网络调优 / %s\n' "$TUNING_STRATEGY_FILE" "$(tuning_strategy_id || printf '需检查')"
+    while IFS= read -r entry; do [[ -z "$entry" ]] || grouped["$entry"]=1; done < <(tuning_strategy_entries)
+  fi
   for entry in "$(changes_root)"/files/*; do
     [[ -d "$entry" && ! -L "$entry" && -f "$entry/path" ]] || continue
+    [[ ! -v 'grouped[$entry]' ]] || continue
     status="$(changes_file_status "$entry")"
     case "$status" in ready) label="可撤销" ;; unchanged) label="已恢复 / 未改变" ;; *) label="外部修改 / 冲突" ;; esac
     printf 'file|%s|%s|%s\n' "$entry" "$label" "$(terminal_safe_text "$(<"$entry/path")")"
   done
   for entry in "$(changes_root)"/settings/*; do
     [[ -d "$entry" && ! -L "$entry" && -f "$entry/before" && -f "$entry/last" ]] || continue
+    [[ ! -v 'grouped[$entry]' ]] || continue
     label="$(changes_setting_key "$entry")" || continue
     printf 'setting|%s|设置|%s\n' "$entry" "$label"
   done
@@ -38,6 +45,8 @@ recovery_restore_file() {
   local entry="$1" path
   path="$(<"$entry/path")"
   case "$path" in
+    "$(security_native_file 4)") security_native_restore 4 ;;
+    "$(security_native_file 6)") security_native_restore 6 ;;
     "${NETWORK_DNS_RESOLV:-/etc/resolv.conf}"|"${NETWORK_DNS_DROPIN:-/etc/systemd/resolved.conf.d/90-keine-dns.conf}"|"${NETWORK_DNS_HEAD:-/etc/resolvconf/resolv.conf.d/head}")
       network_dns_restore_path "$path" ;;
     *) changes_restore_file "$entry" ;;
@@ -48,6 +57,7 @@ recovery_preflight() {
   local kind entry label path current failed=0
   while IFS='|' read -r kind entry label path; do
     case "$kind" in
+      tuning) tuning_strategy_preflight || failed=1 ;;
       file) case "$(changes_file_status "$entry")" in ready|unchanged) ;; *) warn "恢复前发现冲突：$path"; failed=1 ;; esac ;;
       setting)
         current="$(changes_setting_value "$(changes_setting_key "$entry")")" || { failed=1; continue; }
@@ -80,6 +90,7 @@ recovery_restore_all() {
   fi
   while IFS='|' read -r kind entry label path; do
     case "$kind" in
+      tuning) tuning_strategy_restore || failed=1 ;;
       file)
         case "$path" in /etc/ssh/*) ssh_changed=1 ;; /etc/ufw/*|/etc/default/ufw) ufw_changed=1 ;; esac
         if recovery_restore_file "$entry"; then recovery_reconcile_file "$path" || failed=1; else failed=1; fi
@@ -128,6 +139,9 @@ recovery_changes_menu() {
           warn "编号无效。"; pause; continue
         fi
         selected="${rows[$((choice - 1))]}"; IFS='|' read -r kind entry label path <<<"$selected"
+        if [[ "$kind" == tuning ]]; then
+          network_tuning_adapter_menu; continue
+        fi
         ui_page "变更详情" "$path"
         ui_kv "类型" "$kind"; ui_kv "状态" "$label"
         ui_action 1 "撤销此资源" "warning" "冲突资源会停止，不覆盖外部修改"
@@ -141,7 +155,7 @@ recovery_changes_menu() {
             if recovery_restore_file "$entry"; then recovery_reconcile_file "$path" || true; fi
           else changes_restore_setting "$entry" || true; fi
           CHANGES_RESTORING=0
-          ui_note "系统 DNS 会重新验证并加载；其他单项配置请进入对应功能中心验证和加载。"
+          ui_note "DNS 与原生端口规则会重新验证并加载；其他单项配置请进入对应功能中心验证和加载。"
           pause
         elif [[ "$choice" == 1 ]]; then
           ui_note "软件包按依赖事务整体撤销，请使用撤销全部。"; pause

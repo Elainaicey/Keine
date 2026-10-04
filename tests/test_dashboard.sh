@@ -7,6 +7,7 @@ IFS=$'\n\t'
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)"
 . "$ROOT_DIR/src/core/runtime.sh"
 . "$ROOT_DIR/src/core/ui.sh"
+. "$ROOT_DIR/src/core/firewall.sh"
 . "$ROOT_DIR/src/features/dashboard.sh"
 
 NO_COLOR=1
@@ -28,6 +29,7 @@ package_upgradable_count() { printf '7'; }
 service_state() { printf 'active'; }
 service_exists() { [[ "$1" == "fail2ban.service" ]]; }
 platform_firewall_active() { return 0; }
+platform_firewall_backend() { printf ufw; }
 timedatectl() { [[ "$1" == "show" ]] && printf 'yes\n'; }
 backup_snapshots() { printf '20260730-010203-42\n20260729-010203-41\n'; }
 dashboard_reboot_required() { return 1; }

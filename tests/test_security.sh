@@ -8,6 +8,7 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
 . "$ROOT_DIR/src/core/runtime.sh"
 . "$ROOT_DIR/src/core/ui.sh"
 . "$ROOT_DIR/src/core/validation.sh"
+. "$ROOT_DIR/src/core/firewall.sh"
 # shellcheck source=../src/features/security.sh
 . "$ROOT_DIR/src/features/security.sh"
 
@@ -203,6 +204,10 @@ firewall_input='22/tcp,443/tcp'
 captured_calls=()
 if security_firewall_rule deny >/dev/null 2>&1; then printf 'FAIL: 拒绝规则允许阻断当前 SSH 端口\n' >&2; exit 1; fi
 [[ ${#captured_calls[@]} == 0 ]] || { printf 'FAIL: SSH 阻断验证前已修改防火墙\n' >&2; exit 1; }
+platform_ssh_ports() { printf '22\n2222\n'; }
+if security_ufw_rule_protect_ssh '2222/tcp ALLOW IN Anywhere' >/dev/null 2>&1 ||
+  security_ufw_rule_protect_ssh 'OpenSSH ALLOW IN Anywhere' >/dev/null 2>&1; then die '允许删除 SSH 放行规则'; fi
+security_ufw_rule_protect_ssh '443/tcp ALLOW IN Anywhere' || die '普通端口规则被误阻止'
 security_ssh_policy_valid MaxAuthTries 3 || die '合法 SSH 策略被拒绝'
 security_ssh_policy_valid AllowTcpForwarding no || die '合法转发策略被拒绝'
 if security_ssh_policy_valid MaxAuthTries 0 || security_ssh_policy_valid AllowTcpForwarding 'yes;reboot' || security_ssh_policy_valid Unknown yes; then die 'SSH 策略缺少白名单或范围校验'; fi

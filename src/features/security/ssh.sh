@@ -133,7 +133,7 @@ security_ssh_host_keys() {
 }
 
 security_configure_ssh() {
-  local current_port new_port disable_password=0 root_key_only=0 config payload
+  local current_port new_port disable_password=0 root_key_only=0 config payload firewall_backend
   current_port="$(detect_ssh_port)"
   config=/etc/ssh/sshd_config.d/00-keine-auth.conf
   ui_page "SSH 安全向导" "端口、认证策略、有效值验证与安全 reload"
@@ -153,6 +153,13 @@ security_configure_ssh() {
       warn "SSH 由 ssh.socket 提供监听；请先通过原生 Socket 配置处理端口，工具不覆盖其 Unit。"; return 1
     fi
     if ss -H -ltn "sport = :$new_port" 2>/dev/null | grep -q .; then warn "端口 $new_port 已被占用。"; return 1; fi
+    firewall_backend="$(platform_firewall_backend)"
+    if [[ "$firewall_backend" != ufw ]]; then
+      ui_note "先在主机防火墙与云端安全规则中放行 $new_port/tcp；当前后端：$(platform_firewall_label "$firewall_backend")。"
+      confirm "已确认新 SSH 端口的主机及云端规则放行？" || return 0
+    else
+      ui_note "将自动添加 UFW 放行；云端安全组仍需放行 $new_port/tcp。"
+    fi
   fi
   payload="Port $new_port"
   if (( disable_password == 1 )); then payload+=$'\nPasswordAuthentication no\nKbdInteractiveAuthentication no\nPubkeyAuthentication yes'; fi

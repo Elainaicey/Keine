@@ -40,7 +40,8 @@ network_sysctl_apply_values() {
   for value in "${arguments[@]}"; do
     key="${value%%=*}"
     changes_sysctl_key "$key" >/dev/null || return 1
-    previous="$(sysctl -n "$key" 2>/dev/null)" || return 1
+    changes_sysctl_value_valid "$key" "${value#*=}" || return 1
+    previous="$(changes_sysctl_read "$key")" || return 1
     keys+=("$key"); old_values+=("$key=$previous")
   done
   # 在任何运行值写入前检查所有基线，避免部分执行或失败回退覆盖外部调优。
@@ -50,7 +51,7 @@ network_sysctl_apply_values() {
   done
   if ! run sysctl -w "${arguments[@]}"; then result=1; fi
   for value in "${arguments[@]}"; do
-    [[ "$(sysctl -n "${value%%=*}" 2>/dev/null || true)" == "${value#*=}" ]] || result=1
+    [[ "$(changes_sysctl_read "${value%%=*}" || true)" == "${value#*=}" ]] || result=1
   done
   if (( result != 0 )); then
     warn "参数应用失败，尝试恢复本次操作前的运行值。"
@@ -68,7 +69,7 @@ network_tuning_sources() {
   for file in /etc/sysctl.conf /etc/sysctl.d/*.conf /run/sysctl.d/*.conf /usr/local/lib/sysctl.d/*.conf /usr/lib/sysctl.d/*.conf /lib/sysctl.d/*.conf; do
     [[ -f "$file" ]] || continue
     rows="$(awk -F '=' 'FNR==NR {if(!/^#/ && split($0,fields,"\\|")==6) keys[fields[1]]=1; next}
-      !/^#/ {key=$1; gsub(/[[:space:]]/,"",key); if(keys[key] || key=="net.ipv4.tcp_congestion_control" || key=="net.core.default_qdisc") print $0}' \
+      !/^[[:space:]]*#/ {key=$1; gsub(/[[:space:]]/,"",key); if(keys[key] || key ~ /^-?(net[.]|vm[.]|fs[.]file-max$|kernel[.](sched_autogroup_enabled|numa_balancing)$)/) print $0}' \
       "$NETWORK_TUNING_CATALOG" "$file")"
     [[ -n "$rows" ]] || continue
     ui_section "$file" "primary"
@@ -83,6 +84,7 @@ network_tuning_sources() {
 }
 
 network_tuning_set() {
+  if declare -F tuning_strategy_guard >/dev/null; then tuning_strategy_guard || return 1; fi
   local key="$1" record _key label minimum maximum reference description current value payload
   record="$(network_tuning_record "$key")" || return 1
   IFS='|' read -r _key label minimum maximum reference description <<<"$record"
@@ -145,7 +147,7 @@ network_sysctl_restore_group() {
   ui_success "项目网络参数已撤销；第三方配置文件未修改。"
 }
 
-network_tuning_menu() {
+network_parameters_menu() {
   local rows=() record key label _minimum _maximum _reference _description index choice value
   while true; do
     mapfile -t rows < <(network_tuning_rows)
@@ -161,7 +163,7 @@ network_tuning_menu() {
     ui_action R "撤销项目参数" "warning"
     ui_action B "BBR 拥塞控制" "action"
     ui_action I "IP 地址优先级" "action"
-    ui_action A "第三方调优适配" "action"
+    ui_action A "独立调优方案" "action"
     ui_menu_footer "返回"
     ui_read_choice choice
     case "$choice" in

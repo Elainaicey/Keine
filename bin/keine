@@ -64,7 +64,7 @@ usage() {
   keine list [关键词]         查询软件目录
   keine sources               按维护来源浏览软件
   keine official-updates      检查已安装官方 Release 更新
-  keine exposure              分析公网监听、进程、容器与 UFW
+  keine exposure              分析公网监听、进程、容器与主机边界
   keine install ID            安装一个软件
   keine update ID             更新一个已安装软件
   keine remove ID             移除一个软件
@@ -74,7 +74,7 @@ usage() {
   keine proxy                  配置与管理已有 SOCKS5 出站代理
   keine proxy-check URL        使用保存的代理验证 HTTP/HTTPS 请求
   keine net-tuning             管理可撤销的原生网络参数
-  keine tuning-adapters        第三方调优适配预留与参数来源检查
+  keine tuning-adapters        tcpfit / vps-tcp-tune 调优方案
   keine probe HOST PORT       探测目标 TCP 端口
   keine http URL              诊断 HTTP/HTTPS HEAD 状态、TLS 与耗时
   keine trace HOST            查看目标链路路径
@@ -82,6 +82,9 @@ usage() {
   keine system                打开系统管理中心
   keine network               打开网络与端口中心
   keine security              打开安全中心
+  keine firewall              管理 UFW 或原生防火墙
+  keine certificates          本机证书、到期检查与手动续期
+  keine tls HOST [PORT]       检查在线证书、身份与信任链
   keine auth-activity         汇总最近 24 小时 SSH 登录活动
   keine services              打开服务与日志中心
   keine service SERVICE       打开一个 systemd 服务的管理页
@@ -284,6 +287,14 @@ main() {
       ((${#arguments[@]} == 0)) || die "security 不接受参数"
       platform_detect_identity
       security_menu
+      ;;
+    firewall|certificates)
+      ((${#arguments[@]} == 0)) || die "$command 不接受参数"
+      if [[ "$command" == firewall ]]; then security_firewall_manage; else security_certificates_menu; fi
+      ;;
+    tls)
+      ((${#arguments[@]} >= 1 && ${#arguments[@]} <= 2)) || die "tls 需要域名或 IP，可选 TLS 端口"
+      security_tls_inspect "${arguments[0]}" "${arguments[1]:-443}"
       ;;
     auth-activity)
       ((${#arguments[@]} == 0)) || die "auth-activity 不接受参数"

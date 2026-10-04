@@ -134,7 +134,7 @@ apps_service_detail() {
         continue
         ;;
       13) if [[ "$app_id" == "docker" ]]; then docker_menu; else warn "未知选项"; fi; continue ;;
-      14) if [[ "$app_id" == nginx ]]; then catalog_item_menu certbot-nginx; else warn "未知选项"; fi; continue ;;
+      14) if [[ "$app_id" == nginx ]]; then security_certificates_menu; else warn "未知选项"; fi; continue ;;
       R|r) catalog_cache_invalidate; continue ;;
       0) return 0 ;;
       *) warn "未知选项：$action"; continue ;;

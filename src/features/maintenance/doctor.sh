@@ -183,6 +183,12 @@ toolkit_doctor() {
     src/core/navigation.sh
     src/features/recovery.sh
     src/integrations/warp.sh
+    src/integrations/network-tuning.sh
+    src/integrations/network-tuning/plans.sh
+    src/integrations/network-tuning/transaction.sh
+    src/integrations/network-tuning/menu.sh
+    src/integrations/network-tuning/upstream/tcpfit.sh
+    src/integrations/network-tuning/upstream/vps-tcp-tune.sh
     src/integrations.sh
     config/navigation.tsv
     config/terminal.tsv

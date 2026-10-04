@@ -65,15 +65,9 @@ dashboard_show() {
     fi
   fi
 
-  if command_exists ufw; then
-    firewall_state="inactive"
-    firewall_display="未启用"
-  fi
-  if platform_firewall_active; then
-    firewall_state="active"
-    firewall_display="已启用"
-    firewall_style="good"
-  fi
+  firewall_state="$(platform_firewall_backend)"
+  firewall_display="$(platform_firewall_label "$firewall_state")"
+  case "$firewall_state" in ufw) firewall_style=good ;; iptables|nftables|firewalld) firewall_style=primary ;; esac
 
   if service_exists fail2ban.service; then
     fail2ban_state="$(service_state fail2ban.service)"
@@ -139,7 +133,7 @@ dashboard_show() {
 
   ui_section "基础防护" "accent"
   ui_metric_row \
-    "UFW" "$firewall_display" "$firewall_style" \
+    "防火墙" "$firewall_display" "$firewall_style" \
     "Fail2ban" "$fail2ban_display" "$fail2ban_style" \
     "系统时间" "$time_sync" "$time_style"
 
@@ -166,8 +160,8 @@ dashboard_show() {
     ui_callout "warn" "$upgrades 个系统软件包可更新"
     attention=$((attention + 1))
   fi
-  if [[ "$firewall_state" != "active" ]]; then
-    ui_callout "warn" "UFW 防火墙未启用" "启用前请确认 SSH 与业务端口。"
+  if [[ "$firewall_state" == unknown || "$firewall_state" == ufw-inactive ]]; then
+    ui_callout "warn" "未确认生效的主机防火墙" "检查原生规则与云端访问策略。"
     attention=$((attention + 1))
   fi
   if [[ "$time_sync" != "已同步" ]]; then

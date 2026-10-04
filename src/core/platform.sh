@@ -112,6 +112,7 @@ package_install() {
   local requested=("$@") missing=() package display="" failed=0
   for package in "${requested[@]}"; do [[ -n "$package" ]] && ! package_installed "$package" && missing+=("$package"); done
   ((${#missing[@]} > 0)) || return 0
+  platform_package_preflight "${missing[@]}" || return 1
   package_update_index || return 1
   printf -v display '%s ' "${missing[@]}"; info "将安装系统包：${display% }"
   apt_run install --no-remove -y "${missing[@]}" || { warn "APT 软件安装失败。"; return 1; }
@@ -121,6 +122,7 @@ package_install() {
 
 package_install_latest() {
   local requested=("$@") targets=() package candidate display="" failed=0
+  platform_package_preflight "${requested[@]}" || return 1
   package_update_index || return 1
   for package in "${requested[@]}"; do
     [[ -n "$package" ]] || continue
@@ -163,7 +165,7 @@ package_upgrade() {
     return 0
   fi
   info "将更新系统包：$package"
-  apt_run install --only-upgrade -y "$package" || { warn "APT 软件更新失败。"; return 1; }
+  apt_run install --only-upgrade --no-remove -y "$package" || { warn "APT 软件更新失败。"; return 1; }
   package_verify_candidate "$package"
 }
 
@@ -229,3 +231,5 @@ platform_firewall_active() {
   ufw status 2>/dev/null | grep -q '^Status: active' ||
     grep -q '^ENABLED=yes' /etc/ufw/ufw.conf 2>/dev/null
 }
+
+. "$ROOT_DIR/src/core/firewall.sh"

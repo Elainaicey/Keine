@@ -1,3 +1,3 @@
 # id|name|backend|probe|handler|description
 warp|Cloudflare WARP|native-cli|warp-cli|warp_menu|官方客户端与已有 wgcf 隧道的原生管理
-network-tuning|第三方网络调优|reserved|sysctl|network_tuning_adapter_menu|参数来源与冲突检查；未选择或运行外部脚本
+network-tuning|网络调优方案|pinned-strategies|sysctl|network_tuning_adapter_menu|tcpfit 与 vps-tcp-tune 独立策略、统一预览与撤销

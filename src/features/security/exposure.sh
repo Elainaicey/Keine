@@ -132,8 +132,8 @@ security_exposure_ufw_rule_state() {
 
 security_exposure_firewall_label() {
   case "$1" in
-    allow) printf 'UFW 已显式放行' ;;
-    deny) printf 'UFW 已显式拒绝' ;;
+    allow) printf 'UFW 存在放行规则 · 来源与顺序需核对' ;;
+    deny) printf 'UFW 存在拒绝规则 · 来源与顺序需核对' ;;
     inactive) printf 'UFW 未启用' ;;
     unavailable) printf 'UFW 未安装' ;;
     *) printf '未发现精确规则，需核对' ;;
@@ -159,14 +159,15 @@ security_exposure_owner() {
 }
 
 security_exposure_analysis() {
-  local interactive="${1:-1}" protocol address port process pid owner firewall_state
+  local interactive="${1:-1}" protocol address port process pid owner firewall_state backend firewall_label
   local count=0 allowed=0 denied=0 review=0 docker_count=0 input
   command_exists ss || { warn "缺少 ss 命令，无法分析监听端口。"; return 1; }
   while true; do
     count=0; allowed=0; denied=0; review=0; docker_count=0
     security_exposure_load_docker
     security_exposure_load_ufw
-    ui_page "公网暴露分析" "关联监听地址、进程、systemd、Docker 与 UFW 精确规则"
+    backend="$(platform_firewall_backend)"
+    ui_page "公网暴露分析" "$(platform_firewall_label "$backend")"
     ui_note "这里只识别监听所有本机地址的套接字；云防火墙、NAT 和上游网络策略仍需单独核对。"
     while IFS='|' read -r protocol address port process pid; do
       [[ -n "$protocol" ]] || continue
@@ -174,6 +175,15 @@ security_exposure_analysis() {
       count=$((count + 1))
       owner="$(security_exposure_owner "$protocol" "$port" "$process" "$pid")"
       firewall_state="$(security_exposure_ufw_rule_state "$port" "$protocol")"
+      firewall_label="$(security_exposure_firewall_label "$firewall_state")"
+      if [[ "$backend" != ufw ]]; then
+        firewall_state=review
+        firewall_label="$(platform_firewall_label "$backend") · 规则需核对"
+      fi
+      if [[ "$owner" == Docker* ]]; then
+        firewall_state=review
+        firewall_label="容器转发路径 · 需核对 Docker 与云端规则"
+      fi
       case "$firewall_state" in
         allow) allowed=$((allowed + 1)) ;;
         deny) denied=$((denied + 1)) ;;
@@ -184,16 +194,16 @@ security_exposure_analysis() {
         "$MAGENTA" "$NC" "$CYAN$BOLD" "${protocol^^}" "$port" "$NC" "$WHITE" "$address" "$port" "$NC"
       printf '    %b归属%b      %s\n' "$BLUE" "$NC" "$owner"
       printf '    %b监听进程%b  %s%s\n' "$BLUE" "$NC" "$process" "$([[ "$pid" == "—" ]] || printf ' · PID %s' "$pid")"
-      printf '    %b防火墙%b    %s\n' "$BLUE" "$NC" "$(security_exposure_firewall_label "$firewall_state")"
+      printf '    %b防火墙%b    %s\n' "$BLUE" "$NC" "$firewall_label"
     done < <(security_exposure_listener_rows)
     if (( count == 0 )); then
       ui_empty "没有检测到监听所有 IPv4/IPv6 地址的端口"
     fi
-    ui_stats "公网监听" "$count" "显式放行" "$allowed" "需核对" "$review"
-    ui_context "显式拒绝 $denied 项 · Docker 发布 $docker_count 项"
+    ui_stats "全部地址监听" "$count" "放行规则" "$allowed" "需核对" "$review"
+    ui_context "拒绝规则 $denied 项 · Docker 发布 $docker_count 项"
     [[ "$interactive" -eq 1 ]] || return 0
     ui_section "后续操作" "accent"
-    ui_action F "UFW 防火墙" "action"
+    ui_action F "主机防火墙" "action"
     ui_action R "重新扫描" "success"
     ui_menu_footer "返回"
     ui_read_choice input

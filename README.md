@@ -67,10 +67,10 @@ keine
 
 | 中心 | 能力 |
 | --- | --- |
-| **运维总览** | 响应式关键指标、内存/Swap/磁盘进度、服务与更新、TCP/Docker、UFW/Fail2ban/时间同步、恢复准备度和状态驱动的关注事项；可直接进入排障、更新、暴露面、服务与备份 |
+| **运维总览** | 响应式关键指标、内存/Swap/磁盘进度、服务与更新、TCP/Docker、原生防火墙/Fail2ban/时间同步、恢复准备度和状态驱动的关注事项；可直接进入排障、更新、暴露面、服务与备份 |
 | **系统管理** | 主机名、时区、时间同步与终端美化优先；当前发行版系统更新、事务预览、来源检查、故障排查、资源压力、进程、内核与重启状态、软件包健康、hold、依赖修复、存储与 Swap |
 | **网络管理** | 系统 DNS、SOCKS5 出站配置、原生 WARP、可撤销内核参数和第三方调优适配；接口、路由、会话与监听集中管理，连通性、TCP/HTTP、链路与套接字诊断独立分组 |
-| **安全中心** | 安全基线、公网暴露、登录活动、来源处置；UFW 生命周期、批量放行/拒绝与 TCP 连接限速；SSH 认证/端口、九项连接与转发策略、会话/密钥；Fail2ban 生命周期、Jail、封禁策略/白名单与恢复；TLS 证书检查 |
+| **安全中心** | UFW 与原生防火墙识别、Oracle Cloud 保护、IPv4/IPv6 端口与来源规则；安全基线、公网暴露、登录分析；SSH 认证/端口与连接策略；Fail2ban 生命周期、Jail 与白名单；Certbot 证书、手动续期、本地 PEM 与在线 TLS 验证 |
 | **服务与日志** | failed/active 服务浏览、资源与退出结果、正反依赖、启动关键链、失败诊断、经验证的 service 生命周期，以及 Journal 条件查询、完整性验证、按时间/容量维护、内核警告和操作审计 |
 | **软件中心** | 281 个单项软件、15 个用途分类；官方直装、原生安装识别、APT 事务预览、运行影响提示；包名搜索、关联软件指南、来源诊断、版本与完整性、安装与更新 |
 | **应用与容器** | 11 类应用服务的分组资产视图、版本、运行健康、资源、PID、重启次数、关联监听、配置/数据资产、日志和详情页直接生命周期控制；支持官方配置检查、安全 reload 与单项软件更新；Docker 另提供容器、Compose、网络、安全清理和可校验卷备份 |
@@ -96,7 +96,7 @@ keine software               # 进入分页软件中心
 keine software jq            # 直接打开 jq 的管理详情
 keine sources                # 按维护来源浏览软件
 keine official-updates       # 检查已托管官方 Release 更新
-keine exposure               # 分析公网监听、进程、容器与 UFW
+keine exposure               # 分析公网监听、进程、容器与主机边界
 keine ports                  # 监听端口
 keine dns example.com        # DNS 解析器与记录诊断
 keine dns-config             # 系统 DNS 配置、验证与恢复
@@ -104,7 +104,7 @@ keine proxy                  # 连接已有 SOCKS5 代理的配置中心
 keine proxy-check https://example.com
                                 # 显式使用代理的一次性连通验证
 keine net-tuning             # 可撤销的网络参数、BBR 与地址优先级
-keine tuning-adapters        # 第三方调优适配状态与持久参数来源
+keine tuning-adapters        # tcpfit / vps-tcp-tune 独立参数方案
 keine probe example.com 443  # DNS、路由与 TCP 握手探测
 keine http https://example.com/health
                                 # HTTP HEAD 状态、重定向、TLS 与请求阶段耗时
@@ -113,6 +113,9 @@ keine interface ens3         # 单个网络接口详情
 keine system                 # 系统管理中心
 keine network                # 网络与端口中心
 keine security               # 安全中心
+keine firewall               # 主机防火墙与原生端口规则
+keine certificates           # TLS 与证书管理中心
+keine tls example.com 443    # 在线证书、身份与信任链验证
 keine auth-activity          # 最近 24 小时 SSH 登录活动
 keine services               # 服务与日志中心
 keine service nginx.service  # 直接管理一个 systemd 服务
@@ -190,14 +193,30 @@ Nginx、Caddy、Apache、HAProxy 与 Docker 可调用各自的官方只读配置
 
 候选版本来自本机索引，不代表已经联网确认。尚未刷新且没有候选版本的条目显示“待刷新确认”，不会直接判定仓库故障；安装时自动刷新并校验 APT 事务，无需额外确认。`R` 可在软件中心、列表和详情刷新索引；来源诊断只读取本地版本优先级与地址。官方 Release 的显式更新检查会重新查询上游，浏览菜单不会联网探测。
 
+### 主机防火墙
+
+`keine firewall` 按系统已有后端组织操作。UFW 提供运行控制、批量端口规则、来源限制与连接限速；iptables/netfilter-persistent 提供原生规则查看、IPv4/IPv6 端口放行与托管规则删除。nftables、firewalld 提供配置查看，不自动转换规则或替换后端。
+
+原生端口管理要求已启用 `netfilter-persistent.service`，且对应 `/etc/iptables/rules.v4` 或 `rules.v6` 文件存在并通过语法检查。新增规则位于 INPUT 现有规则之前；只管理带 keine 归属标记的放行项，不清空规则表、不重设默认策略、不改写 OUTPUT、NAT、转发与云平台存储规则。首次修改保存撤销基线，后续修改不创建历史快照；失败时回退本次文件与托管运行规则。文件或运行规则被外部修改时停止操作，避免覆盖其他管理工具的改动。
+
+Oracle Cloud 镜像保留原生防火墙，不通过 UFW 替换。Oracle 文档指出 UFW 可能破坏启动卷与块存储通信规则；安装入口会在下载前拦截并提示使用原生管理。[Oracle 防火墙说明](https://docs.oracle.com/en-us/iaas/Content/Compute/known-issues.htm#ufw)
+
+主机放行不等于公网可达：OCI 安全列表 / NSG、其他服务商安全组与 Docker 转发路径需要分别核对。规则删除和撤销会保护当前 SSH 连接端口及 sshd 声明的全部端口。
+
 ### Nginx 与 HTTPS 证书
 
-Certbot、Nginx 插件与 Apache 插件位于“安全与证书”，也可搜索 `certbot`、`https` 或真实包名。Nginx 软件详情的 `G` 指南和应用详情的 HTTPS 入口可直达插件；关联软件由用户分别选择安装，不绑定下载。
+Certbot、Nginx 插件与 Apache 插件位于“安全与证书”，也可搜索 `certbot`、`https` 或真实包名。Nginx 软件详情的 `G` 指南直达插件，应用详情的 HTTPS 入口打开证书中心；关联软件由用户分别选择安装，不绑定下载。
 
 ```bash
 keine software nginx
 keine software certbot-nginx
+keine certificates
+keine tls example.com 443
 ```
+
+证书中心按页读取 `/etc/letsencrypt/renewal` 中的原生 Certbot 证书，展示有效期、验证插件与证书路径，并支持单张证书的测试续期和手动续期。续期复用已有插件与钩子，可能触发上游配置的站点调整或服务启停；不强制提前续期，证书未变化时如实显示。keine 不创建续期任务，也不接管私钥或自动签发证书。[Certbot 续期文档](https://eff-certbot.readthedocs.io/en/stable/using.html#renewing-certificates)
+
+本地 PEM 检查只读取证书信息，不展示私钥；在线 TLS 检查同时校验证书有效期、域名/IP 身份与系统信任链。自签名或链不完整的证书不会仅因域名匹配而显示验证通过。
 
 Nginx 本身不包含 Certbot。安装 `certbot-nginx` 时，APT 会解析 `python3-certbot-nginx` 对证书客户端的依赖，不需要重复安装；安装不会自动签发证书或修改站点。使用前核实域名解析、站点与验证端口；详细步骤参见 [Certbot 官方 Nginx 指南](https://certbot.eff.org/instructions?ws=nginx&os=pip)。发行版 Certbot 可能启用自身续期 Timer，软件详情和安装摘要会单独提示；这不属于 keine 后台监控。
 
@@ -220,7 +239,7 @@ SOCKS 认证信息在该文件中以明文保存，权限为 `0600`；配置快�
 
 `keine net-tuning` 提供 TCP MTU 探测、Fast Open、Keepalive 和收发缓冲上限的逐项设置，另保留原生 BBR 与 IPv4 优先级入口。界面显示当前值、范围、单位与适用条件，不套用一键激进模板；Keepalive 和 Fast Open 仍取决于应用支持，缓冲上限不等于预分配内存。项目只应用自己的参数，并同时记录文件和首次修改前的运行值；撤销不猜测默认值，也不删除第三方配置。[Linux 内核网络参数](https://docs.kernel.org/networking/ip-sysctl.html)
 
-`keine tuning-adapters` 为后续第三方调优提供注册入口与参数来源查询。当前没有选定上游，不下载或执行外部脚本；未知脚本的内核、路由和配置改动不在自动撤销承诺内。适配要求见 [网络调优适配契约](docs/NETWORK-ADAPTERS.md)。所有新增能力仍保持前台按需运行，没有定时监控或自动任务。
+`keine tuning-adapters` 提供 tcpfit 与 vps-tcp-tune 的独立 sysctl 参数策略，统一预览、应用、互斥切换与整组撤销。算法固定到已审查的上游版本，不下载执行完整脚本；不附带内核安装、测速整形或自动任务。范围与输入说明见 [网络调优方案](docs/NETWORK-ADAPTERS.md)，来源和许可见 [第三方声明](docs/THIRD-PARTY-NOTICES.md)。
 
 ### 终端与原生集成
 
@@ -444,5 +463,5 @@ keine 依据 [MIT License](LICENSE) 开放源代码。你可以自由使用、�
 ---
 
 <div align="center">
-  <sub>keine 0.5.2 · Built for deliberate VPS operations</sub>
+  <sub>keine 0.6.0 · Built for deliberate VPS operations</sub>
 </div>

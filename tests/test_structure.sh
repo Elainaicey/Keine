@@ -35,6 +35,7 @@ required=(
   docs/RELEASE.md
   src/core/runtime.sh
   src/core/validation.sh
+  src/core/firewall.sh
   src/features/software/catalog.sh
   src/features/software/catalog/cache.sh
   src/features/software/catalog/guides.sh
@@ -55,6 +56,12 @@ required=(
   src/features/security/fail2ban.sh
   src/features/security/certificates.sh
   src/features/security/firewall.sh
+  src/features/security/firewall/native.sh
+  src/features/security/firewall/ufw.sh
+  src/features/security/firewall/menu.sh
+  src/features/security/certificates/inspect.sh
+  src/features/security/certificates/certbot.sh
+  src/features/security/certificates/menu.sh
   src/features/security/ssh.sh
   src/features/security/ssh-policy.sh
   src/features/security/fail2ban-policy.sh
@@ -78,6 +85,12 @@ required=(
   src/features/network/proxy.sh
   src/features/network/parameters.sh
   src/integrations/network-tuning.sh
+  src/integrations/network-tuning/plans.sh
+  src/integrations/network-tuning/transaction.sh
+  src/integrations/network-tuning/menu.sh
+  src/integrations/network-tuning/upstream/tcpfit.sh
+  src/integrations/network-tuning/upstream/vps-tcp-tune.sh
+  docs/THIRD-PARTY-NOTICES.md
   config/network-tuning.tsv
   src/features/network/http.sh
   src/features/network/overview.sh

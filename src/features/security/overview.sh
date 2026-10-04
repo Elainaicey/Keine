@@ -38,7 +38,7 @@ security_critical_path_safe() {
 }
 
 security_audit() {
-  local ssh_settings uid0_count empty_passwords failed_auth path unsafe_paths=0 auth_events
+  local ssh_settings uid0_count empty_passwords failed_auth path unsafe_paths=0 auth_events firewall_backend
   local critical_paths=(/etc/passwd /etc/shadow /etc/group)
   SECURITY_AUDIT_PASS=0; SECURITY_AUDIT_WARN=0; SECURITY_AUDIT_FAIL=0
   [[ ! -e /etc/sudoers ]] || critical_paths+=(/etc/sudoers)
@@ -46,11 +46,13 @@ security_audit() {
   ui_page "安全基线检查" "主机边界、身份认证、关键配置、登录活动与更新状态"
 
   ui_section "主机边界" "primary"
-  if platform_firewall_active; then
-    security_audit_result pass "UFW 主机防火墙已启用"
-  else
-    security_audit_result warn "UFW 主机防火墙未启用" "还需结合服务商云防火墙判断实际暴露面"
-  fi
+  firewall_backend="$(platform_firewall_backend)"
+  case "$firewall_backend" in
+    ufw) security_audit_result pass "UFW 主机防火墙已启用" ;;
+    iptables|nftables|firewalld)
+      security_audit_result warn "$(platform_firewall_label "$firewall_backend")" "已识别现有后端；请结合规则顺序、默认策略与云防火墙核对入站限制" ;;
+    *) security_audit_result warn "未确认正在生效的主机防火墙" "进入主机防火墙检查原生规则与云端访问策略" ;;
+  esac
   if command_exists fail2ban-client && fail2ban-client ping >/dev/null 2>&1; then
     security_audit_result pass "Fail2ban 正在运行"
   else

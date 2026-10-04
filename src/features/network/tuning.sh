@@ -10,6 +10,7 @@ network_bbr_apply_file() {
 }
 
 network_enable_bbr() {
+  if declare -F tuning_strategy_guard >/dev/null; then tuning_strategy_guard || return 1; fi
   local available current payload
   available="$(sysctl -n net.ipv4.tcp_available_congestion_control 2>/dev/null || true)"
   current="$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null || printf '未知')"

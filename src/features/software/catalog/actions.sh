@@ -106,6 +106,7 @@ catalog_install() {
     return 1
   fi
   selected_handler="$handler"
+  if [[ "$id" == ufw ]]; then platform_ufw_preflight || return 1; fi
   require_root || return 1
   package_invalidate_index
   # 独立工具默认直装官方稳定版；系统软件包仅作为详情页的显式备选。

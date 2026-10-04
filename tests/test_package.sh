@@ -80,8 +80,8 @@ package_installed() { return 0; }
 # shellcheck disable=SC2317,SC2329
 package_has_update() { return 0; }
 package_upgrade jq >/dev/null
-[[ "$updates" -eq 1 && "${#captured[@]}" -eq 4 && "${captured[0]}" == "install" && \
-   "${captured[1]}" == "--only-upgrade" && "${captured[2]}" == "-y" && "${captured[3]}" == "jq" ]] || {
+[[ "$updates" -eq 1 && "${#captured[@]}" -eq 5 && "${captured[0]}" == "install" && \
+   "${captured[1]}" == "--only-upgrade" && "${captured[2]}" == "--no-remove" && "${captured[3]}" == "-y" && "${captured[4]}" == "jq" ]] || {
   printf 'FAIL: 单项软件更新没有使用 only-upgrade\n' >&2
   exit 1
 }

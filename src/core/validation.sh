@@ -2,7 +2,7 @@
 
 valid_port() {
   local port="${1:-}"
-  [[ "$port" =~ ^[0-9]+$ ]] && (( 10#$port >= 1 && 10#$port <= 65535 ))
+  [[ "$port" =~ ^[0-9]{1,5}$ ]] && (( 10#$port >= 1 && 10#$port <= 65535 ))
 }
 
 valid_port_range() {
