@@ -14,7 +14,7 @@ toolkit_menu() {
     case "$choice" in
       1) toolkit_about; pause ;;
       2) toolkit_doctor; pause ;;
-      3) toolkit_self_update || true; pause ;;
+      3) toolkit_self_update menu || true; pause ;;
       4) toolkit_uninstall || true ;;
       0) return 0 ;;
       *) warn "未知选项" ;;

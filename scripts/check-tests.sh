@@ -20,6 +20,8 @@ if [[ "${1:-}" == --changed ]]; then
         selected+=(tuning_strategies tuning_runtime native_recovery cli on_demand) ;;
       src/features/recovery.sh)
         selected+=(native_recovery tuning_strategies tuning_runtime node_network) ;;
+      src/features/maintenance.sh|src/features/maintenance/menu.sh)
+        selected+=(toolkit_update toolkit_doctor uninstall cli on_demand) ;;
       scripts/check-tests.sh|.github/workflows/ci.yml)
         selected+=(cli on_demand) ;;
       src/*|bin/*|scripts/*|install.sh|config/*) all_needed=1 ;;

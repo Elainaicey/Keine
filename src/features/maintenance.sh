@@ -26,9 +26,28 @@ toolkit_remote_version() {
     tr -d '[:space:]'
 }
 
+toolkit_update_reload() {
+  local answer
+  while true; do
+    answer="$(read_input "Enter 加载新版 · Q 退出" "")"
+    case "$answer" in
+      Q|q) exit 0 ;;
+      ""|H|h)
+        # The installer may have replaced the directory we were running inside.
+        cd -- "$ROOT_DIR" || die "无法进入更新后的目录，请退出并重新运行 keine。"
+        navigation_home
+        # A successful exec never returns. Do not resume an outdated menu.
+        die "无法加载新版，请重新运行 keine。"
+        ;;
+      *) warn "按 Enter 加载新版，或按 Q 退出。" ;;
+    esac
+  done
+}
+
 toolkit_self_update() {
-  local latest installer bin_path="/usr/local/bin/keine"
+  local context="${1:-command}" latest installed_version installer bin_path="/usr/local/bin/keine"
   local installer_args=()
+  case "$context" in menu|command) ;; *) return 1 ;; esac
   command_exists curl || { warn "缺少 curl，无法获取更新。"; return 1; }
   latest="$(toolkit_remote_version)" || { warn "无法连接 GitHub 或读取远端版本。"; return 1; }
   [[ "$latest" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { warn "远端版本格式无效：$latest"; return 1; }
@@ -60,8 +79,25 @@ toolkit_self_update() {
   [[ "$DRY_RUN" -eq 0 ]] || installer_args+=(--dry-run)
   if bash "$installer" --ref main --dir "$ROOT_DIR" --bin "$bin_path" "${installer_args[@]}"; then
     rm -f -- "$installer"
-    audit "action=toolkit-update from=$KEINE_VERSION to=$latest"
-    ui_success "keine 已更新；重新运行 keine 即可加载新版本。"
+    if (( DRY_RUN == 1 )); then
+      info "更新预览完成；未替换程序，不重新加载。"
+      return 0
+    fi
+    installed_version="$(tr -d '[:space:]' <"$ROOT_DIR/VERSION" 2>/dev/null)" || installed_version=""
+    if ! toolkit_version_valid "$installed_version" || [[ ! -r "$ROOT_DIR/bin/keine" ]] ||
+      ! "$BASH" -n "$ROOT_DIR/bin/keine"; then
+      warn "更新后的版本或入口验证失败，请重新安装 keine。"
+      # Files were replaced: continuing this interactive process could mix old code and new data.
+      [[ "$context" != menu ]] || exit 1
+      return 1
+    fi
+    audit "action=toolkit-update from=$KEINE_VERSION to=$installed_version"
+    ui_success "keine 已更新至 $installed_version。"
+    if [[ "$context" == menu ]]; then
+      toolkit_update_reload
+    else
+      ui_note "下次启动 keine 将加载新版。"
+    fi
   else
     rm -f -- "$installer"
     return 1

@@ -46,6 +46,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Elainaicey/keine/refs/heads/
 
 安装器将程序原子部署到 `/opt/keine`，并创建 `/usr/local/bin/keine`。下载或暂存目录会在流程结束后自动清理。
 
+「项目管理 → 更新 keine」完成后，按 Enter 加载新版并回到首页，或按 Q 退出；无需重启 VPS。命令行 `keine self-update` 更新后直接返回终端。从 0.6.1 或更早版本首次升级时，仍需退出旧控制台并重新运行一次。
+
 ### 启动控制台
 
 ```bash
@@ -463,5 +465,5 @@ keine 依据 [MIT License](LICENSE) 开放源代码。你可以自由使用、�
 ---
 
 <div align="center">
-  <sub>keine 0.6.1 · Built for deliberate VPS operations</sub>
+  <sub>keine 0.6.2 · Built for deliberate VPS operations</sub>
 </div>
