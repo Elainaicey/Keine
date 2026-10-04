@@ -7,6 +7,7 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
 . "$ROOT_DIR/src/core/runtime.sh"
 . "$ROOT_DIR/src/core/validation.sh"
 . "$ROOT_DIR/src/features/services/audit.sh"
+. "$ROOT_DIR/src/features/system/processes.sh"
 
 [[ "$(read_input "测试输入" "默认值" </dev/null)" == "默认值" ]] || {
   printf 'FAIL: 非交互输入没有正确返回默认值\n' >&2
@@ -104,17 +105,28 @@ if valid_package_name '../curl' || valid_package_name 'curl;reboot'; then
   exit 1
 fi
 
-valid_pid 1234 || { printf 'FAIL: 正常 PID 被拒绝\n' >&2; exit 1; }
-if valid_pid 1 || valid_pid '1234;reboot'; then
+if ! valid_pid 2 || ! valid_pid 4194304; then
+  printf 'FAIL: 正常 PID 被拒绝\n' >&2; exit 1
+fi
+if valid_pid 0 || valid_pid 1 || valid_pid -2 || valid_pid '1234;reboot'; then
   printf 'FAIL: 接受了危险 PID\n' >&2
   exit 1
 fi
 
-valid_nice_value -10 || { printf 'FAIL: 正常 nice 值被拒绝\n' >&2; exit 1; }
-if valid_nice_value -21 || valid_nice_value 20; then
+if ! valid_nice_value -20 || ! valid_nice_value 19; then
+  printf 'FAIL: 正常 nice 值被拒绝\n' >&2; exit 1
+fi
+if valid_nice_value -21 || valid_nice_value 20 || valid_nice_value '0;reboot'; then
   printf 'FAIL: 接受了越界 nice 值\n' >&2
   exit 1
 fi
+
+for protected_pid in 1 "$$" "$PPID"; do
+  process_is_protected "$protected_pid" || {
+    printf 'FAIL: 管理进程未受保护：%s\n' "$protected_pid" >&2; exit 1
+  }
+done
+process_exists "$$" || { printf 'FAIL: 无法识别当前进程\n' >&2; exit 1; }
 
 valid_network_target github.com || { printf 'FAIL: 正常域名被拒绝\n' >&2; exit 1; }
 valid_network_target 2001:db8::1 || { printf 'FAIL: 正常 IPv6 被拒绝\n' >&2; exit 1; }

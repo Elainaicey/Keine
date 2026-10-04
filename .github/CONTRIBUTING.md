@@ -11,11 +11,22 @@
 
 ## 本地检查
 
+日常修改按影响范围运行相关测试，例如：
+
+```bash
+bash scripts/check-tests.sh catalog catalog_cache
+bash scripts/check-tests.sh ui cli
+```
+
+参数对应 `tests/test_<名称>.sh`，支持一次选择多个；无参数运行全部离线回归。仅修改文档时运行 `bash scripts/check-repository.sh`。公共底层、安装卸载、安全逻辑调整及发布前执行完整检查：
+
 ```bash
 bash scripts/check.sh
 ```
 
 本地检查需要 Bash 与 Python 3.8+，推荐同时安装 ShellCheck 与 yamllint。CI 将检查每个仓库文件的分类、UTF-8、LF、尾随空白和内部链接，并分别验证 Shell、工作流 YAML、Markdown、SVG、软件目录、项目元数据、单元测试与 CLI。新增文件类型时必须先在 `scripts/check-repository.sh` 中声明验证方式。
+
+网络调优运行事务测试还需要 jq；iperf3、ip、tc 使用替身，不向外发送流量。CI 使用 `check-tests.sh --changed COMMIT` 对已声明依赖的网络调优、恢复和测试改动选择相关回归；未映射的运行时代码修改与手动工作流保留全量回归。新增依赖时同步维护选择规则，不能用缩小测试范围掩盖公共影响。
 
 ## 提交软件条目
 

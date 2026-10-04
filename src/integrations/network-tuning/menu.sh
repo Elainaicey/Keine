@@ -46,7 +46,7 @@ tuning_strategy_configure() {
   tuning_strategy_preview "$payload"
   active="$(tuning_strategy_id || true)"
   if [[ -n "$active" && "$active" != "$engine" ]]; then ui_note "切换 $active → $engine；上一方案独有参数恢复初始值。"; fi
-  ui_hint "仅应用所列参数；不安装内核、不重建网卡队列、不改路由。"
+  ui_hint "此步只应用参数；测速、队列和初始窗口从方案菜单单独配置。"
   tuning_strategy_preflight && tuning_strategy_conflicts "$payload" || return 1
   confirm "应用 $engine 方案？" || return 0
   tuning_strategy_apply "$payload"
@@ -91,7 +91,9 @@ network_tuning_adapter_menu() {
     ui_action 3 "当前参数与队列" "action"
     ui_action 4 "持久配置来源" "action"
     ui_action 5 "加载 BBR 模块" "action"
-    ui_action R "撤销当前方案" "warning"
+    ui_action 6 "按需测量" "action" "探测 / 扫描 / 验证"
+    ui_action 7 "队列与初始窗口" "action" "FQ / HTB / 路由窗口"
+    ui_action R "撤销参数方案" "warning"
     ui_menu_footer "返回"; ui_read_choice choice
     case "$choice" in
       1) tuning_strategy_configure tcpfit || true ;;
@@ -99,6 +101,8 @@ network_tuning_adapter_menu() {
       3) tuning_strategy_status || true ;;
       4) network_tuning_sources ;;
       5) tuning_strategy_load_bbr || true ;;
+      6) tuning_measure_menu; continue ;;
+      7) tuning_runtime_menu; continue ;;
       R|r) if confirm "撤销整个方案并恢复首次应用前的参数？"; then tuning_strategy_restore || true; fi ;;
       0) return 0 ;; *) warn "未知选项"; continue ;;
     esac

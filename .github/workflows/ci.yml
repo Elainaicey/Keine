@@ -48,4 +48,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Run unit and smoke tests
-        run: bash scripts/check-tests.sh
+        env:
+          TEST_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ -n "$TEST_BASE" && "$TEST_BASE" != 0000000000000000000000000000000000000000 ]]; then
+            git fetch --no-tags --depth=1 origin "$TEST_BASE"
+            bash scripts/check-tests.sh --changed "$TEST_BASE"
+          else
+            bash scripts/check-tests.sh
+          fi

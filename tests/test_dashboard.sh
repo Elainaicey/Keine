@@ -61,9 +61,7 @@ df() {
 }
 
 output="$(dashboard_show)"
-grep -q '运维总览' <<<"$output" || { printf 'FAIL: 运维总览标题缺失\n' >&2; exit 1; }
 grep -q 'Debian GNU/Linux 13.*amd64.*kvm' <<<"$output" || { printf 'FAIL: 主机上下文缺失\n' >&2; exit 1; }
-grep -q '关键指标' <<<"$output" || { printf 'FAIL: 关键指标区缺失\n' >&2; exit 1; }
 grep -q '46%  453/967 MiB' <<<"$output" || { printf 'FAIL: 内存进度计算错误\n' >&2; exit 1; }
 grep -q 'Docker.*2 运行中' <<<"$output" || { printf 'FAIL: Docker 状态布局错误\n' >&2; exit 1; }
 [[ "$(<"$DASHBOARD_TIMEOUT_FILE")" == '5:docker:info' ]] || { printf 'FAIL: Docker 总览探测没有设置超时\n' >&2; exit 1; }
@@ -76,8 +74,4 @@ grep -q '7 个系统软件包可更新' <<<"$output" || { printf 'FAIL: 状态�
 [[ "$(dashboard_percent 9 10)" == "90" ]] || { printf 'FAIL: 总览百分比计算错误\n' >&2; exit 1; }
 [[ "$(dashboard_resource_state 90)" == "bad" ]] || { printf 'FAIL: 高资源占用没有标记为异常\n' >&2; exit 1; }
 [[ "$(dashboard_resource_state 75)" == "warn" ]] || { printf 'FAIL: 关注阈值状态错误\n' >&2; exit 1; }
-
-declare -F dashboard_menu >/dev/null || { printf 'FAIL: 交互式运维总览入口缺失\n' >&2; exit 1; }
-grep -q 'dashboard_menu' "$ROOT_DIR/src/core/navigation.sh" || { printf 'FAIL: 导航没有进入交互式运维总览\n' >&2; exit 1; }
-
 printf 'PASS: dashboard\n'

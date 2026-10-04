@@ -239,7 +239,7 @@ SOCKS 认证信息在该文件中以明文保存，权限为 `0600`；配置快�
 
 `keine net-tuning` 提供 TCP MTU 探测、Fast Open、Keepalive 和收发缓冲上限的逐项设置，另保留原生 BBR 与 IPv4 优先级入口。界面显示当前值、范围、单位与适用条件，不套用一键激进模板；Keepalive 和 Fast Open 仍取决于应用支持，缓冲上限不等于预分配内存。项目只应用自己的参数，并同时记录文件和首次修改前的运行值；撤销不猜测默认值，也不删除第三方配置。[Linux 内核网络参数](https://docs.kernel.org/networking/ip-sysctl.html)
 
-`keine tuning-adapters` 提供 tcpfit 与 vps-tcp-tune 的独立 sysctl 参数策略，统一预览、应用、互斥切换与整组撤销。算法固定到已审查的上游版本，不下载执行完整脚本；不附带内核安装、测速整形或自动任务。范围与输入说明见 [网络调优方案](docs/NETWORK-ADAPTERS.md)，来源和许可见 [第三方声明](docs/THIRD-PARTY-NOTICES.md)。
+`keine tuning-adapters` 提供 tcpfit 与 vps-tcp-tune 的独立参数策略，以及按需带宽探测、限速拐点扫描、单流/多流验证、实际 FQ 队列、HTB 出口整形与 TCP 初始窗口管理。统一确认、冲突检查和撤销，不混合两套参数算法、不执行完整远程脚本。队列与路由窗口仅本次启动有效，不安装内核或添加自动任务。使用方式与恢复边界见 [网络调优方案](docs/NETWORK-ADAPTERS.md)，来源和许可见 [第三方声明](docs/THIRD-PARTY-NOTICES.md)。
 
 ### 终端与原生集成
 
@@ -463,5 +463,5 @@ keine 依据 [MIT License](LICENSE) 开放源代码。你可以自由使用、�
 ---
 
 <div align="center">
-  <sub>keine 0.6.0 · Built for deliberate VPS operations</sub>
+  <sub>keine 0.6.1 · Built for deliberate VPS operations</sub>
 </div>

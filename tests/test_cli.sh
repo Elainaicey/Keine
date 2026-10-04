@@ -6,6 +6,16 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
 # shellcheck source=../bin/keine
 . "$ROOT_DIR/bin/keine"
 
+# 真实进程只验证启动与帮助；命令分发使用下方替身，不锁定帮助文案。
+[[ "$(bash "$ROOT_DIR/bin/keine" version)" == "keine $KEINE_VERSION" ]] || {
+  printf 'FAIL: CLI 启动或版本输出错误\n' >&2; exit 1
+}
+cli_help="$(bash "$ROOT_DIR/bin/keine" --help)"
+installer_help="$(bash "$ROOT_DIR/install.sh" --help)"
+[[ -n "$cli_help" && -n "$installer_help" ]] || {
+  printf 'FAIL: CLI 或安装入口帮助为空\n' >&2; exit 1
+}
+
 captured=""
 identity_calls=0
 platform_detect() { :; }

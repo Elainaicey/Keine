@@ -5,63 +5,54 @@ IFS=$'\n\t'
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)"
 cd "$ROOT_DIR"
 
-printf '[tests] 离线单元测试\n'
-for test_file in tests/test_*.sh; do
+test_files=()
+if [[ "${1:-}" == --changed ]]; then
+  [[ $# == 2 ]] || { printf '用法：check-tests.sh --changed COMMIT\n' >&2; exit 1; }
+  base="$(git rev-parse --verify "$2^{commit}")" || exit 1
+  selected=()
+  all_needed=0
+  while IFS= read -r path; do
+    case "$path" in
+      tests/test_*.sh)
+        name="${path#tests/test_}"; name="${name%.sh}"
+        [[ ! -f "$path" ]] || selected+=("$name") ;;
+      src/integrations/network-tuning.sh|src/integrations/network-tuning/*)
+        selected+=(tuning_strategies tuning_runtime native_recovery cli on_demand) ;;
+      src/features/recovery.sh)
+        selected+=(native_recovery tuning_strategies tuning_runtime node_network) ;;
+      scripts/check-tests.sh|.github/workflows/ci.yml)
+        selected+=(cli on_demand) ;;
+      src/*|bin/*|scripts/*|install.sh|config/*) all_needed=1 ;;
+    esac
+  done < <(git diff --name-only "$base" HEAD)
+  if (( all_needed == 0 )); then
+    if (( ${#selected[@]} == 0 )); then printf 'PASS: 此变更无需功能回归\n'; exit 0; fi
+    mapfile -t selected < <(printf '%s\n' "${selected[@]}" | LC_ALL=C sort -u)
+    set -- "${selected[@]}"
+  else
+    # Unmapped runtime changes are conservatively treated as cross-cutting.
+    set --
+  fi
+fi
+if (( $# > 0 )); then
+  for name in "$@"; do
+    if [[ ! "$name" =~ ^[a-z0-9_]+$ || ! -f "tests/test_$name.sh" ]]; then
+      printf 'FAIL: 未知测试：%s\n' "$name" >&2
+      exit 1
+    fi
+    test_files+=("tests/test_$name.sh")
+  done
+else
+  shopt -s nullglob
+  test_files=(tests/test_*.sh)
+fi
+(( ${#test_files[@]} > 0 )) || {
+  printf 'FAIL: 没有可运行的测试\n' >&2
+  exit 1
+}
+
+printf '[tests] 离线回归（%s 个脚本）\n' "${#test_files[@]}"
+for test_file in "${test_files[@]}"; do
   bash "$test_file"
 done
-
-printf '[tests] 声明式目录格式\n'
-for catalog_file in config/software.tsv config/apps.tsv config/software-effects.tsv config/official-releases.tsv config/software-guides.tsv; do
-  awk -F '|' -v catalog="$catalog_file" '
-    !/^#/ && NF != 6 { print "invalid catalog line " catalog ":" NR; failed=1 }
-    END { exit failed }
-  ' "$catalog_file"
-done
-awk -F '|' '
-  FNR == NR {
-    if ($0 !~ /^#/ && NF == 6) software[$1]=1
-    next
-  }
-  $0 !~ /^#/ && NF == 6 {
-    if (!software[$1]) { print "unknown software effect id " $1; failed=1 }
-    if (seen[$1]++) { print "duplicate software effect id " $1; failed=1 }
-    if ($2 != "service" && $2 != "scheduled" && $2 != "service+scheduled" && $2 != "boot-hook") {
-      print "invalid software effect runtime " $1; failed=1
-    }
-    if ($4 != "none" && $4 != "timer" && $4 != "cron" && $4 != "timer-or-cron") {
-      print "invalid software effect scheduler " $1; failed=1
-    }
-    if ($5 != "none" && $5 != "local-socket" && $5 != "tcp-listener" &&
-        $5 != "tcp-udp-listener" && $5 != "outbound") {
-      print "invalid software effect network " $1; failed=1
-    }
-  }
-  END { exit failed }
-' config/software.tsv config/software-effects.tsv
-
-printf '[tests] CLI 冒烟测试\n'
-expected_version="$(tr -d '[:space:]' < VERSION)"
-[[ "$(bash bin/keine version)" == "keine $expected_version" ]]
-[[ "$(bash bin/keine --version)" == "keine $expected_version" ]]
-bash bin/keine --help | grep -q '一次只接受一个软件 ID'
-bash bin/keine --help | grep -q 'update ID'
-bash bin/keine --help | grep -q 'software \[ID\]'
-bash bin/keine --help | grep -q 'sources'
-bash bin/keine --help | grep -q 'official-updates'
-bash bin/keine --help | grep -q 'exposure'
-bash bin/keine --help | grep -q 'doctor'
-bash bin/keine --help | grep -q 'triage'
-bash bin/keine --help | grep -q 'probe HOST PORT'
-bash bin/keine --help | grep -q 'http URL'
-bash bin/keine --help | grep -q 'auth-activity'
-bash bin/keine --help | grep -q 'app ID'
-bash bin/keine --help | grep -q 'dns \[域名\]'
-bash bin/keine --help | grep -q 'logs SERVICE'
-if bash bin/keine --help | grep -Eq 'keine (health|toolkit-doctor|users|user |timer )'; then
-  printf 'FAIL: CLI 帮助仍包含已移除的重复或多用户入口\n' >&2
-  exit 1
-fi
-bash install.sh --help | grep -q 'keine 安装器'
-bash scripts/install.sh --help | grep -q -- '--purge-data'
-
-printf 'PASS: tests\n'
+printf 'PASS: tests (%s)\n' "${#test_files[@]}"

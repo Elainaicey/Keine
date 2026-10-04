@@ -5,6 +5,13 @@
 recovery_entries() {
   local entry status label
   local -A grouped=()
+  if declare -F tuning_runtime_entries >/dev/null; then
+    while IFS= read -r entry; do
+      status="$(tuning_runtime_status "$entry")"
+      case "$status" in ready) label=可撤销 ;; expired) label=过期记录 ;; *) label=外部修改或冲突 ;; esac
+      printf 'network-runtime|%s|%s|网络运行配置 / %s\n' "$entry" "$label" "$(terminal_safe_text "${entry##*/}")"
+    done < <(tuning_runtime_entries)
+  fi
   if declare -F tuning_strategy_id >/dev/null && [[ -d "$(changes_file_entry "$TUNING_STRATEGY_FILE")" ]]; then
     printf 'tuning|%s|整组撤销|网络调优 / %s\n' "$TUNING_STRATEGY_FILE" "$(tuning_strategy_id || printf '需检查')"
     while IFS= read -r entry; do [[ -z "$entry" ]] || grouped["$entry"]=1; done < <(tuning_strategy_entries)
@@ -58,6 +65,8 @@ recovery_preflight() {
   while IFS='|' read -r kind entry label path; do
     case "$kind" in
       tuning) tuning_strategy_preflight || failed=1 ;;
+      network-runtime)
+        case "$(tuning_runtime_status "$entry")" in ready|expired) ;; *) warn "网络运行配置存在冲突：$path"; failed=1 ;; esac ;;
       file) case "$(changes_file_status "$entry")" in ready|unchanged) ;; *) warn "恢复前发现冲突：$path"; failed=1 ;; esac ;;
       setting)
         current="$(changes_setting_value "$(changes_setting_key "$entry")")" || { failed=1; continue; }
@@ -91,6 +100,7 @@ recovery_restore_all() {
   while IFS='|' read -r kind entry label path; do
     case "$kind" in
       tuning) tuning_strategy_restore || failed=1 ;;
+      network-runtime) tuning_runtime_restore "$entry" || failed=1 ;;
       file)
         case "$path" in /etc/ssh/*) ssh_changed=1 ;; /etc/ufw/*|/etc/default/ufw) ufw_changed=1 ;; esac
         if recovery_restore_file "$entry"; then recovery_reconcile_file "$path" || failed=1; else failed=1; fi
@@ -141,6 +151,9 @@ recovery_changes_menu() {
         selected="${rows[$((choice - 1))]}"; IFS='|' read -r kind entry label path <<<"$selected"
         if [[ "$kind" == tuning ]]; then
           network_tuning_adapter_menu; continue
+        fi
+        if [[ "$kind" == network-runtime ]]; then
+          tuning_runtime_menu; continue
         fi
         ui_page "变更详情" "$path"
         ui_kv "类型" "$kind"; ui_kv "状态" "$label"

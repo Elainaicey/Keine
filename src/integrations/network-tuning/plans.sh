@@ -2,6 +2,14 @@
 
 TUNING_STRATEGY_FILE="${KEINE_TUNING_STRATEGY_FILE:-/etc/sysctl.d/99-keine-tuning.conf}"
 
+tuning_tcpfit_calc() (
+  local operation="$1"
+  shift
+  case "$operation" in calc_margin|calc_burst|loss_pct) ;; *) return 1 ;; esac
+  . "$ROOT_DIR/src/integrations/network-tuning/upstream/tcpfit.sh"
+  "$operation" "$@"
+)
+
 tuning_strategy_id() {
   local id
   [[ -f "$TUNING_STRATEGY_FILE" && ! -L "$TUNING_STRATEGY_FILE" ]] || return 1

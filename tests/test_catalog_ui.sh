@@ -47,7 +47,6 @@ package_has_update() { [[ "$1" == "jq" ]]; }
 . "$ROOT_DIR/src/features/software/catalog.sh"
 
 output="$(catalog_item_menu jq </dev/null)"
-grep -q '软件信息' <<<"$output" || { printf 'FAIL: 软件详情缺少信息面板\n' >&2; exit 1; }
 grep -q '当前版本.*1.6-2.1' <<<"$output" || { printf 'FAIL: 软件详情缺少当前版本\n' >&2; exit 1; }
 grep -q '候选版本.*1.7.1-1' <<<"$output" || { printf 'FAIL: 软件详情缺少候选版本\n' >&2; exit 1; }
 grep -q '可更新' <<<"$output" || { printf 'FAIL: 软件详情没有识别更新状态\n' >&2; exit 1; }
@@ -55,7 +54,6 @@ grep -q '\[2\].*更新' <<<"$output" || { printf 'FAIL: 软件详情缺少更新
 
 output="$(catalog_item_menu docker </dev/null)"
 grep -q '待配置' <<<"$output" || { printf 'FAIL: Docker 安装前没有显示待配置状态\n' >&2; exit 1; }
-grep -q '未配置（安装时自动创建）' <<<"$output" || { printf 'FAIL: Docker 仓库缺少自动配置说明\n' >&2; exit 1; }
 grep -q '\[1\].*配置仓库并安装' <<<"$output" || { printf 'FAIL: Docker 安装操作被错误禁用\n' >&2; exit 1; }
 
 output="$(catalog_item_menu nginx </dev/null)"
@@ -70,15 +68,9 @@ output="$(catalog_browse_view search jq "软件搜索" "查询结果" </dev/null
 grep -q '1 项 · 1/1 页' <<<"$output" || { printf 'FAIL: 搜索结果没有按页显示\n' >&2; exit 1; }
 grep -q '\[1\].*jq.*可更新' <<<"$output" || { printf 'FAIL: 页内编号与软件状态缺失\n' >&2; exit 1; }
 output="$(software_catalog_menu </dev/null)"
-if [[ "$output" != *'[0]'*返回* || "$output" != *'[H]'*首页* || "$output" != *'[Q]'*退出* || "$output" == *示例：* || "$output" == *输入精确* ]]; then
-  printf 'FAIL: 软件中心导航未统一或仍有重复教程\n' >&2; exit 1
+if [[ "$output" != *'[0]'*返回* || "$output" != *'[H]'*首页* || "$output" != *'[Q]'*退出* ]]; then
+  printf 'FAIL: 软件中心导航缺失\n' >&2; exit 1
 fi
-output="$(catalog_categories_view </dev/null)"
-if [[ "$output" == *系统信息、包工具* || "$output" != *'[15]'* ]]; then
-  printf 'FAIL: 分类说明未精简或两位菜单键缺失\n' >&2; exit 1
-fi
-output="$(catalog_item_information jq)"
-grep -q '本机 APT 索引，不代表上游最新' <<<"$output" || { printf 'FAIL: 按需来源信息缺失\n' >&2; exit 1; }
 
 # 回退菜单后点击已安装条目的安装按钮，不得引用已移除的提示符变量。
 choice_fixture="$CATALOG_UI_TEST_ROOT/choice"

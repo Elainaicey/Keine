@@ -1,6 +1,6 @@
 # Third-party notices
 
-keine includes independently adapted parameter strategies from the following MIT-licensed projects. Only calculation functions and sysctl parameter declarations are included; their installers and top-level menus are not executed. Strategy selection, validation, persistence and restoration are implemented by keine.
+keine includes independently adapted parameter strategies from the following MIT-licensed projects. The integration also adapts TCPFit's bandwidth rounding, retransmission estimation, confirmed-knee scan rules, shaping margin and burst calculations, and both projects' queue/initial-window management concepts. Their installers and top-level menus are not executed. Strategy selection, bounded foreground measurements, explicit scan ranges, ownership checks, transactions and restoration are implemented by keine. The two sysctl algorithms remain independent.
 
 ## TCPFit 0.5.9
 

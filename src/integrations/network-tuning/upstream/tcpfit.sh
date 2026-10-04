@@ -34,3 +34,24 @@ calc_buf_default(){
     *)     echo 2097152 ;;
   esac
 }
+
+calc_margin(){
+  local bw="$1"
+  if   [ "$bw" -le 30 ]; then echo 1
+  elif [ "$bw" -le 60 ]; then echo 2
+  elif [ "$bw" -le 100 ]; then echo 5
+  elif [ "$bw" -le 300 ]; then echo 10
+  elif [ "$bw" -le 600 ]; then echo 15
+  elif [ "$bw" -le 1000 ]; then echo 25
+  else echo 40; fi
+}
+
+calc_burst(){
+  awk -v r="$1" 'BEGIN{v=r*500; if(v<32768)v=32768; printf "%d",v}'
+}
+
+loss_pct(){
+  awk -v rt="$1" -v gp="$2" -v d="$3" 'BEGIN{
+    pk=gp*1000000*d/8/1448; if(pk<1)pk=1; printf "%.4f",rt*100/pk
+  }'
+}
