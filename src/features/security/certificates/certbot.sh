@@ -18,7 +18,10 @@ security_certbot_names() {
 }
 
 security_certbot_has_name() {
-  security_certbot_valid_name "$1" && security_certbot_names | grep -Fxq -- "$1"
+  local name="$1" root
+  security_certbot_valid_name "$name" || return 1
+  root="$(security_certbot_root)"
+  [[ -f "$root/renewal/$name.conf" && ! -L "$root/renewal/$name.conf" ]]
 }
 
 security_certbot_setting() {
