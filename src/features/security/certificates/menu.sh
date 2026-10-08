@@ -9,7 +9,7 @@ security_certificates_menu() {
     ui_action 2 "检查本地 PEM 证书" action
     ui_action 3 "检查在线 TLS 证书" action
     ui_action A "申请 HTTPS 证书" success
-    ui_action W "反向代理与 HTTPS" accent
+    ui_action W "反向代理与 HTTPS" action
     ui_section "安装组件" accent
     ui_action 4 "Certbot" action
     ui_action 5 "Certbot Nginx 插件" action

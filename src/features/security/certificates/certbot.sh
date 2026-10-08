@@ -102,7 +102,7 @@ security_certbot_detail() {
     if command_exists certbot; then
       ui_action 2 "测试续期" warning
       ui_action 3 "手动续期" success
-      ui_action 4 "部署到反向代理" accent
+      ui_action 4 "部署到反向代理" action
       ui_action 5 "删除证书" danger
     else ui_action I "安装 Certbot" action; fi
     ui_menu_footer "返回"

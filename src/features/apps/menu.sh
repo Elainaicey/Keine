@@ -31,11 +31,12 @@ apps_menu() {
     else
       ui_state_item 1 "应用服务管理" "$running/$installed 运行" "$app_style"
     fi
-    ui_section "容器" "accent"
+    ui_section "容器" "primary"
     ui_state_item 2 "Docker" "$docker_state" "$docker_style"
     ui_section "网站与访问" "primary"
-    ui_action 3 "反向代理与 HTTPS" "accent"
-    ui_action R "刷新状态" "accent"
+    ui_action 3 "反向代理与 HTTPS" "action"
+    ui_section "操作" "primary"
+    ui_action R "刷新状态" "action"
     ui_menu_footer "返回"
     ui_read_choice choice
     case "$choice" in

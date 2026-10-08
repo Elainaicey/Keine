@@ -26,6 +26,8 @@ if [[ "${1:-}" == --changed ]]; then
         selected+=(apps app_health web cli) ;;
       bin/keine)
         selected+=(cli on_demand) ;;
+      src/core/ui.sh)
+        selected+=(ui catalog_ui cli) ;;
       config/software-guides.tsv|config/navigation.tsv)
         selected+=(catalog_ui apps cli) ;;
       src/features/maintenance.sh|src/features/maintenance/menu.sh)

@@ -476,5 +476,5 @@ keine 依据 [MIT License](LICENSE) 开放源代码。你可以自由使用、�
 ---
 
 <div align="center">
-  <sub>keine 0.6.3 · Built for deliberate VPS operations</sub>
+  <sub>keine 0.6.4 · Built for deliberate VPS operations</sub>
 </div>

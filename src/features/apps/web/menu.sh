@@ -127,11 +127,14 @@ web_site_detail() {
     ui_panel_kv "访问方式" "$(web_tls_label "${WEB_SITE[tls]}")"
     ui_panel_kv "配置" "$path"
     ui_panel_end
-    ui_action_pair 1 "检查访问" action 2 "修改目标" action
-    ui_action_pair 3 "HTTPS 与证书" accent 4 "超时与上传大小" action
+    ui_action 1 "检查访问" action
+    ui_action 2 "修改目标" action
+    ui_action 3 "HTTPS 与证书" action
+    ui_action 4 "超时与上传大小" action
     if [[ "${WEB_SITE[enabled]}" == 1 ]]; then ui_action 5 "停用站点" warning
     else ui_action 5 "启用站点" success; fi
-    ui_action_pair 6 "应用服务管理" action 7 "主机防火墙" action
+    ui_action 6 "应用服务管理" action
+    ui_action 7 "主机防火墙" action
     ui_action 8 "删除站点" danger
     ui_menu_footer "返回"; ui_read_choice choice
     case "$choice" in
@@ -203,8 +206,9 @@ web_menu() {
   local choice
   while true; do
     ui_page "反向代理与 HTTPS"
-    ui_action_pair 1 "Nginx 反向代理" action 2 "Caddy 反向代理" action
-    ui_action 3 "证书中心" accent
+    ui_action 1 "Nginx 反向代理" action
+    ui_action 2 "Caddy 反向代理" action
+    ui_action 3 "证书中心" action
     ui_menu_footer "返回"; ui_read_choice choice
     case "$choice" in
       1) web_engine_menu nginx ;;

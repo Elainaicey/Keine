@@ -122,10 +122,12 @@ ui_item() {
 }
 
 ui_action() {
-  local number="$1" title="$2" style="${3:-action}" hint="${4:-}" color hint_width=0 title_width
+  local number="$1" title="$2" style="${3:-action}" hint="${4:-}" color number_color hint_width=0 title_width
   color="$(ui_color_for_state "$style")"
+  number_color="$color"
+  [[ "$style" != action ]] || number_color="$CYAN"
   printf '  '
-  ui_menu_key "$number" "$color"
+  ui_menu_key "$number" "$number_color"
   printf ' %b%s%b' "$color$BOLD" "$title" "$NC"
   if [[ -n "$hint" ]]; then
     ui_measure_width "$title"; title_width="$UI_TEXT_WIDTH"
@@ -142,7 +144,7 @@ ui_action() {
 
 ui_action_pair() {
   local number1="$1" title1="$2" style1="$3" number2="$4" title2="$5" style2="$6"
-  local color1 color2 column title_width width1 width2
+  local color1 color2 number_color1 number_color2 column title_width width1 width2
   column=$((UI_WIDTH / 2 - 2))
   title_width=$((column - 7))
   ui_measure_width "$title1"; width1="$UI_TEXT_WIDTH"
@@ -154,12 +156,15 @@ ui_action_pair() {
   fi
   color1="$(ui_color_for_state "$style1")"
   color2="$(ui_color_for_state "$style2")"
+  number_color1="$color1"; number_color2="$color2"
+  [[ "$style1" != action ]] || number_color1="$CYAN"
+  [[ "$style2" != action ]] || number_color2="$CYAN"
   printf '  '
-  ui_menu_key "$number1" "$color1"
+  ui_menu_key "$number1" "$number_color1"
   printf ' %b' "$color1$BOLD"
   ui_pad "$title1" "$title_width"
   printf '%b  ' "$NC"
-  ui_menu_key "$number2" "$color2"
+  ui_menu_key "$number2" "$number_color2"
   printf ' %b' "$color2$BOLD"
   ui_pad "$title2" "$title_width"
   printf '%b\n' "$NC"

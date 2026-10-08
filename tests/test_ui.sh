@@ -41,8 +41,8 @@ banner="$(ui_banner)"
 if [[ "$banner" != *KEINE* || "$banner" == *SERVER* || "$banner" == *TOOLKIT* ]]; then
   printf 'FAIL: 首页品牌不一致\n' >&2; exit 1
 fi
-keys="$(ui_item 4 测试; ui_action 4 测试; ui_state_item 4 测试 正常 good; ui_action 14 测试; ui_action R 测试)"
-if grep -Eq '\[[[:space:]]|[[:space:]]\]' <<<"$keys"; then
+rendered_keys="$(ui_item 4 测试; ui_action 4 测试; ui_state_item 4 测试 正常 good; ui_action 14 测试; ui_action R 测试)"
+if grep -Eq '\[[[:space:]]|[[:space:]]\]' <<<"$rendered_keys"; then
   printf 'FAIL: 菜单键仍存在括号内空格\n' >&2; exit 1
 fi
 for row in "$(ui_item 4 测试)" "$(ui_action 14 测试)" "$(ui_state_item R 测试 正常 good)"; do
@@ -85,6 +85,58 @@ if [[ -t 0 || -r /dev/tty ]]; then
   home_output="$(pause; printf unexpected)"
   [[ "$home_output" == home ]] || { printf 'FAIL: 操作结果页不能直接回首页\n' >&2; exit 1; }
 fi
+
+# Render the affected menus at both supported widths without querying the host.
+(
+  # Callbacks and palette variables are consumed by the sourced UI/menu functions.
+  # shellcheck disable=SC2034,SC2317,SC2329
+  ui_page() { :; }
+  # shellcheck disable=SC2034,SC2317,SC2329
+  apps_service_cache_invalidate() { :; }
+  # shellcheck disable=SC2034,SC2317,SC2329
+  apps_service_cache_build() { APPS_SERVICE_CACHE_ERROR=0; }
+  # shellcheck disable=SC2317,SC2329
+  apps_service_inventory_counts() { printf '2|2|0'; }
+  # shellcheck disable=SC2317,SC2329
+  apps_service_cached_exists() { return 1; }
+  # shellcheck disable=SC2034,SC2317,SC2329
+  web_site_load() {
+    WEB_SITE=([domain]=example.com [engine]=nginx [upstream]=http://127.0.0.1:8080 [tls]=http [enabled]=1)
+  }
+  # shellcheck disable=SC2317,SC2329
+  web_tls_label() { printf HTTP; }
+  . "$ROOT_DIR/src/features/apps/menu.sh"
+  . "$ROOT_DIR/src/features/apps/web/menu.sh"
+  UI_TEST_CHOICE=0
+  for UI_WIDTH in 64 100; do
+    web_output="$(web_menu)"
+    [[ "$(grep -Ec '^  \[[123]\]' <<<"$web_output")" == 3 ]] || {
+      printf 'FAIL: 反向代理入口不是独立纵向菜单\n' >&2; exit 1;
+    }
+    detail_output="$(web_site_detail "$ROOT_DIR/VERSION")"
+    [[ "$(grep -Ec '^  \[[1-8]\]' <<<"$detail_output")" == 8 ]] || {
+      printf 'FAIL: 站点详情不是独立纵向菜单\n' >&2; exit 1;
+    }
+    apps_output="$(apps_menu)"
+    [[ "$apps_output" == *$'操作\n'*'[R]'* ]] || {
+      printf 'FAIL: 刷新状态没有独立操作分组\n' >&2; exit 1;
+    }
+  done
+  # Symbolic colors make checks independent of terminal color support.
+  CYAN='<key>'; BLUE='<title>'; MAGENTA='<accent>'; RED='<danger>'; NC='</>'; BOLD=''
+  normal="$(ui_action 3 测试 action)"
+  state="$(ui_state_item 3 测试 正常 good)"
+  [[ "$normal" == '  <key>[3]</>  <title>测试</>' && "$state" == "$normal"* ]] || {
+    printf 'FAIL: 普通入口和状态入口配色不同\n' >&2; exit 1;
+  }
+  pair="$(ui_action_pair 1 测试 action 2 测试 action)"
+  [[ "$pair" == *'<key>[1]'* && "$pair" == *'<key>[2]'* ]] || exit 1
+  [[ "$(ui_action 8 删除 danger)" == *'<danger>[8]'* ]] || exit 1
+  web_output="$(web_menu)"; apps_output="$(apps_menu)"
+  [[ "$web_output" != *'<accent>'* && "$apps_output" != *'<accent>'* ]] || {
+    printf 'FAIL: 普通菜单仍有无意义强调色\n' >&2; exit 1;
+  }
+)
 
 UI_WIDTH_CACHE=()
 ui_measure_width "系统"

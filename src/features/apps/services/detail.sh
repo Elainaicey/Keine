@@ -98,8 +98,8 @@ apps_service_detail() {
     fi
     if [[ "$app_id" == "docker" ]]; then ui_action 13 "Docker 专属中心" "action"; fi
     if [[ "$app_id" == nginx || "$app_id" == caddy ]]; then
-      ui_action 14 "反向代理管理" "accent"
-      ui_action 15 "HTTPS / 证书中心" "accent"
+      ui_action 14 "反向代理管理" "action"
+      ui_action 15 "HTTPS / 证书中心" "action"
     fi
     ui_action R "刷新运行信息" "accent"
     ui_menu_footer "返回"
