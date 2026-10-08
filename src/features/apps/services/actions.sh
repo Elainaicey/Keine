@@ -7,11 +7,12 @@ apps_service_config_validate() {
   case "$app_id" in
     nginx)
       command_exists nginx || { warn "没有找到 nginx 命令。"; return 1; }
-      nginx -t || { warn "Nginx 配置检查失败。"; return 1; }
+      config="$(web_engine_config nginx)" || return 1
+      nginx -t -c "$config" || { warn "Nginx 配置检查失败。"; return 1; }
       ;;
     caddy)
       command_exists caddy || { warn "没有找到 caddy 命令。"; return 1; }
-      config=/etc/caddy/Caddyfile
+      config="$(web_engine_config caddy)" || return 1
       [[ -f "$config" ]] || { warn "没有找到 Caddyfile：$config"; return 1; }
       caddy validate --config "$config" || { warn "Caddy 配置检查失败。"; return 1; }
       ;;

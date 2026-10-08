@@ -2,4 +2,5 @@
 
 . "$ROOT_DIR/src/features/security/certificates/inspect.sh"
 . "$ROOT_DIR/src/features/security/certificates/certbot.sh"
+. "$ROOT_DIR/src/features/security/certificates/issue.sh"
 . "$ROOT_DIR/src/features/security/certificates/menu.sh"

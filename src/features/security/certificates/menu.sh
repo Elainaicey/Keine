@@ -8,6 +8,8 @@ security_certificates_menu() {
     ui_action 1 "本机 Certbot 证书" action
     ui_action 2 "检查本地 PEM 证书" action
     ui_action 3 "检查在线 TLS 证书" action
+    ui_action A "申请 HTTPS 证书" success
+    ui_action W "反向代理与 HTTPS" accent
     ui_section "安装组件" accent
     ui_action 4 "Certbot" action
     ui_action 5 "Certbot Nginx 插件" action
@@ -18,6 +20,8 @@ security_certificates_menu() {
       1) security_certbot_menu; continue ;;
       2) security_certificate_file_inspect || true ;;
       3) security_tls_inspect || true ;;
+      A|a) security_certificate_issue_menu || true ;;
+      W|w) web_menu; continue ;;
       4) catalog_item_menu certbot; continue ;;
       5) catalog_item_menu certbot-nginx; continue ;;
       6) catalog_item_menu certbot-apache; continue ;;

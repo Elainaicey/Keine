@@ -75,11 +75,21 @@ keine
 | **安全中心** | UFW 与原生防火墙识别、Oracle Cloud 保护、IPv4/IPv6 端口与来源规则；安全基线、公网暴露、登录分析；SSH 认证/端口与连接策略；Fail2ban 生命周期、Jail 与白名单；Certbot 证书、手动续期、本地 PEM 与在线 TLS 验证 |
 | **服务与日志** | failed/active 服务浏览、资源与退出结果、正反依赖、启动关键链、失败诊断、经验证的 service 生命周期，以及 Journal 条件查询、完整性验证、按时间/容量维护、内核警告和操作审计 |
 | **软件中心** | 281 个单项软件、15 个用途分类；官方直装、原生安装识别、APT 事务预览、运行影响提示；包名搜索、关联软件指南、来源诊断、版本与完整性、安装与更新 |
-| **应用与容器** | 11 类应用服务的分组资产视图、版本、运行健康、资源、PID、重启次数、关联监听、配置/数据资产、日志和详情页直接生命周期控制；支持官方配置检查、安全 reload 与单项软件更新；Docker 另提供容器、Compose、网络、安全清理和可校验卷备份 |
+| **应用与容器** | 11 类应用服务的资产、健康、监听、日志与生命周期管理；Nginx/Caddy 反向代理创建、修改、HTTPS、启停和删除，原生配置识别与失败回退；Docker 容器、Compose、网络、安全清理和可校验卷备份 |
 | **备份与恢复** | 手动备份托管配置、常用系统配置或指定 `/etc` 文件；每次独立快照、备注与保护、校验、差异、空间清理与恢复；Docker 卷归档；首次基线、冲突检测与项目变更撤销 |
 | **项目管理** | 版本和安装信息、运行环境检查、自更新与三种卸载模式 |
 
 系统组件精确映射一个 Debian/Ubuntu 软件包；Docker 与 Caddy 使用项目官方 APT 仓库，Oh My Zsh 与提示符使用经过验证的官方渠道。适合独立分发的 CLI 使用项目 GitHub Release，安装器只接受 `latest` 稳定版、精确架构资产和 GitHub API 提供的 SHA-256 digest。
+
+## 反向代理与 HTTPS
+
+在「应用与容器 → 反向代理与 HTTPS」或 `keine web` 中创建 Nginx / Caddy 反向代理，管理目标地址、HTTPS、超时、上传大小与站点启停。
+已有原生站点可只读识别；托管配置通过检查后加载，失败回退，外部修改停止覆盖。
+
+Nginx 支持 Certbot HTTP Webroot 签发与部署；证书中心提供手动 DNS 和通配符签发。Caddy 可使用原生自动 HTTPS。
+站点删除保留证书和上游应用，证书续期、引用检查及删除集中在证书中心。
+
+详细范围、原生配置兼容与操作说明见[反向代理与 HTTPS](docs/WEB.md)。
 
 ## 命令参考
 
@@ -125,6 +135,7 @@ keine service nginx.service restart
 keine journal                # Journal 验证与空间维护
 keine logs nginx.service     # 直接查看服务最近日志
 keine apps                   # 应用与容器中心
+keine web                    # 反向代理与 HTTPS
 keine app nginx              # Nginx 应用详情、健康、资产与安全 reload
 keine compose my-project     # 管理现有 Compose 项目
 keine backups                # 备份与恢复中心
@@ -216,7 +227,7 @@ keine certificates
 keine tls example.com 443
 ```
 
-证书中心按页读取 `/etc/letsencrypt/renewal` 中的原生 Certbot 证书，展示有效期、验证插件与证书路径，并支持单张证书的测试续期和手动续期。续期复用已有插件与钩子，可能触发上游配置的站点调整或服务启停；不强制提前续期，证书未变化时如实显示。keine 不创建续期任务，也不接管私钥或自动签发证书。[Certbot 续期文档](https://eff-certbot.readthedocs.io/en/stable/using.html#renewing-certificates)
+证书中心按页读取 `/etc/letsencrypt/renewal` 中的原生 Certbot 证书，展示有效期、验证插件与证书路径，并支持首次签发、部署、续期与删除。HTTP 证书按原配置测试和续期；手动 DNS 证书重新完成交互验证。证书更新后会验证并加载相关托管反代，未变化时如实显示。keine 不创建续期任务；已有 Certbot 钩子仍可能调整站点或启停服务。[Certbot 续期文档](https://eff-certbot.readthedocs.io/en/stable/using.html#renewing-certificates)
 
 本地 PEM 检查只读取证书信息，不展示私钥；在线 TLS 检查同时校验证书有效期、域名/IP 身份与系统信任链。自签名或链不完整的证书不会仅因域名匹配而显示验证通过。
 
@@ -465,5 +476,5 @@ keine 依据 [MIT License](LICENSE) 开放源代码。你可以自由使用、�
 ---
 
 <div align="center">
-  <sub>keine 0.6.2 · Built for deliberate VPS operations</sub>
+  <sub>keine 0.6.3 · Built for deliberate VPS operations</sub>
 </div>

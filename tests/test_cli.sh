@@ -61,6 +61,10 @@ security_firewall_manage() { captured=firewall; }
 security_certificates_menu() { captured=certificates; }
 security_tls_inspect() { captured="tls:$1:$2"; }
 apps_service_detail() { captured="app:$1"; }
+web_menu() { captured=web; }
+
+main web
+[[ "$captured" == web ]] || { printf 'FAIL: web 没有进入反代中心\n' >&2; exit 1; }
 
 [[ "$(main --version)" == "keine $KEINE_VERSION" ]] || {
   printf 'FAIL: --version 标准选项输出错误\n' >&2

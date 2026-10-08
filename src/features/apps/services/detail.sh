@@ -97,7 +97,10 @@ apps_service_detail() {
       ui_action 12 "软件版本与更新" "disabled" "未关联"
     fi
     if [[ "$app_id" == "docker" ]]; then ui_action 13 "Docker 专属中心" "action"; fi
-    if [[ "$app_id" == "nginx" ]]; then ui_action 14 "HTTPS / Certbot" "accent"; fi
+    if [[ "$app_id" == nginx || "$app_id" == caddy ]]; then
+      ui_action 14 "反向代理管理" "accent"
+      ui_action 15 "HTTPS / 证书中心" "accent"
+    fi
     ui_action R "刷新运行信息" "accent"
     ui_menu_footer "返回"
     ui_read_choice action
@@ -134,7 +137,8 @@ apps_service_detail() {
         continue
         ;;
       13) if [[ "$app_id" == "docker" ]]; then docker_menu; else warn "未知选项"; fi; continue ;;
-      14) if [[ "$app_id" == nginx ]]; then security_certificates_menu; else warn "未知选项"; fi; continue ;;
+      14) if [[ "$app_id" == nginx || "$app_id" == caddy ]]; then web_engine_menu "$app_id"; else warn "未知选项"; fi; continue ;;
+      15) if [[ "$app_id" == nginx || "$app_id" == caddy ]]; then security_certificates_menu; else warn "未知选项"; fi; continue ;;
       R|r) catalog_cache_invalidate; continue ;;
       0) return 0 ;;
       *) warn "未知选项：$action"; continue ;;

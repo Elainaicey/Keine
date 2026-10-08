@@ -33,12 +33,15 @@ apps_menu() {
     fi
     ui_section "容器" "accent"
     ui_state_item 2 "Docker" "$docker_state" "$docker_style"
+    ui_section "网站与访问" "primary"
+    ui_action 3 "反向代理与 HTTPS" "accent"
     ui_action R "刷新状态" "accent"
     ui_menu_footer "返回"
     ui_read_choice choice
     case "$choice" in
       1) apps_service_manage ;;
       2) docker_menu ;;
+      3) web_menu ;;
       R|r) apps_service_cache_invalidate ;;
       0) return 0 ;;
       *) warn "未知选项"; pause ;;

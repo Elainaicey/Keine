@@ -51,6 +51,10 @@ recovery_reconcile_file() {
 recovery_restore_file() {
   local entry="$1" path
   path="$(<"$entry/path")"
+  if declare -F web_recovery_handles >/dev/null && web_recovery_handles "$path"; then
+    web_recovery_restore "$path"
+    return
+  fi
   case "$path" in
     "$(security_native_file 4)") security_native_restore 4 ;;
     "$(security_native_file 6)") security_native_restore 6 ;;

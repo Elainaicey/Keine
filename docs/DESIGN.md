@@ -21,9 +21,10 @@ bin/keine
 ├── src/features/apps/services/*.sh
 ├── src/features/apps/docker.sh
 ├── src/features/apps/docker/*.sh
+├── src/features/apps/web/{model,engine,sites,menu}.sh
 ├── src/features/security/*.sh
 ├── src/features/security/firewall/{ufw,native,menu}.sh
-├── src/features/security/certificates/{inspect,certbot,menu}.sh
+├── src/features/security/certificates/{inspect,certbot,issue,menu}.sh
 ├── src/features/services/*.sh
 ├── src/features/software/catalog.sh
 ├── src/features/software/catalog/*.sh

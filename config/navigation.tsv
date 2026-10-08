@@ -5,6 +5,6 @@
 4|network|网络与安全|网络管理|network_menu|DNS、SOCKS、WARP、参数与连接诊断
 5|security|网络与安全|安全中心|security_menu|SSH、防火墙、Fail2ban 与登录防护
 6|software|软件与应用|软件中心|software_catalog_menu|单项安装、更新、来源与版本
-7|apps|软件与应用|应用与容器|apps_menu|应用服务、Docker、Compose 与卷备份
+7|apps|软件与应用|应用与容器|apps_menu|应用服务、反向代理、HTTPS 与 Docker
 8|recovery|项目与数据|备份与恢复|recovery_menu|手动快照、空间清理与变更撤销
 9|toolkit|项目与数据|项目管理|toolkit_menu|环境检查、版本、自更新与卸载

@@ -2,7 +2,7 @@
 nginx|HTTPS 与证书|certbot-nginx,certbot|Nginx 可独立运行；HTTPS 证书工具另行安装|Certbot Nginx 插件会依赖证书客户端；签发前检查域名、80 端口与站点配置|https://certbot.eff.org/instructions?ws=nginx&os=pip
 apache|HTTPS 与证书|certbot-apache,certbot|Apache 与证书工具分别管理|按需选择 Apache 插件；安装不会自动签发证书|https://certbot.eff.org/instructions?ws=apache&os=pip
 certbot|选择验证插件|certbot-nginx,certbot-apache|客户端不包含全部 Web 服务插件|已有 Nginx 选 Nginx 插件；DNS 验证需要对应提供商插件|https://eff-certbot.readthedocs.io/en/stable/using.html
-certbot-nginx|Nginx 证书部署|nginx,certbot|APT 自动解析 Certbot 依赖；不需要重复安装客户端|手动签发：certbot --nginx；确认域名解析与 HTTP 可达后再执行|https://certbot.eff.org/instructions?ws=nginx&os=pip
+certbot-nginx|Nginx 证书部署|nginx,certbot|APT 自动解析 Certbot 依赖；不需要重复安装客户端|keine web 支持签发并部署；托管反代使用 Webroot，不需要 Nginx 插件|https://certbot.eff.org/instructions?ws=nginx&os=pip
 certbot-apache|Apache 证书部署|apache,certbot|APT 自动解析 Certbot 依赖；不需要重复安装客户端|手动签发：certbot --apache；安装本身不会修改站点证书|https://certbot.eff.org/instructions?ws=apache&os=pip
 caddy|HTTPS 与代理|nginx,certbot|Caddy 自带自动 HTTPS；一般不需要额外安装 Certbot|证书申请与续期由 Caddy 配置和运行服务决定|https://caddyserver.com/docs/automatic-https
 docker|容器操作工具|lazydocker,podman|Docker 官方安装流程自带 Compose 插件|Lazydocker 是独立终端界面；Podman 是另一种容器引擎，不会自动同时安装|https://docs.docker.com/engine/install/

@@ -83,7 +83,7 @@ usage() {
   keine network               打开网络与端口中心
   keine security              打开安全中心
   keine firewall              管理 UFW 或原生防火墙
-  keine certificates          本机证书、到期检查与手动续期
+  keine certificates          签发、部署、检查与手动续期证书
   keine tls HOST [PORT]       检查在线证书、身份与信任链
   keine auth-activity         汇总最近 24 小时 SSH 登录活动
   keine services              打开服务与日志中心
@@ -93,6 +93,7 @@ usage() {
   keine journal               打开 Journal 管理
   keine logs SERVICE          查看一个 systemd 服务的最近日志
   keine apps                  打开应用与容器中心
+  keine web                   反向代理与 HTTPS 管理
   keine app ID                打开一个已安装应用的专属详情
   keine compose PROJECT       管理一个现有 Docker Compose 项目
   keine backups               打开备份与恢复中心
@@ -287,6 +288,11 @@ main() {
       ((${#arguments[@]} == 0)) || die "security 不接受参数"
       platform_detect_identity
       security_menu
+      ;;
+    web)
+      ((${#arguments[@]} == 0)) || die "web 不接受参数"
+      platform_detect_identity
+      web_menu
       ;;
     firewall|certificates)
       ((${#arguments[@]} == 0)) || die "$command 不接受参数"

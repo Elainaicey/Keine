@@ -19,7 +19,15 @@ if [[ "${1:-}" == --changed ]]; then
       src/integrations/network-tuning.sh|src/integrations/network-tuning/*)
         selected+=(tuning_strategies tuning_runtime native_recovery cli on_demand) ;;
       src/features/recovery.sh)
-        selected+=(native_recovery tuning_strategies tuning_runtime node_network) ;;
+        selected+=(native_recovery tuning_strategies tuning_runtime node_network web) ;;
+      src/features/apps/web.sh|src/features/apps/web/*|src/features/security/certificates.sh|src/features/security/certificates/*)
+        selected+=(web certificates cli on_demand) ;;
+      src/features/apps.sh|src/features/apps/menu.sh|src/features/apps/services/detail.sh|src/features/apps/services/actions.sh)
+        selected+=(apps app_health web cli) ;;
+      bin/keine)
+        selected+=(cli on_demand) ;;
+      config/software-guides.tsv|config/navigation.tsv)
+        selected+=(catalog_ui apps cli) ;;
       src/features/maintenance.sh|src/features/maintenance/menu.sh)
         selected+=(toolkit_update toolkit_doctor uninstall cli on_demand) ;;
       scripts/check-tests.sh|.github/workflows/ci.yml)

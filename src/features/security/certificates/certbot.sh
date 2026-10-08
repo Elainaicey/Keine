@@ -46,7 +46,7 @@ security_certbot_expiry_label() {
 }
 
 security_certbot_renew() {
-  local name="$1" mode="$2" root before after
+  local name="$1" mode="$2" root before after domains
   local arguments=(renew --cert-name "$name" --non-interactive)
   case "$mode" in test) arguments+=(--dry-run) ;; renew) ;; *) return 1 ;; esac
   security_certbot_has_name "$name" || { warn "未找到 Certbot 证书。"; return 1; }
@@ -54,6 +54,14 @@ security_certbot_renew() {
   require_root
   root="$(security_certbot_root)"
   [[ "$root" == /etc/letsencrypt ]] || { warn "续期仅使用 Certbot 默认配置目录。"; return 1; }
+  if [[ "$(security_certbot_setting "$name" authenticator)" == manual ]]; then
+    [[ "$mode" == renew ]] || { warn "手动 DNS 证书需要交互验证，请选择手动续期。"; return 1; }
+    domains="$(openssl x509 -in "$root/live/$name/cert.pem" -noout -ext subjectAltName 2>/dev/null |
+      grep -oE 'DNS:[^,[:space:]]+' | sed 's/^DNS://' | paste -sd, -)" || return 1
+    [[ -n "$domains" ]] || return 1
+    security_certificate_issue_menu "$domains" '' "$name"
+    return
+  fi
   ui_page "Certbot / $name"
   ui_kv "验证方式" "$(terminal_safe_text "$(security_certbot_setting "$name" authenticator)")"
   if [[ "$mode" == test ]]; then ui_kv "操作" "测试续期 · 测试环境，不保存新证书"
@@ -69,7 +77,12 @@ security_certbot_renew() {
     warn "操作结束后证书不可读，请检查 Certbot 状态。"; return 1;
   }
   if [[ "$before" == "$after" ]]; then ui_note "证书未变化；可能尚未进入续期窗口。"
-  else ui_success "证书已更新 · $(security_certbot_expiry_label "$name")"; fi
+  else
+    ui_success "证书已更新 · $(security_certbot_expiry_label "$name")"
+    if declare -F web_reload_certificate_users >/dev/null; then
+      web_reload_certificate_users "$root/live/$name/fullchain.pem" || return 1
+    fi
+  fi
 }
 
 security_certbot_detail() {
@@ -89,6 +102,8 @@ security_certbot_detail() {
     if command_exists certbot; then
       ui_action 2 "测试续期" warning
       ui_action 3 "手动续期" success
+      ui_action 4 "部署到反向代理" accent
+      ui_action 5 "删除证书" danger
     else ui_action I "安装 Certbot" action; fi
     ui_menu_footer "返回"
     ui_read_choice choice
@@ -96,6 +111,8 @@ security_certbot_detail() {
       1) security_certificate_file_inspect "$root/live/$name/cert.pem" || true ;;
       2) security_certbot_renew "$name" test || true ;;
       3) security_certbot_renew "$name" renew || true ;;
+      4) security_certificate_deploy_menu "$name" || true ;;
+      5) security_certificate_delete "$name" || true ;;
       I|i) catalog_item_menu certbot; continue ;;
       0) return 0 ;;
       *) warn "未知选项" ;;
@@ -109,7 +126,7 @@ security_certbot_menu() {
   while true; do
     mapfile -t names < <(security_certbot_names)
     ui_page "本机 Certbot 证书"
-    if ((${#names[@]} == 0)); then ui_empty "未发现 /etc/letsencrypt/renewal 中的证书"; pause; return 0; fi
+    if ((${#names[@]} == 0)); then ui_empty "尚无 Certbot 证书"; fi
     (( page * page_size < ${#names[@]} )) || page=0
     start=$((page * page_size))
     ui_context "共 ${#names[@]} 张 · 第 $((page+1)) 页"
@@ -118,10 +135,12 @@ security_certbot_menu() {
     done
     (( page == 0 )) || ui_action P "上一页" action
     (( start+page_size >= ${#names[@]} )) || ui_action N "下一页" action
+    ui_action A "申请 HTTPS 证书" success
     ui_menu_footer "返回"
     ui_read_choice choice
     case "$choice" in
       0) return 0 ;;
+      A|a) security_certificate_issue_menu || true; pause ;;
       P|p) if (( page > 0 )); then page=$((page-1)); fi ;;
       N|n) if (( start+page_size < ${#names[@]} )); then page=$((page+1)); fi ;;
       *)
