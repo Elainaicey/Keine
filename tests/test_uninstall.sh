@@ -5,6 +5,13 @@ IFS=$'\n\t'
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)"
 INSTALLER="$ROOT_DIR/scripts/install.sh"
 
+if grep -q 'confirm "将 keine 安装到' "$INSTALLER"; then
+  printf 'FAIL: 安装仍有重复确认\n' >&2; exit 1
+fi
+[[ "$(grep -c '^    confirm ' "$INSTALLER")" == 2 ]] || {
+  printf 'FAIL: 移除安装确认时影响了卸载确认\n' >&2; exit 1
+}
+
 bash "$INSTALLER" --help | grep -q -- '--purge-data' || {
   printf 'FAIL: 卸载器帮助缺少彻底清除选项\n' >&2
   exit 1

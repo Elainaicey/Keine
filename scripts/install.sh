@@ -258,7 +258,6 @@ fi
 is_toolkit_dir "$SOURCE_DIR" || die "源码结构不完整"
 [[ "$SOURCE_DIR" != "$INSTALL_DIR" ]] || die "不能把项目安装到源码目录自身"
 
-confirm "将 keine 安装到 $INSTALL_DIR？已有安装会被完整替换。" || { info "已取消。"; exit 0; }
 if [[ "$DRY_RUN" -eq 1 ]]; then
   info "将完整替换 $INSTALL_DIR"
   info "将创建命令入口 $BIN_PATH -> $INSTALL_DIR/bin/keine"

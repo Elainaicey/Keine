@@ -87,7 +87,10 @@ if [[ -t 0 || -r /dev/tty ]]; then
 fi
 
 # Render the affected menus at both supported widths without querying the host.
+# Palette and fixture values are consumed by sourced functions.
+# shellcheck disable=SC2034
 (
+  declare -A WEB_SITE=()
   # Callbacks and palette variables are consumed by the sourced UI/menu functions.
   # shellcheck disable=SC2034,SC2317,SC2329
   ui_page() { :; }
@@ -108,12 +111,18 @@ fi
   . "$ROOT_DIR/src/features/apps/menu.sh"
   . "$ROOT_DIR/src/features/apps/web/menu.sh"
   UI_TEST_CHOICE=0
+  # Width is consumed by the sourced rendering functions.
+  # shellcheck disable=SC2034
   for UI_WIDTH in 64 100; do
     web_output="$(web_menu)"
+    [[ "$web_output" == *$'反向代理\n'*'[1]'*'[2]'*$'HTTPS 证书\n'*'[3]'* ]] || {
+      printf 'FAIL: 反向代理与证书缺少分组标题\n' >&2; exit 1;
+    }
     [[ "$(grep -Ec '^  \[[123]\]' <<<"$web_output")" == 3 ]] || {
       printf 'FAIL: 反向代理入口不是独立纵向菜单\n' >&2; exit 1;
     }
     detail_output="$(web_site_detail "$ROOT_DIR/VERSION")"
+    [[ "$detail_output" == *$'站点配置\n'*'[1]'*$'运行与服务\n'*'[5]'*$'移除\n'*'[8]'* ]] || exit 1
     [[ "$(grep -Ec '^  \[[1-8]\]' <<<"$detail_output")" == 8 ]] || {
       printf 'FAIL: 站点详情不是独立纵向菜单\n' >&2; exit 1;
     }
@@ -123,6 +132,7 @@ fi
     }
   done
   # Symbolic colors make checks independent of terminal color support.
+  # shellcheck disable=SC2034
   CYAN='<key>'; BLUE='<title>'; MAGENTA='<accent>'; RED='<danger>'; NC='</>'; BOLD=''
   normal="$(ui_action 3 测试 action)"
   state="$(ui_state_item 3 测试 正常 good)"
@@ -133,7 +143,8 @@ fi
   [[ "$pair" == *'<key>[1]'* && "$pair" == *'<key>[2]'* ]] || exit 1
   [[ "$(ui_action 8 删除 danger)" == *'<danger>[8]'* ]] || exit 1
   web_output="$(web_menu)"; apps_output="$(apps_menu)"
-  [[ "$web_output" != *'<accent>'* && "$apps_output" != *'<accent>'* ]] || {
+  [[ "$web_output" != *'<accent>'* && "$apps_output" == *"$(ui_action 3 '反向代理与 HTTPS' action)"* &&
+    "$apps_output" == *"$(ui_action R '刷新状态' accent)"* ]] || {
     printf 'FAIL: 普通菜单仍有无意义强调色\n' >&2; exit 1;
   }
 )

@@ -36,7 +36,7 @@ apps_menu() {
     ui_section "网站与访问" "primary"
     ui_action 3 "反向代理与 HTTPS" "action"
     ui_section "操作" "primary"
-    ui_action R "刷新状态" "action"
+    ui_action R "刷新状态" "accent"
     ui_menu_footer "返回"
     ui_read_choice choice
     case "$choice" in

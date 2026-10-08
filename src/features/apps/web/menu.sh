@@ -127,14 +127,17 @@ web_site_detail() {
     ui_panel_kv "访问方式" "$(web_tls_label "${WEB_SITE[tls]}")"
     ui_panel_kv "配置" "$path"
     ui_panel_end
+    ui_section "站点配置" primary
     ui_action 1 "检查访问" action
     ui_action 2 "修改目标" action
     ui_action 3 "HTTPS 与证书" action
     ui_action 4 "超时与上传大小" action
+    ui_section "运行与服务" primary
     if [[ "${WEB_SITE[enabled]}" == 1 ]]; then ui_action 5 "停用站点" warning
     else ui_action 5 "启用站点" success; fi
     ui_action 6 "应用服务管理" action
     ui_action 7 "主机防火墙" action
+    ui_section "移除" primary
     ui_action 8 "删除站点" danger
     ui_menu_footer "返回"; ui_read_choice choice
     case "$choice" in
@@ -171,18 +174,21 @@ web_engine_menu() {
     (( page*6 < ${#paths[@]} )) || page=0
     start=$((page*6))
     ui_page "反向代理 / $engine"
+    ui_section "托管站点" primary
     for ((index=start; index<start+6 && index<${#paths[@]}; index++)); do
       web_site_load "${paths[$index]}" || continue
       ui_item "$((index-start+1))" "${WEB_SITE[domain]}" "$([[ "${WEB_SITE[enabled]}" == 1 ]] && printf '启用' || printf '停用') · $(web_tls_label "${WEB_SITE[tls]}")"
     done
     (( ${#paths[@]} != 0 )) || ui_empty "还没有托管站点"
+    (( page == 0 )) || ui_action P "上一页" action
+    (( start+6 >= ${#paths[@]} )) || ui_action N "下一页" action
+    ui_section "站点操作" primary
     ui_action A "新建反向代理" success
     ui_action E "识别已有配置" action
     ui_action C "检查原生配置" action
+    ui_section "软件组件" primary
     ui_action I "安装 / 更新 $engine" action
     if [[ "$engine" == caddy ]] && ! command_exists jq; then ui_action J "安装配置解析组件 jq" action; fi
-    (( page == 0 )) || ui_action P "上一页" action
-    (( start+6 >= ${#paths[@]} )) || ui_action N "下一页" action
     ui_menu_footer "返回"; ui_read_choice choice
     case "$choice" in
       0) return 0 ;;
@@ -206,8 +212,10 @@ web_menu() {
   local choice
   while true; do
     ui_page "反向代理与 HTTPS"
+    ui_section "反向代理" primary
     ui_action 1 "Nginx 反向代理" action
     ui_action 2 "Caddy 反向代理" action
+    ui_section "HTTPS 证书" primary
     ui_action 3 "证书中心" action
     ui_menu_footer "返回"; ui_read_choice choice
     case "$choice" in
