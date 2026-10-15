@@ -52,7 +52,8 @@ security_ssh_key_plain_valid() {
 }
 
 security_ssh_key_rows() {
-  local path="${1:-$(security_ssh_key_path)}" line number=0 state fingerprint
+  local path line number=0 state fingerprint
+  path="$(security_ssh_key_path)"
   [[ -f "$path" && ! -L "$path" ]] || return 0
   while IFS= read -r line || [[ -n "$line" ]]; do
     number=$((number+1)); state=enabled

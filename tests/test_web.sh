@@ -17,6 +17,7 @@ export KEINE_ACME_ROOT="$test_root/keine-acme"
 . "$ROOT_DIR/src/core/configuration.sh"
 . "$ROOT_DIR/src/features/apps/web.sh"
 . "$ROOT_DIR/src/features/security/certificates.sh"
+declare -Ag WEB_SITE
 CHANGES_ENABLED=1
 require_root() { :; }
 audit() { changes_commit_pending; }
@@ -43,6 +44,10 @@ MSYS2_ARG_CONV_EXCL='/CN=' openssl req -x509 -newkey rsa:2048 -nodes -keyout "$t
   -days 1 -subj '/CN=example.com' -addext 'subjectAltName=DNS:example.com,DNS:*.example.com' >/dev/null 2>&1
 web_certificate_pair_valid example.com "$test_root/cert.pem" "$test_root/key.pem" || die '有效证书匹配失败'
 if web_certificate_pair_valid other.test "$test_root/cert.pem" "$test_root/key.pem" 2>/dev/null; then die '错误域名证书通过'; fi
+(
+  openssl() { printf 'Hostname other.test does NOT match certificate\n'; return 0; }
+  if web_certificate_host_valid other.test "$test_root/cert.pem"; then die 'OpenSSL 返回 0 的域名不匹配被接受'; fi
+)
 openssl genrsa -out "$test_root/other.key" 2048 >/dev/null 2>&1
 if web_certificate_pair_valid example.com "$test_root/cert.pem" "$test_root/other.key" 2>/dev/null; then die '私钥不匹配未阻止'; fi
 

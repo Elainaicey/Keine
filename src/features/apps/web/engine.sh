@@ -4,7 +4,7 @@ web_engine_guard() {
   local engine="$1" config start configured
   config="$(web_engine_config "$engine")" || return 1
   command_exists "$engine" || { warn "请先在软件中心安装 $engine。"; return 1; }
-  web_path_valid "$config" && [[ -f "$config" ]] || { warn "主配置不可读取：$config"; return 1; }
+  if ! web_path_valid "$config" || [[ ! -f "$config" ]]; then warn "主配置不可读取：$config"; return 1; fi
   service_exists "$engine.service" || { warn "未发现原生 $engine.service；容器或自定义进程请使用原部署方式管理。"; return 1; }
   start="$(runtime_with_timeout 5 systemctl show "$engine.service" -p ExecStart --value 2>/dev/null)" || return 1
   [[ -n "$start" ]] || { warn "无法确认服务使用的配置。"; return 1; }

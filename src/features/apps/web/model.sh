@@ -149,11 +149,20 @@ web_site_render() {
   printf '    }\n}\n'
 }
 
+web_certificate_host_valid() {
+  local domain="$1" cert="$2" result
+  web_domain_valid "$domain" && web_path_valid "$cert" || return 1
+  # OpenSSL 3.0 的 -checkhost 在不匹配时也可能退出 0，必须核对肯定结果。
+  result="$(LC_ALL=C openssl x509 -in "$cert" -noout -checkhost "$domain" 2>/dev/null)" || return 1
+  result="${result%$'\r'}"
+  [[ "$result" == "Hostname $domain does match certificate" ]]
+}
+
 web_certificate_pair_valid() {
   local domain="$1" cert="$2" key="$3" public_cert public_key
   web_domain_valid "$domain" && web_path_valid "$cert" && web_path_valid "$key" || return 1
   [[ -r "$cert" && -f "$cert" && -r "$key" && -f "$key" ]] || { warn "证书或私钥不可读。"; return 1; }
-  if ! openssl x509 -in "$cert" -noout -checkhost "$domain" >/dev/null 2>&1 ||
+  if ! web_certificate_host_valid "$domain" "$cert" ||
     ! openssl x509 -in "$cert" -noout -checkend 0 >/dev/null 2>&1; then
     warn "证书已过期或不覆盖 $domain。"; return 1
   fi

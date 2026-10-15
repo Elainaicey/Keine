@@ -65,7 +65,7 @@ security_acme_issue() {
   case "$mode" in
     http)
       [[ "$input" != *'*'* ]] || { warn "通配符证书需要 DNS 验证。"; return 1; }
-      web_path_valid "$webroot" && [[ -d "$webroot" ]] || { warn "Webroot 必须是已有的绝对目录。"; return 1; }
+      if ! web_path_valid "$webroot" || [[ ! -d "$webroot" ]]; then warn "Webroot 必须是已有的绝对目录。"; return 1; fi
       arguments+=(--non-interactive --webroot --webroot-path "$webroot" --preferred-challenges http)
       ;;
     dns)
@@ -140,7 +140,7 @@ security_certificate_deploy_menu() {
   root="$(security_certbot_root)"
   security_certbot_has_name "$name" || return 1
   while IFS= read -r path; do
-    if (web_site_load "$path" && openssl x509 -in "$root/live/$name/fullchain.pem" -noout -checkhost "${WEB_SITE[domain]}" >/dev/null 2>&1); then sites+=("$path"); fi
+    if (web_site_load "$path" && web_certificate_host_valid "${WEB_SITE[domain]}" "$root/live/$name/fullchain.pem"); then sites+=("$path"); fi
   done < <(web_managed_paths)
   ui_page "证书部署 / $name"
   if (( ${#sites[@]} == 0 )); then ui_note "没有匹配的托管反代。可在反代管理中创建站点并选择已有证书。"; return 0; fi
