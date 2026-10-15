@@ -206,6 +206,14 @@ software_release_write_marker() {
 }
 
 software_install_release() {
+  case "$1" in
+    frps|frpc)
+      if declare -F frp_release_operation >/dev/null; then frp_release_operation install "$@"; return; fi ;;
+  esac
+  software_install_release_payload "$@"
+}
+
+software_install_release_payload() {
   local id="$1" mode="${2:-install}" version asset digest url target command
   local temporary archive extract listing binary binary_digest version_output previous="" had_previous=0
   software_release_supported "$id" || { warn "$id 没有适用于当前平台的官方 Release。"; return 1; }
@@ -345,6 +353,14 @@ software_repair_release() {
 }
 
 software_remove_release() {
+  case "$1" in
+    frps|frpc)
+      if declare -F frp_release_operation >/dev/null; then frp_release_operation remove "$@"; return; fi ;;
+  esac
+  software_remove_release_payload "$@"
+}
+
+software_remove_release_payload() {
   local id="$1" target marker
   software_release_managed "$id" || { warn "$id 不由 keine 官方 Release 安装器管理。"; return 1; }
   software_release_integrity "$id" || { warn "$id 的托管二进制已被修改，拒绝自动删除。"; return 1; }

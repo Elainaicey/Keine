@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 
 security_root_public_key_exists() {
-  [[ -d /root/.ssh && ! -L /root/.ssh && -f /root/.ssh/authorized_keys && ! -L /root/.ssh/authorized_keys && -s /root/.ssh/authorized_keys ]] || return 1
-  [[ "$(stat -c '%u' /root/.ssh/authorized_keys)" == 0 ]] || return 1
-  command_exists ssh-keygen && ssh-keygen -lf /root/.ssh/authorized_keys >/dev/null 2>&1
+  local settings
+  security_ssh_key_safe && command_exists ssh-keygen || return 1
+  settings="$(security_ssh_context_values)" && security_ssh_key_path_active "$settings" || return 1
+  security_ssh_key_rows | awk -F'|' '$2=="enabled"{found=1}END{exit !found}'
 }
 
 security_ssh_effective_values() {
@@ -133,9 +134,9 @@ security_ssh_host_keys() {
 }
 
 security_configure_ssh() {
-  local current_port new_port disable_password=0 root_key_only=0 config payload firewall_backend
+  local current_port new_port disable_password=0 root_key_only=0 config payload firewall_backend settings
   current_port="$(detect_ssh_port)"
-  config=/etc/ssh/sshd_config.d/00-keine-auth.conf
+  config="$SECURITY_SSH_AUTH"
   ui_page "SSH 安全向导" "端口、认证策略、有效值验证与安全 reload"
   ui_kv "当前端口" "$current_port"
   ui_hint "修改前保留服务商控制台；SSH Socket 激活模式下不直接变更端口。"
@@ -145,6 +146,10 @@ security_configure_ssh() {
   if confirm "禁用密码和键盘交互登录？"; then disable_password=1; fi
   if confirm "限制 root 仅使用公钥登录？"; then root_key_only=1; fi
   if (( disable_password == 1 || root_key_only == 1 )); then
+    settings="$(security_ssh_context_values)" || return 1
+    if [[ "$(security_ssh_effective_values "$settings" authenticationmethods)" != any ]]; then
+      warn "存在 AuthenticationMethods 组合认证要求；请通过原生配置管理，工具不覆盖 MFA 策略。"; return 1
+    fi
     security_root_public_key_exists || { warn "没有可解析的 root 公钥文件，拒绝收紧认证。"; return 1; }
     confirm "已经在另一个 SSH 窗口验证 root 公钥登录成功？" || { warn "请先验证公钥，未修改认证。"; return 0; }
   fi
@@ -209,31 +214,37 @@ security_ssh_manage() {
     ui_panel_end
     ui_section "查看" "primary"
     ui_action_pair 1 "有效配置" "action" 2 "当前会话" "action"
-    ui_action_pair 3 "公钥资产" "action" 4 "主机密钥" "action"
-    ui_action 5 "登录事件" "action"
+    ui_action_pair 3 "root 公钥管理" "action" 4 "主机密钥" "action"
+    ui_action 5 "登录活动与来源处置" "action"
     ui_section "配置" "accent"
     ui_action 6 "SSH 安全向导" "warning"
     if [[ -n "$service" ]]; then ui_action 7 "服务与日志" "action" "$service"; else ui_action 7 "服务与日志" "disabled" "未找到 SSH 服务"; fi
     ui_action 8 "连接与转发策略" "action"
     ui_action 9 "恢复认证与端口" "warning"
+    ui_action 10 "登录方式：公钥 / 密码" "warning"
+    ui_action 11 "登录诊断" "action"
+    ui_action 12 "全部用户公钥资产（只读）" "action"
     ui_menu_footer "返回"
     ui_read_choice action
     case "$action" in
       1) security_ssh_effective_view || true ;;
       2) security_ssh_sessions ;;
-      3) security_ssh_authorized_keys ;;
+      3) security_ssh_keys_menu; continue ;;
       4) security_ssh_host_keys ;;
-      5) security_auth_log ;;
+      5) security_auth_center; continue ;;
       6) security_configure_ssh || true ;;
       8) security_ssh_policy_menu; continue ;;
       9)
         if confirm "恢复安全向导修改前的认证与 SSH 端口？请保留当前会话。"; then
           require_root
-          if config_file_restore /etc/ssh/sshd_config.d/00-keine-auth.conf security_ssh_reload_only; then
+          if config_file_restore "$SECURITY_SSH_AUTH" security_ssh_reload_only; then
             audit 'action=ssh-auth-restore'; ui_success "认证与端口配置已恢复；请在新窗口验证登录。"
           fi
         fi
         ;;
+      10) security_ssh_auth_profile || true ;;
+      11) security_ssh_login_diagnose || true ;;
+      12) security_ssh_authorized_keys ;;
       7) if [[ -n "$service" ]]; then services_select "$service"; else warn "未找到 SSH 服务。"; fi ;;
       0) return 0 ;;
       *) warn "未知选项：$action"; continue ;;

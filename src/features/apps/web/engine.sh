@@ -142,7 +142,7 @@ web_endpoint_check() {
   if [[ -n "$addresses" ]]; then ui_kv "域名解析" "${addresses//$'\n'/ · }"
   else ui_check warn "尚未解析到地址；签发 HTTP 证书前需完成解析。"; fi
   if command_exists curl; then
-    status="$(curl --noproxy '*' -sS -o /dev/null -w '%{http_code}' --connect-timeout 3 --max-time 6 "$upstream/" 2>/dev/null)" || status=000
+    status="$(curl --disable --noproxy '*' -sS -o /dev/null -w '%{http_code}' --connect-timeout 3 --max-time 6 "$upstream/" 2>/dev/null)" || status=000
     if [[ "$status" != 000 ]]; then ui_kv "上游响应" "HTTP $status"
     else ui_check warn "上游暂不可达，或 HTTPS 校验失败。"; fi
   fi

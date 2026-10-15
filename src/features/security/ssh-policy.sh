@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
 SECURITY_SSH_MAIN="${KEINE_SSH_MAIN:-/etc/ssh/sshd_config}"
+# 认证向导与登录方式共用此路径。
+# shellcheck disable=SC2034
+SECURITY_SSH_AUTH="${KEINE_SSH_AUTH:-/etc/ssh/sshd_config.d/00-keine-auth.conf}"
 SECURITY_SSH_POLICY="${KEINE_SSH_POLICY:-/etc/ssh/sshd_config.d/00-keine-policy.conf}"
 
 security_ssh_policy_rows() {
@@ -33,7 +36,7 @@ security_ssh_context_values() {
       context+=",laddr=$local_address,lport=$local_port"
     fi
     sshd -T -f "$SECURITY_SSH_MAIN" -C "$context" 2>/dev/null
-  else sshd -T -f "$SECURITY_SSH_MAIN" 2>/dev/null; fi
+  else sshd -T -f "$SECURITY_SSH_MAIN" -C 'user=root,host=localhost,addr=127.0.0.1' 2>/dev/null; fi
 }
 
 security_ssh_reload_only() {

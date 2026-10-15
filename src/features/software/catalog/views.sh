@@ -160,6 +160,7 @@ catalog_item_menu() {
       ui_action 4 "来源诊断" "accent"
     fi
     ui_action D "安装信息" "action"
+    if [[ "$id" == frps || "$id" == frpc ]]; then ui_action M "FRP 实例管理" "action"; fi
     if catalog_guide_record "$id" >/dev/null; then
       if [[ "$id" == nginx ]]; then ui_action G "相关软件 / Certbot" "accent"
       else ui_action G "指南与相关软件" "accent"; fi
@@ -224,6 +225,7 @@ catalog_item_menu() {
         ;;
       0) return 0 ;;
       D|d) catalog_item_information "$id" || true; pause ;;
+      M|m) if [[ "$id" == frps || "$id" == frpc ]]; then frp_role_menu "$id"; fi ;;
       G|g) catalog_guide_view "$id" || true ;;
       R|r) catalog_refresh_index || true; pause ;;
       *) warn "未知选项" ;;

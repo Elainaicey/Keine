@@ -72,6 +72,8 @@ usage() {
   keine dns [域名]            诊断系统 DNS 解析
   keine dns-config             配置或恢复主机系统 DNS
   keine proxy                  配置与管理已有 SOCKS5 出站代理
+  keine forward                TCP / UDP 端口转发管理
+  keine frp                    FRP 服务端、客户端与映射管理
   keine proxy-check URL        使用保存的代理验证 HTTP/HTTPS 请求
   keine net-tuning             管理可撤销的原生网络参数
   keine tuning-adapters        tcpfit / vps-tcp-tune 调优方案
@@ -82,6 +84,9 @@ usage() {
   keine system                打开系统管理中心
   keine network               打开网络与端口中心
   keine security              打开安全中心
+  keine ssh                   打开 SSH 登录与公钥中心
+  keine ssh-keys              管理 root 公钥
+  keine ssh-check             按需诊断 SSH 登录
   keine firewall              管理 UFW 或原生防火墙
   keine certificates          签发、部署、检查与手动续期证书
   keine tls HOST [PORT]       检查在线证书、身份与信任链
@@ -244,11 +249,13 @@ main() {
       platform_detect_identity
       network_dns_diagnose "${arguments[0]:-}"
       ;;
-    dns-config|proxy|net-tuning|tuning-adapters)
+    dns-config|proxy|forward|frp|net-tuning|tuning-adapters)
       ((${#arguments[@]} == 0)) || die "$command 不接受参数"
       platform_detect_identity
       case "$command" in
         dns-config) network_dns_menu ;; proxy) network_proxy_menu ;;
+        forward) forward_menu ;;
+        frp) frp_menu ;;
         net-tuning) network_tuning_menu ;; tuning-adapters) network_tuning_adapter_menu ;;
       esac
       ;;
@@ -288,6 +295,14 @@ main() {
       ((${#arguments[@]} == 0)) || die "security 不接受参数"
       platform_detect_identity
       security_menu
+      ;;
+    ssh|ssh-keys|ssh-check)
+      ((${#arguments[@]} == 0)) || die "$command 不接受参数"
+      case "$command" in
+        ssh) security_ssh_manage ;;
+        ssh-keys) security_ssh_keys_menu ;;
+        ssh-check) security_ssh_login_diagnose ;;
+      esac
       ;;
     web)
       ((${#arguments[@]} == 0)) || die "web 不接受参数"

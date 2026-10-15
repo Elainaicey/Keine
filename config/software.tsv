@@ -184,6 +184,8 @@ unison|备份与同步|Unison|交互式双向文件同步|unison|
 syncthing|备份与同步|Syncthing|点对点同步，需显式启动服务或实例|syncthing|
 # Web与代理
 nginx|Web与代理|Nginx|Web 服务器和反向代理|nginx|
+frps|Web与代理|FRP 服务端|官方内网穿透服务端，安装后从 FRP 管理创建实例||official_release
+frpc|Web与代理|FRP 客户端|官方内网穿透客户端，安装后从 FRP 管理配置映射||official_release
 caddy|Web与代理|Caddy|从官方仓库安装 Caddy||caddy_official
 apache|Web与代理|Apache HTTP Server|通用 Web 服务器|apache2|
 haproxy|Web与代理|HAProxy|高性能 TCP 与 HTTP 负载均衡器|haproxy|

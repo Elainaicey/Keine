@@ -19,11 +19,23 @@ if [[ "${1:-}" == --changed ]]; then
       src/integrations/network-tuning.sh|src/integrations/network-tuning/*)
         selected+=(tuning_strategies tuning_runtime native_recovery cli on_demand) ;;
       src/features/recovery.sh)
-        selected+=(native_recovery tuning_strategies tuning_runtime node_network web) ;;
+        selected+=(native_recovery tuning_strategies tuning_runtime node_network web forwarding frp ssh_keys) ;;
+      src/features/security/ssh*.sh|src/features/security/activity.sh|src/features/security/menu.sh|src/features/security.sh)
+        selected+=(security security_policy ssh_keys cli native_recovery uninstall on_demand) ;;
+      src/features/network/frp.sh|src/features/network/frp/*)
+        selected+=(frp cli on_demand) ;;
+      src/features/software/releases.sh|config/official-releases.tsv)
+        selected+=(releases frp catalog cli) ;;
+      src/features/software/catalog/views.sh|config/software.tsv|config/software-effects.tsv)
+        selected+=(catalog catalog_ui frp cli) ;;
+      src/features/network/forwarding.sh|src/features/network/forwarding/*|src/features/network.sh|src/features/network/menu.sh)
+        selected+=(forwarding frp node_network cli) ;;
+      scripts/install.sh|install.sh)
+        selected+=(toolkit_update uninstall cli) ;;
       src/features/apps/web.sh|src/features/apps/web/*|src/features/security/certificates.sh|src/features/security/certificates/*)
         selected+=(web certificates cli on_demand) ;;
       src/features/apps.sh|src/features/apps/menu.sh|src/features/apps/services/detail.sh|src/features/apps/services/actions.sh)
-        selected+=(apps app_health web cli) ;;
+        selected+=(apps app_health web frp cli) ;;
       bin/keine)
         selected+=(cli on_demand) ;;
       src/core/ui.sh)
@@ -34,7 +46,7 @@ if [[ "${1:-}" == --changed ]]; then
         selected+=(toolkit_update toolkit_doctor uninstall cli on_demand) ;;
       scripts/check-tests.sh|.github/workflows/ci.yml)
         selected+=(cli on_demand) ;;
-      src/*|bin/*|scripts/*|install.sh|config/*) all_needed=1 ;;
+      src/*|bin/*|scripts/*|config/*) all_needed=1 ;;
     esac
   done < <(git diff --name-only "$base" HEAD)
   if (( all_needed == 0 )); then

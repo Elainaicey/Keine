@@ -108,7 +108,7 @@ web_site_check() {
   web_endpoint_check "$domain" "${WEB_SITE[upstream]}"
   [[ "${WEB_SITE[enabled]}" == 1 ]] || { ui_note "站点当前停用。"; return 0; }
   if command_exists curl; then
-    status="$(curl --noproxy '*' -sS -o /dev/null -w '%{http_code}' --connect-timeout 4 --max-time 10 "$scheme://$domain/" 2>/dev/null)" || status=000
+    status="$(curl --disable --noproxy '*' -sS -o /dev/null -w '%{http_code}' --connect-timeout 4 --max-time 10 "$scheme://$domain/" 2>/dev/null)" || status=000
     if [[ "$status" != 000 ]]; then ui_kv "域名响应" "HTTP $status"
     else warn "域名访问失败；检查解析、证书、监听和云端放行。"; fi
   fi

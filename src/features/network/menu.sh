@@ -66,9 +66,11 @@ network_menu() {
     ui_item 3 "SOCKS 出站代理"
     ui_item 4 "WARP 连接"
     ui_item 5 "网络调优"
+    ui_item 6 "TCP / UDP 转发"
+    ui_item 7 "FRP 隧道管理"
     ui_section "状态与诊断" "accent"
-    ui_item 6 "连接与端口"
-    ui_item 7 "连通性诊断"
+    ui_item 8 "连接与端口"
+    ui_item 9 "连通性诊断"
     ui_menu_footer "返回"
     ui_read_choice choice
     case "$choice" in
@@ -77,8 +79,10 @@ network_menu() {
       3) network_proxy_menu ;;
       4) warp_menu ;;
       5) network_tuning_menu ;;
-      6) network_connections_menu ;;
-      7) network_diagnostics_menu ;;
+      6) forward_menu ;;
+      7) frp_menu ;;
+      8) network_connections_menu ;;
+      9) network_diagnostics_menu ;;
       0) return 0 ;;
       *) warn "未知选项"; pause ;;
     esac

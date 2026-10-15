@@ -44,8 +44,24 @@ toolkit_update_reload() {
   done
 }
 
+toolkit_update_install() (
+  # Isolate cleanup traps from the interactive runtime.
+  local installer="$1"
+  shift
+  trap 'rm -f -- "$installer"' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  trap 'exit 129' HUP
+  curl --disable -fsSL --retry 3 --retry-max-time 180 --connect-timeout 10 --max-time 120 \
+    "https://raw.githubusercontent.com/Elainaicey/keine/refs/heads/main/scripts/install.sh" -o "$installer" || {
+    warn "更新安装器下载失败或中断，现有安装未修改。"; return 1;
+  }
+  bash -n "$installer" || { warn "安装器内容不完整，现有安装未修改。"; return 1; }
+  bash "$installer" "$@"
+)
+
 toolkit_self_update() {
-  local context="${1:-command}" latest installed_version installer bin_path="/usr/local/bin/keine"
+  local context="${1:-command}" latest installed_version installer previous_identity current_identity bin_path="/usr/local/bin/keine"
   local installer_args=()
   case "$context" in menu|command) ;; *) return 1 ;; esac
   command_exists curl || { warn "缺少 curl，无法获取更新。"; return 1; }
@@ -64,21 +80,17 @@ toolkit_self_update() {
     confirm "从 GitHub main 更新 keine？" || return 0
   fi
   require_root
+  previous_identity="$(stat -Lc '%d:%i' -- "$ROOT_DIR")" || { warn "无法确认当前安装目录。"; return 1; }
   if [[ -r "$ROOT_DIR/config/installation.conf" ]]; then
     # shellcheck source=/dev/null
     . "$ROOT_DIR/config/installation.conf"
     bin_path="${KEINE_BIN_PATH:-$bin_path}"
   fi
   installer="$(mktemp)" || { warn "无法创建更新安装器临时文件。"; return 1; }
-  if ! curl --disable -fsSL --retry 3 --connect-timeout 10 --max-time 120 \
-    "https://raw.githubusercontent.com/Elainaicey/keine/refs/heads/main/scripts/install.sh" -o "$installer"; then
-    rm -f -- "$installer"
-    warn "更新安装器下载失败。"
-    return 1
-  fi
   [[ "$DRY_RUN" -eq 0 ]] || installer_args+=(--dry-run)
-  if bash "$installer" --ref main --dir "$ROOT_DIR" --bin "$bin_path" "${installer_args[@]}"; then
-    rm -f -- "$installer"
+  # Leave the old installation before replacement, validation, audit and prompts.
+  cd / || { rm -f -- "$installer"; warn "无法进入安全工作目录。"; return 1; }
+  if toolkit_update_install "$installer" --ref main --dir "$ROOT_DIR" --bin "$bin_path" "${installer_args[@]}"; then
     if (( DRY_RUN == 1 )); then
       info "更新预览完成；未替换程序，不重新加载。"
       return 0
@@ -99,7 +111,12 @@ toolkit_self_update() {
       ui_note "下次启动 keine 将加载新版。"
     fi
   else
-    rm -f -- "$installer"
+    warn "更新未完成。请检查上方原因后重试；安装器会尝试恢复替换前的内容。"
+    current_identity="$(stat -Lc '%d:%i' -- "$ROOT_DIR" 2>/dev/null)" || current_identity=''
+    if [[ "$current_identity" != "$previous_identity" ]]; then
+      warn "原安装目录未完整恢复，请重新安装；不会继续使用旧控制台。"
+      [[ "$context" != menu ]] || exit 1
+    fi
     return 1
   fi
 }

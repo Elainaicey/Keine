@@ -50,6 +50,8 @@ network_endpoint_probe() { captured="probe:$1:$2"; }
 network_http_diagnose() { captured="http:$1"; }
 network_dns_menu() { captured='dns-config'; }
 network_proxy_menu() { captured='proxy'; }
+forward_menu() { captured='forward'; }
+frp_menu() { captured='frp'; }
 network_proxy_check() { captured="proxy-check:$1"; }
 network_tuning_menu() { captured='net-tuning'; }
 network_tuning_adapter_menu() { captured='tuning-adapters'; }
@@ -57,6 +59,9 @@ network_path_trace() { captured="trace:$1"; }
 network_interface_detail() { captured="interface:$1"; }
 terminal_diagnose() { captured='terminal-check'; }
 security_auth_activity() { captured="auth-activity:$1"; }
+security_ssh_manage() { captured=ssh; }
+security_ssh_keys_menu() { captured=ssh-keys; }
+security_ssh_login_diagnose() { captured=ssh-check; }
 security_firewall_manage() { captured=firewall; }
 security_certificates_menu() { captured=certificates; }
 security_tls_inspect() { captured="tls:$1:$2"; }
@@ -65,6 +70,15 @@ web_menu() { captured=web; }
 
 main web
 [[ "$captured" == web ]] || { printf 'FAIL: web 没有进入反代中心\n' >&2; exit 1; }
+for ssh_command in ssh ssh-keys ssh-check; do
+  main "$ssh_command"
+  [[ "$captured" == "$ssh_command" ]] || die "SSH 命令分发错误"
+  if (main "$ssh_command" unexpected >/dev/null 2>&1); then die "SSH 命令接受多余参数"; fi
+done
+main forward
+[[ "$captured" == forward ]] || { printf 'FAIL: forward 没有进入转发中心\n' >&2; exit 1; }
+main frp
+[[ "$captured" == frp ]] || { printf 'FAIL: frp 没有进入隧道中心\n' >&2; exit 1; }
 
 [[ "$(main --version)" == "keine $KEINE_VERSION" ]] || {
   printf 'FAIL: --version 标准选项输出错误\n' >&2

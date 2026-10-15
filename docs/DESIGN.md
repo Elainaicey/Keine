@@ -42,6 +42,7 @@ bin/keine
 ├── config/integrations.tsv
 ├── src/features/network.sh
 ├── src/features/network/{dns,proxy,parameters,overview,diagnostics,http,tuning,menu}.sh
+├── src/features/network/frp/{model,service,transaction,menu}.sh
 ├── config/network-tuning.tsv
 ├── src/features/system.sh
 ├── src/features/system/diagnostics.sh
@@ -93,11 +94,17 @@ bin/keine
 
 产品信息架构按单一 root 管理员维护 VPS 的实际工作流设计，不提供本地账户创建、sudo 分配或多用户 SSH 公钥写入。纯查询动作本身不修改系统；真正修改系统前仍必须调用 `require_root`。
 
+root 公钥管理独立于 SSH 认证策略，只改当前 root 上下文使用的标准 `authorized_keys`。既有文件先明确接管，逐行保留其他条目与选项；使用互斥锁、摘要复核、首次基线和原子替换，回退不得覆盖外部改动。不能移除最后一把可解析的启用公钥，不能将解析通过视为登录成功；收紧认证前必须确认另一窗口实际登录成功。自定义取钥与组合认证保留原生管理。具体边界见 [SSH 登录与公钥](SSH.md)。
+
 展示可运行组件状态时，应在同一领域中提供对应的控制入口。systemd 服务统一复用服务生命周期操作，至少覆盖状态、日志、启动、停止、重启和开机策略，并在修改后验证目标状态。防火墙、Fail2ban、时间同步等具有领域语义的组件可以提供专用管理页，但不能只显示状态后让用户自行寻找命令。
 
 删除由项目创建的系统资源时必须先证明所有权。新建 Swap、下载目录或其他持久资源应在项目状态目录写入最小所有权记录；缺少记录时只展示状态和人工处理指引，不得根据常见路径猜测删除。Compose 等外部资源可以控制生命周期，但不声明所有权，危险操作必须明确其保留和删除边界。
 
-keine 必须保持前台、按需、短生命周期运行。运行时代码不得调用 `crontab`、`systemd-run`、`nohup`、`setsid` 或 daemonize，不得安装项目自有 systemd Unit，不得控制 `.timer` 生命周期，也不得使用 Shell `&` 脱离当前会话。系统中由软件自身提供的守护进程仍可在用户明确操作后通过 service 管理，但它们不属于 keine 后台组件。
+keine 控制台必须保持前台、按需、短生命周期运行。运行时代码不得调用 `crontab`、`systemd-run`、`nohup`、`setsid` 或 daemonize，不得为工具自身安装后台 systemd Unit，不得控制 `.timer` 生命周期，也不得使用 Shell `&` 脱离当前会话。不增加后台监控、自动更新、自动备份或其他周期任务。
+
+用户主动部署的反向代理、容器和 TCP / UDP 转发等业务服务可以常驻，并由原生服务或容器运行时管理；它们与工具自身的后台行为分开。转发功能可在用户确认后创建独立的 `keine-forward-名称.service`，默认立即运行但不开机启动；创建、修改、删除和撤销必须验证归属、外部修改及 drop-in，配置和运行验证失败时回退。仅卸载程序保留业务服务，撤销项目变更再卸载才移除已记录且通过归属检查的转发资源。具体边界见 [端口转发](FORWARDING.md)。系统中由软件自身提供的守护进程仍可在用户明确操作后通过 service 管理。
+
+FRP 同属用户主动部署的业务服务，每台主机各管理一个 `keine-frps.service` 与 `keine-frpc.service`，默认不开机启动。原生 TOML 与 Unit 必须成组验证、记录、回退和撤销；事务期间发现外部修改时停止覆盖并保留恢复副本。服务状态、日志和软件中心共用领域入口，更新前停止对应实例，删除二进制前移除实例。仅安装软件不创建或启动服务。具体流程见 [FRP 隧道](FRP.md)。
 
 软件自身的持久运行影响必须与项目后台边界分开表达。已知会安装服务、Timer/Cron、Socket 或监听器的目录条目使用 `config/software-effects.tsv` 声明，安装前展示但不自动禁用；元数据只能陈述发行版包可能产生的行为，不能承诺某个 Unit 在所有系统上必然启用。
 
@@ -233,7 +240,7 @@ Docker 卷归档必须与配置快照分开保存，且仅手动创建。创建�
 
 - profiles、无人值守安装、`--yes`、软件套餐、全选或多选。
 - 多账户、sudo 分配、Crontab、systemd Timer 管理和项目后台监控。
-- 项目自有常驻服务、后台进程或自动修复任务。
+- 工具自身的常驻服务、后台进程或自动修复任务；用户主动部署的业务服务按上述边界管理。
 - 自动升级整个系统或自动删除用户数据。
 - 卸载时猜测性删除软件或回滚无法确认所有权的系统设置。
 - 安装 Web、容器或数据库时自动修改防火墙。

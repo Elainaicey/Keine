@@ -32,7 +32,7 @@ security_acme_http_check() (
     [[ "$domain" != \*.* ]] || { warn "通配符证书必须使用 DNS 验证。"; return 1; }
     addresses="$(runtime_with_timeout 6 getent ahosts "$domain" 2>/dev/null)" || addresses=''
     if [[ -z "$addresses" ]]; then warn "$domain 无法解析。"; failed=1; continue; fi
-    response="$(curl --noproxy '*' --fail --silent --show-error --location --max-redirs 3 \
+    response="$(curl --disable --noproxy '*' --fail --silent --show-error --location --max-redirs 3 \
       --proto '=http,https' --proto-redir '=http,https' --connect-timeout 4 --max-time 12 \
       "http://$domain/.well-known/acme-challenge/$token" 2>/dev/null)" || response=''
     if [[ "$response" != "$token" ]]; then warn "$domain 的 HTTP 验证路径不可达或未指向此目录。"; failed=1; fi

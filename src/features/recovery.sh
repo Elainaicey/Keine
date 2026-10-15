@@ -3,8 +3,20 @@
 # shellcheck disable=SC2034
 
 recovery_entries() {
-  local entry status label
+  local entry status label role path
   local -A grouped=()
+  if declare -F frp_role_recorded >/dev/null; then
+    for role in frps frpc; do
+      frp_role_recorded "$role" || continue
+      label=可撤销
+      for path in "$(frp_config_path "$role")" "$(frp_unit_path "$role")"; do
+        entry="$(changes_file_entry "$path")"; grouped["$entry"]=1
+        [[ -d "$entry" ]] || continue
+        case "$(changes_file_status "$entry")" in ready|unchanged) ;; *) label=外部修改或冲突 ;; esac
+      done
+      printf 'frp|%s|%s|FRP 实例 / %s\n' "$role" "$label" "$role"
+    done
+  fi
   if declare -F tuning_runtime_entries >/dev/null; then
     while IFS= read -r entry; do
       status="$(tuning_runtime_status "$entry")"
@@ -49,8 +61,22 @@ recovery_reconcile_file() {
 }
 
 recovery_restore_file() {
-  local entry="$1" path
+  local entry="$1" path role
   path="$(<"$entry/path")"
+  if declare -F security_ssh_key_path >/dev/null && [[ "$path" == "$(security_ssh_key_path)" ]]; then
+    security_ssh_keys_locked restore
+    return
+  fi
+  if declare -F frp_recovery_role >/dev/null; then
+    if role="$(frp_recovery_role "$path")"; then frp_remove "$role"; return; fi
+    for role in frps frpc; do
+      if [[ "$path" == "$(frp_binary "$role")" ]]; then frp_release_guard "$role" remove || return 1; fi
+    done
+  fi
+  if declare -F forward_recovery_handles >/dev/null && forward_recovery_handles "$path"; then
+    forward_remove "$path"
+    return
+  fi
   if declare -F web_recovery_handles >/dev/null && web_recovery_handles "$path"; then
     web_recovery_restore "$path"
     return
@@ -68,6 +94,7 @@ recovery_preflight() {
   local kind entry label path current failed=0
   while IFS='|' read -r kind entry label path; do
     case "$kind" in
+      frp) frp_preflight_remove "$entry" || failed=1 ;;
       tuning) tuning_strategy_preflight || failed=1 ;;
       network-runtime)
         case "$(tuning_runtime_status "$entry")" in ready|expired) ;; *) warn "网络运行配置存在冲突：$path"; failed=1 ;; esac ;;
@@ -103,6 +130,7 @@ recovery_restore_all() {
   fi
   while IFS='|' read -r kind entry label path; do
     case "$kind" in
+      frp) frp_remove "$entry" || failed=1 ;;
       tuning) tuning_strategy_restore || failed=1 ;;
       network-runtime) tuning_runtime_restore "$entry" || failed=1 ;;
       file)
@@ -153,6 +181,10 @@ recovery_changes_menu() {
           warn "编号无效。"; pause; continue
         fi
         selected="${rows[$((choice - 1))]}"; IFS='|' read -r kind entry label path <<<"$selected"
+        if [[ "$kind" == frp ]]; then
+          ui_note "FRP 配置与服务成组撤销；从实例详情选择移除托管实例。"
+          frp_role_menu "$entry"; continue
+        fi
         if [[ "$kind" == tuning ]]; then
           network_tuning_adapter_menu; continue
         fi

@@ -19,10 +19,10 @@ security_auth_event_rows() {
     address=""
     if [[ "$line" =~ Accepted[[:space:]]+[^[:space:]]+[[:space:]]+for[[:space:]]+([^[:space:]]+)[[:space:]]+from[[:space:]]+([^[:space:]]+) ]]; then
       event="accepted"; user="${BASH_REMATCH[1]}"; address="${BASH_REMATCH[2]}"
-    elif [[ "$line" =~ Failed[[:space:]]+password[[:space:]]+for[[:space:]]+invalid[[:space:]]+user[[:space:]]+([^[:space:]]+)[[:space:]]+from[[:space:]]+([^[:space:]]+) ]]; then
-      event="failed"; user="${BASH_REMATCH[1]}"; address="${BASH_REMATCH[2]}"
-    elif [[ "$line" =~ Failed[[:space:]]+password[[:space:]]+for[[:space:]]+([^[:space:]]+)[[:space:]]+from[[:space:]]+([^[:space:]]+) ]]; then
-      event="failed"; user="${BASH_REMATCH[1]}"; address="${BASH_REMATCH[2]}"
+    elif [[ "$line" =~ Failed[[:space:]]+(password|publickey|keyboard-interactive/pam)[[:space:]]+for[[:space:]]+invalid[[:space:]]+user[[:space:]]+([^[:space:]]+)[[:space:]]+from[[:space:]]+([^[:space:]]+) ]]; then
+      event="failed"; user="${BASH_REMATCH[2]}"; address="${BASH_REMATCH[3]}"
+    elif [[ "$line" =~ Failed[[:space:]]+(password|publickey|keyboard-interactive/pam)[[:space:]]+for[[:space:]]+([^[:space:]]+)[[:space:]]+from[[:space:]]+([^[:space:]]+) ]]; then
+      event="failed"; user="${BASH_REMATCH[2]}"; address="${BASH_REMATCH[3]}"
     elif [[ "$line" =~ Invalid[[:space:]]+user[[:space:]]+([^[:space:]]+)[[:space:]]+from[[:space:]]+([^[:space:]]+) ]]; then
       event="failed"; user="${BASH_REMATCH[1]}"; address="${BASH_REMATCH[2]}"
     fi
@@ -38,8 +38,6 @@ security_auth_activity_data() {
   [[ "$hours" =~ ^[0-9]+$ ]] && (( hours >= 1 && hours <= 168 )) || return 1
   if command_exists journalctl; then
     journalctl -u ssh.service -u sshd.service --since "-$hours hours" --no-pager -n 5000 2>/dev/null || true
-  elif [[ -r /var/log/auth.log ]]; then
-    tail -n 5000 /var/log/auth.log 2>/dev/null || true
   fi
 }
 
@@ -85,19 +83,29 @@ security_auth_activity() {
   else
     ui_check pass "失败登录数量未达到内置关注阈值"
   fi
-  ui_note "统计仅覆盖 OpenSSH 常见日志格式；日志轮转、语言或自定义格式可能影响计数。"
+  ui_note "统计为指定时段 journal 中最近至多 5000 条记录的已识别事件，不代表唯一连接数；无日志或权限不足时零记录不等于没有失败。"
 }
 
 security_auth_center() {
-  local choice
+  local choice hours=24
   while true; do
-    security_auth_activity 24
+    security_auth_activity "$hours"
     ui_section "明确操作" "accent"
     ui_action 1 "处置一个失败来源" "warning" "只允许选择当前清单中的明确 IP"
+    ui_action 2 "切换时段：1 / 24 / 168 小时" "action"
+    ui_action 3 "登录诊断" "action"
+    ui_action 4 "root 公钥管理" "action"
+    ui_action 5 "原始登录事件（24 小时）" "action"
+    ui_action R "刷新" "action"
     ui_menu_footer "返回"
     ui_read_choice choice
     case "$choice" in
-      1) security_auth_source_response || true; pause ;;
+      1) security_auth_source_response "$hours" || true; pause ;;
+      2) case "$hours" in 24) hours=168 ;; 168) hours=1 ;; *) hours=24 ;; esac ;;
+      3) security_ssh_login_diagnose || true; pause ;;
+      4) security_ssh_keys_menu ;;
+      5) security_auth_log; pause ;;
+      R|r) continue ;;
       0) return 0 ;;
       *) warn "未知选项：$choice" ;;
     esac
@@ -105,12 +113,12 @@ security_auth_center() {
 }
 
 security_auth_source_response() {
-  local raw events sources address count action jails jail current_source banned
-  raw="$(security_auth_activity_data 24)"
+  local hours="${1:-24}" raw events sources address count action jails jail current_source banned
+  raw="$(security_auth_activity_data "$hours")"
   events="$(security_auth_event_rows <<<"$raw")"
   sources="$(security_auth_failed_sources <<<"$events")"
-  [[ -n "$sources" ]] || { warn "最近 24 小时没有可处置的失败登录来源。"; return 1; }
-  ui_page "失败来源处置" "只允许选择最近 24 小时 SSH 失败日志中的明确 IP"
+  [[ -n "$sources" ]] || { warn "最近 $hours 小时没有可处置的失败登录来源。"; return 1; }
+  ui_page "失败来源处置" "只允许选择最近 $hours 小时 SSH 失败日志中的明确 IP"
   while IFS='|' read -r count address; do printf '  %8s  %s\n' "$count" "$address"; done <<<"$sources"
   address="$(read_input "来源 IP" "")"; [[ -n "$address" ]] || return 0
   security_exact_ip_valid "$address" || { warn "来源必须是明确的 IPv4 或 IPv6 地址。"; return 1; }

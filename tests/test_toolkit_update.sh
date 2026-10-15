@@ -4,6 +4,7 @@
 set -Eeuo pipefail
 IFS=$'\n\t'
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT_ROOT="$ROOT_DIR"
 . "$ROOT_DIR/src/core/runtime.sh"
 . "$ROOT_DIR/src/core/ui.sh"
 . "$ROOT_DIR/src/core/navigation.sh"
@@ -44,6 +45,7 @@ cat >"$TEST_UPDATE_ROOT/installer" <<'INSTALLER'
 #!/usr/bin/env bash
 set -eu
 printf '%s\n' "$@" >"$TEST_UPDATE_ROOT/installer-args"
+pwd -P >"$TEST_UPDATE_ROOT/installer-cwd"
 [[ "$INSTALL_FAILURE" == 0 ]] || exit 19
 fixture_dir=''
 preview=0
@@ -57,13 +59,17 @@ while (( $# > 0 )); do
 done
 (( preview == 0 )) || exit 0
 [[ "$fixture_dir" == "$TEST_UPDATE_ROOT/install" ]] || exit 3
+mv "$fixture_dir" "$TEST_UPDATE_ROOT/old-install"
+mkdir -p "$fixture_dir/bin"
 printf '%s\n' "$ACTUAL_VERSION" >"$fixture_dir/VERSION"
 cp "$TEST_UPDATE_ROOT/entry" "$fixture_dir/bin/keine"
+rm -rf -- "$TEST_UPDATE_ROOT/old-install"
 INSTALLER
 
 # Interactive success replaces the process and loads fresh code, retaining options.
 NO_COLOR=1
 (
+  cd "$ROOT_DIR"
   toolkit_self_update menu
   printf 'stale\n' >"$TEST_UPDATE_ROOT/stale-menu"
 ) >"$TEST_UPDATE_ROOT/output"
@@ -72,6 +78,7 @@ NO_COLOR=1
 [[ "$(<"$TEST_UPDATE_ROOT/reload-args")" == $'--no-color\nmenu' ]]
 [[ "$(<"$TEST_UPDATE_ROOT/reload-cwd")" == "$(cd "$ROOT_DIR" && pwd -P)" ]]
 [[ ! -e "$TEST_UPDATE_ROOT/stale-menu" ]]
+[[ "$(<"$TEST_UPDATE_ROOT/installer-cwd")" == / ]]
 grep -q 'from=0.6.1 to=0.6.2' "$TEST_UPDATE_ROOT/audit"
 
 reset_reload() {
@@ -141,4 +148,34 @@ ACTUAL_VERSION=0.6.2
   printf stale >"$TEST_UPDATE_ROOT/stale-menu"
 ) >/dev/null
 [[ -f "$TEST_UPDATE_ROOT/loaded-code" && ! -e "$TEST_UPDATE_ROOT/stale-menu" ]]
-printf 'PASS: self-update reload, cancellation, preview and failure handling\n'
+# Exercise the real installer cleanup transaction in an isolated fixture. Load only
+# definitions, before CLI/root/path checks; no system installation is performed.
+for outcome in failure signal success; do
+  fixture="$TEST_UPDATE_ROOT/transaction-$outcome"
+  mkdir -p "$fixture/current" "$fixture/rollback/original"
+  printf new >"$fixture/current/marker"
+  printf old >"$fixture/rollback/original/marker"
+  result=0
+  (
+    # shellcheck source=/dev/null
+    . <(sed '/^while \[\[ \$# -gt 0 \]\]; do/,$d' "$PROJECT_ROOT/scripts/install.sh")
+    INSTALL_DIR="$fixture/current"
+    BIN_PATH="$fixture/keine"
+    STAGE_DIR="$fixture/stage-already-renamed"
+    ROLLBACK_ROOT="$fixture/rollback"
+    OLD_DIR="$ROLLBACK_ROOT/original"
+    INSTALL_TRANSACTION=1
+    case "$outcome" in
+      failure) exit 19 ;;
+      signal) kill -TERM "$BASHPID"; exit 99 ;;
+      success) INSTALL_COMMITTED=1 ;;
+    esac
+  ) >"$fixture/output" 2>&1 || result=$?
+  if [[ "$outcome" == success ]]; then
+    [[ "$result" == 0 && "$(<"$fixture/current/marker")" == new ]]
+  else
+    [[ "$result" != 0 && "$(<"$fixture/current/marker")" == old ]]
+  fi
+  [[ ! -d "$fixture/rollback" ]]
+done
+printf 'PASS: self-update reload, cancellation, preview, replacement and rollback\n'

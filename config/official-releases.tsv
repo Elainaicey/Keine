@@ -1,4 +1,6 @@
 # id|GitHub repository|command|amd64 asset template|arm64 asset template|homepage
+frps|fatedier/frp|frps|frp_{version}_linux_amd64.tar.gz|frp_{version}_linux_arm64.tar.gz|https://github.com/fatedier/frp
+frpc|fatedier/frp|frpc|frp_{version}_linux_amd64.tar.gz|frp_{version}_linux_arm64.tar.gz|https://github.com/fatedier/frp
 gh|cli/cli|gh|gh_{version}_linux_amd64.tar.gz|gh_{version}_linux_arm64.tar.gz|https://github.com/cli/cli
 shellcheck|koalaman/shellcheck|shellcheck|shellcheck-v{version}.linux.x86_64.tar.gz|shellcheck-v{version}.linux.aarch64.tar.gz|https://github.com/koalaman/shellcheck
 ripgrep|BurntSushi/ripgrep|rg|ripgrep-{version}-x86_64-unknown-linux-musl.tar.gz|ripgrep-{version}-aarch64-unknown-linux-musl.tar.gz|https://github.com/BurntSushi/ripgrep

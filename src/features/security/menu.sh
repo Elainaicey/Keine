@@ -5,7 +5,7 @@ security_menu() {
   while true; do
     ui_page "安全中心"
     ui_section "访问与防护" "primary"
-    ui_item 1 "SSH 安全设置"
+    ui_item 1 "SSH 登录与公钥"
     ui_item 2 "主机防火墙"
     ui_item 3 "Fail2ban 登录防护"
     ui_section "检查与处置" "accent"

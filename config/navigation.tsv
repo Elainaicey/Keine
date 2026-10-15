@@ -2,8 +2,8 @@
 1|overview|主机管理|运维总览|dashboard_menu|关键状态、关注事项与快捷操作
 2|system|主机管理|系统管理|system_menu|基础设置、终端美化、更新与资源
 3|services|主机管理|服务与日志|services_menu|systemd 生命周期、Journal 与启动排障
-4|network|网络与安全|网络管理|network_menu|DNS、SOCKS、WARP、参数与连接诊断
-5|security|网络与安全|安全中心|security_menu|SSH、防火墙、Fail2ban 与登录防护
+4|network|网络与安全|网络管理|network_menu|DNS、SOCKS、端口转发、FRP、WARP 与连接诊断
+5|security|网络与安全|安全中心|security_menu|SSH 登录、公钥、防火墙与 Fail2ban
 6|software|软件与应用|软件中心|software_catalog_menu|单项安装、更新、来源与版本
 7|apps|软件与应用|应用与容器|apps_menu|应用服务、反向代理、HTTPS 与 Docker
 8|recovery|项目与数据|备份与恢复|recovery_menu|手动快照、空间清理与变更撤销

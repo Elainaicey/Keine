@@ -16,6 +16,8 @@ rkhunter|scheduled|-|cron|none|发行版可能安装周期性 Rootkit 检查任�
 chkrootkit|scheduled|-|cron|none|发行版可能安装周期性 Rootkit 检查任务，可在系统配置中关闭
 php-fpm|service|-|none|local-socket|启动版本化的 phpX.Y-fpm.service FastCGI 进程池，通常使用本地 Unix Socket
 nginx|service|nginx.service|none|tcp-listener|安装后通常启动 Web 服务并监听发行版默认 HTTP 端口
+frps|service|keine-frps.service|none|tcp-udp-listener|安装仅提供官方二进制；从 FRP 管理创建实例后才运行，默认不开机启动
+frpc|service|keine-frpc.service|none|outbound|安装仅提供官方二进制；创建客户端后连接服务端和映射目标，默认不开机启动
 caddy|service|caddy.service|none|tcp-udp-listener|官方包通常启动 Web 服务，HTTP/3 配置还可能使用 UDP
 redis|service|redis-server.service|none|tcp-listener|安装后通常启动数据库服务，默认绑定范围由发行版配置决定
 postgresql|service|postgresql.service|none|tcp-listener|安装后通常创建并启动本地数据库集群

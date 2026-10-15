@@ -12,6 +12,12 @@ UNINSTALL=0
 PURGE_DATA=0
 TEMP_ROOT=""
 STAGE_DIR=""
+ROLLBACK_ROOT=""
+OLD_DIR=""
+INSTALL_TRANSACTION=0
+INSTALL_COMMITTED=0
+PREVIOUS_LINK=""
+INITIAL_CWD="${KEINE_INSTALL_CALLER_CWD:-${PWD:-}}"
 BACKUP_ROOT="${KEINE_BACKUP_ROOT:-/var/backups/keine}"
 DOCKER_BACKUP_ROOT="${KEINE_DOCKER_BACKUP_ROOT:-/var/backups/keine-docker}"
 LOG_ROOT="${KEINE_LOG_ROOT:-/var/log/keine}"
@@ -139,14 +145,39 @@ installation_data_read() {
 }
 
 cleanup() {
+  local status="${1:-0}" rollback_failed=0
+  trap '' INT TERM HUP
+  if (( INSTALL_TRANSACTION == 1 && INSTALL_COMMITTED == 0 )); then
+    # A renamed stage is the new installation, not an unrelated destination.
+    if [[ -n "$STAGE_DIR" && ! -e "$STAGE_DIR" && -d "$INSTALL_DIR" ]]; then
+      mv -T -- "$INSTALL_DIR" "$ROLLBACK_ROOT/failed" || rollback_failed=1
+    fi
+    if [[ -d "$OLD_DIR" ]]; then
+      mv -T -- "$OLD_DIR" "$INSTALL_DIR" || rollback_failed=1
+    fi
+    if [[ -n "$PREVIOUS_LINK" ]]; then
+      ln -sfn -- "$PREVIOUS_LINK" "$BIN_PATH" || rollback_failed=1
+    elif [[ -L "$BIN_PATH" ]] && [[ "$(readlink -- "$BIN_PATH")" == "$INSTALL_DIR/bin/keine" ]]; then
+      rm -f -- "$BIN_PATH" || rollback_failed=1
+    fi
+    if (( rollback_failed == 0 )); then info "安装未完成，已恢复操作前的安装与入口。"
+    else info "自动回退未完成，请保留并检查恢复目录：$ROLLBACK_ROOT" >&2; fi
+  fi
   if [[ -n "$STAGE_DIR" && -d "$STAGE_DIR" ]]; then
     rm -rf -- "$STAGE_DIR"
   fi
   if [[ -n "$TEMP_ROOT" && -d "$TEMP_ROOT" ]]; then
     rm -rf -- "$TEMP_ROOT"
   fi
+  if [[ -n "$ROLLBACK_ROOT" && -d "$ROLLBACK_ROOT" ]] && (( rollback_failed == 0 )); then
+    rm -rf -- "$ROLLBACK_ROOT" || info "旧安装清理失败，保留在 $ROLLBACK_ROOT"
+  fi
+  return "$status"
 }
-trap cleanup EXIT
+trap 'cleanup $?' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -170,6 +201,13 @@ if ! safe_install_path "$BIN_PATH" || [[ -d "$BIN_PATH" ]]; then
   die "命令入口必须是安全的绝对文件路径：$BIN_PATH"
 fi
 [[ ! -L "$INSTALL_DIR" ]] || die "安装目录不能是符号链接：$INSTALL_DIR"
+[[ "$(readlink -m -- "$INSTALL_DIR")" == "$INSTALL_DIR" && "$(readlink -m -- "$(dirname -- "$BIN_PATH")")" == "$(dirname -- "$BIN_PATH")" ]] || die "安装路径不能经过符号链接或非规范目录"
+command -v flock >/dev/null 2>&1 || die "缺少 flock，无法保护并发安装"
+lock_key="$(printf '%s' "$INSTALL_DIR" | sha256sum | cut -d ' ' -f 1)"
+lock_path="/run/lock/keine-install-$lock_key.lock"
+[[ ! -L "$lock_path" ]] || die "安装锁路径不安全"
+exec {INSTALL_LOCK_FD}>"$lock_path"
+flock -n "$INSTALL_LOCK_FD" || die "另一个安装或卸载正在操作此目录，请稍后重试"
 if [[ -d "$INSTALL_DIR" ]] && is_toolkit_dir "$INSTALL_DIR"; then installation_data_read; fi
 
 if [[ "$UNINSTALL" -eq 1 ]]; then
@@ -201,6 +239,7 @@ if [[ "$UNINSTALL" -eq 1 ]]; then
     fi
     exit 0
   fi
+  cd / || die "无法进入安全工作目录"
   resolved_bin="$(normalized_link_target "$BIN_PATH" 2>/dev/null || true)"
   expected_bin="$(readlink -m -- "$INSTALL_DIR/bin/keine")"
   if [[ "$resolved_bin" == "$expected_bin" ]]; then
@@ -223,6 +262,7 @@ if [[ -e "$BIN_PATH" && ! -L "$BIN_PATH" ]]; then
   die "命令入口已经存在且不是符号链接：$BIN_PATH"
 fi
 if [[ -L "$BIN_PATH" ]]; then
+  PREVIOUS_LINK="$(readlink -- "$BIN_PATH")"
   current_target="$(normalized_link_target "$BIN_PATH" 2>/dev/null || true)"
   expected_target="$(readlink -m -- "$INSTALL_DIR/bin/keine")"
   [[ "$current_target" == "$expected_target" ]] || die "命令入口指向其他程序：$BIN_PATH"
@@ -232,6 +272,7 @@ if [[ -d "$INSTALL_DIR" ]]; then
 fi
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+cd / || die "无法进入安全工作目录"
 SOURCE_DIR=""
 if is_toolkit_dir "$(dirname -- "$SCRIPT_DIR")"; then
   SOURCE_DIR="$(dirname -- "$SCRIPT_DIR")"
@@ -245,9 +286,10 @@ else
   info "下载 $REPOSITORY@$REF"
   branch_url="https://github.com/$REPOSITORY/archive/refs/heads/$REF.tar.gz"
   tag_url="https://github.com/$REPOSITORY/archive/refs/tags/$REF.tar.gz"
-  if ! curl --disable -fsSL --retry 3 --connect-timeout 10 --max-time 120 --max-filesize 134217728 "$branch_url" -o "$archive"; then
-    curl --disable -fsSL --retry 3 --connect-timeout 10 --max-time 120 --max-filesize 134217728 "$tag_url" -o "$archive" ||
-      die "下载源码失败"
+  if ! http_code="$(curl --disable -fsSL --retry 3 --retry-max-time 180 --connect-timeout 10 --max-time 120 --max-filesize 134217728 -w '%{http_code}' "$branch_url" -o "$archive")"; then
+    [[ "$http_code" == 404 ]] || die "源码下载失败或中断，现有安装未修改；请检查网络后重试"
+    curl --disable -fsSL --retry 3 --retry-max-time 180 --connect-timeout 10 --max-time 120 --max-filesize 134217728 "$tag_url" -o "$archive" ||
+      die "标签源码下载失败，现有安装未修改"
   fi
   archive_root="$(source_archive_root "$archive" "$archive_listing" "$archive_verbose")" ||
     die "源码归档结构或文件类型不安全"
@@ -290,30 +332,25 @@ find "$STAGE_DIR/src" -type f -name '*.sh' -exec chmod 0644 {} \;
 } >"$STAGE_DIR/config/installation.conf"
 chmod 0644 "$STAGE_DIR/config/installation.conf"
 is_toolkit_dir "$STAGE_DIR" || die "暂存的安装内容不完整"
+staged_version="$(tr -d '[:space:]' <"$STAGE_DIR/VERSION")"
+[[ "$staged_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "暂存版本格式无效，现有安装未修改"
+while IFS= read -r -d '' shell_file; do
+  bash -n "$shell_file" || die "暂存脚本语法检查失败，现有安装未修改"
+done < <(find "$STAGE_DIR" -type f \( -name '*.sh' -o -path "$STAGE_DIR/bin/keine" \) -print0)
 
-old_dir=""
+ROLLBACK_ROOT="$(mktemp -d "$parent_dir/.keine-rollback.XXXXXX")"
+OLD_DIR="$ROLLBACK_ROOT/original"
+INSTALL_TRANSACTION=1
 if [[ -d "$INSTALL_DIR" ]]; then
-  old_dir="$parent_dir/.keine-old.$$"
-  mv "$INSTALL_DIR" "$old_dir"
+  mv -T -- "$INSTALL_DIR" "$OLD_DIR" || die "无法保存原安装"
 fi
-if ! mv "$STAGE_DIR" "$INSTALL_DIR"; then
-  if [[ -n "$old_dir" && -d "$old_dir" ]]; then
-    mv "$old_dir" "$INSTALL_DIR"
-  fi
-  die "替换安装目录失败，操作前安装已恢复"
-fi
+mv -T -- "$STAGE_DIR" "$INSTALL_DIR" || die "替换安装目录失败"
+ln -sfn -- "$INSTALL_DIR/bin/keine" "$BIN_PATH" || die "创建命令入口失败"
+[[ "$(KEINE_ROOT="$INSTALL_DIR" bash "$INSTALL_DIR/bin/keine" version)" == "keine $staged_version" ]] || die "新安装启动验证失败"
+INSTALL_COMMITTED=1
 STAGE_DIR=""
-if ! ln -sfn "$INSTALL_DIR/bin/keine" "$BIN_PATH"; then
-  failed_dir="$parent_dir/.keine-failed.$$"
-  mv "$INSTALL_DIR" "$failed_dir"
-  if [[ -n "$old_dir" && -d "$old_dir" ]]; then
-    mv "$old_dir" "$INSTALL_DIR"
-  fi
-  rm -rf -- "$failed_dir"
-  die "创建命令入口失败，操作前安装已恢复"
-fi
-if [[ -n "$old_dir" && -d "$old_dir" ]]; then
-  rm -rf -- "$old_dir"
-fi
 
 info "安装完成：sudo keine"
+case "$INITIAL_CWD" in
+  "$INSTALL_DIR"|"$INSTALL_DIR"/*) info "原终端位于已替换目录；返回后请先执行：cd / && keine" ;;
+esac

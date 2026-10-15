@@ -29,7 +29,7 @@ keine 面向由单一 root 管理员维护的 Linux VPS，提供从状态观察�
 - **状态驱动**：运维总览把当前异常与关注项关联到既有领域入口，不复制第二套实现。
 - **单项安装**：软件中心一次安装、更新或移除一个条目，不提供套餐或全选；系统补丁更新使用独立的预览与确认流程。
 - **直接安装**：选择软件后自动刷新来源并安装，不重复确认；移除、来源接管与高风险配置仍需明确确认。
-- **完全按需**：命令退出后不保留项目进程，不创建 Cron、systemd Timer 或后台监控。
+- **完全按需**：控制台退出后不保留工具进程，不创建 Cron、systemd Timer 或后台监控；用户主动部署的业务服务独立运行。
 - **副作用透明**：软件安装不会自动开放端口、修改 SSH 或套用网络调优模板。
 - **恢复优先**：每项资源仅保存首次修改前的状态；历史快照由用户手动创建，高风险配置先验证，再加载。
 - **最小运行依赖**：核心控制台使用 Bash 与 Debian/Ubuntu 标准系统工具实现。
@@ -41,7 +41,7 @@ keine 面向由单一 root 管理员维护的 Linux VPS，提供从状态观察�
 root 会话：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Elainaicey/keine/refs/heads/main/install.sh)
+cd / && bash <(curl -fsSL https://raw.githubusercontent.com/Elainaicey/keine/refs/heads/main/install.sh)
 ```
 
 安装器将程序原子部署到 `/opt/keine`，并创建 `/usr/local/bin/keine`。下载或暂存目录会在流程结束后自动清理。
@@ -71,10 +71,10 @@ keine
 | --- | --- |
 | **运维总览** | 响应式关键指标、内存/Swap/磁盘进度、服务与更新、TCP/Docker、原生防火墙/Fail2ban/时间同步、恢复准备度和状态驱动的关注事项；可直接进入排障、更新、暴露面、服务与备份 |
 | **系统管理** | 主机名、时区、时间同步与终端美化优先；当前发行版系统更新、事务预览、来源检查、故障排查、资源压力、进程、内核与重启状态、软件包健康、hold、依赖修复、存储与 Swap |
-| **网络管理** | 系统 DNS、SOCKS5 出站配置、原生 WARP、可撤销内核参数和第三方调优适配；接口、路由、会话与监听集中管理，连通性、TCP/HTTP、链路与套接字诊断独立分组 |
-| **安全中心** | UFW 与原生防火墙识别、Oracle Cloud 保护、IPv4/IPv6 端口与来源规则；安全基线、公网暴露、登录分析；SSH 认证/端口与连接策略；Fail2ban 生命周期、Jail 与白名单；Certbot 证书、手动续期、本地 PEM 与在线 TLS 验证 |
+| **网络管理** | 系统 DNS、SOCKS5 出站配置、原生 WARP、TCP / UDP 转发与 IPv4/IPv6 跨地址族转发、FRP 服务端与客户端隧道、可撤销内核参数和第三方调优适配；接口、路由、会话与监听集中管理，连通性、TCP/HTTP、链路与套接字诊断独立分组 |
+| **安全中心** | UFW 与原生防火墙识别、Oracle Cloud 保护、IPv4/IPv6 端口与来源规则；安全基线、公网暴露、分时段登录分析；root 公钥添加/导入/启停/删除、来源限制、基线恢复与登录诊断；SSH 认证/端口与连接策略；Fail2ban 生命周期、Jail 与白名单；Certbot 证书、手动续期、本地 PEM 与在线 TLS 验证 |
 | **服务与日志** | failed/active 服务浏览、资源与退出结果、正反依赖、启动关键链、失败诊断、经验证的 service 生命周期，以及 Journal 条件查询、完整性验证、按时间/容量维护、内核警告和操作审计 |
-| **软件中心** | 281 个单项软件、15 个用途分类；官方直装、原生安装识别、APT 事务预览、运行影响提示；包名搜索、关联软件指南、来源诊断、版本与完整性、安装与更新 |
+| **软件中心** | 283 个单项软件、15 个用途分类；官方直装、原生安装识别、APT 事务预览、运行影响提示；包名搜索、关联软件指南、来源诊断、版本与完整性、安装与更新 |
 | **应用与容器** | 11 类应用服务的资产、健康、监听、日志与生命周期管理；Nginx/Caddy 反向代理创建、修改、HTTPS、启停和删除，原生配置识别与失败回退；Docker 容器、Compose、网络、安全清理和可校验卷备份 |
 | **备份与恢复** | 手动备份托管配置、常用系统配置或指定 `/etc` 文件；每次独立快照、备注与保护、校验、差异、空间清理与恢复；Docker 卷归档；首次基线、冲突检测与项目变更撤销 |
 | **项目管理** | 版本和安装信息、运行环境检查、自更新与三种卸载模式 |
@@ -113,6 +113,8 @@ keine ports                  # 监听端口
 keine dns example.com        # DNS 解析器与记录诊断
 keine dns-config             # 系统 DNS 配置、验证与恢复
 keine proxy                  # 连接已有 SOCKS5 代理的配置中心
+keine forward                # TCP / UDP 转发管理
+keine frp                    # FRP 服务端、客户端与 TCP / UDP 映射
 keine proxy-check https://example.com
                                 # 显式使用代理的一次性连通验证
 keine net-tuning             # 可撤销的网络参数、BBR 与地址优先级
@@ -125,6 +127,9 @@ keine interface ens3         # 单个网络接口详情
 keine system                 # 系统管理中心
 keine network                # 网络与端口中心
 keine security               # 安全中心
+keine ssh                    # SSH 登录与公钥中心
+keine ssh-keys               # root 公钥配置、启停与恢复
+keine ssh-check              # 只读 SSH 登录诊断
 keine firewall               # 主机防火墙与原生端口规则
 keine certificates           # TLS 与证书管理中心
 keine tls example.com 443    # 在线证书、身份与信任链验证
@@ -202,7 +207,7 @@ Nginx、Caddy、Apache、HAProxy 与 Docker 可调用各自的官方只读配置
 | 项目官方 Git 仓库 | Oh My Zsh、Spaceship 等框架或主题 | 验证远端地址，只允许 fast-forward 或官方升级流程 |
 | 项目官方安装渠道 | Starship、Oh My Posh 等专用安装器 | 固定官方 URL、独立状态标记和安装后版本验证 |
 
-20 个官方 Release 条目覆盖 ripgrep、fd、bat、fzf、eza、zoxide、Fastfetch、bottom、dust、duf、hyperfine、just、Lazygit、Delta、Lazydocker、actionlint、GitHub CLI、ShellCheck、Micro 与 Go 版 yq。这些独立工具默认直接下载上游稳定版，发行版软件包只作为显式备选。Go 版 yq 不映射发行版中可能存在的同名 Python 工具。系统组件、共享库与未实现独立安装适配的服务继续使用系统或厂商签名渠道，不混用未经验证的源码安装。
+22 个官方 Release 条目覆盖 ripgrep、fd、bat、fzf、eza、zoxide、Fastfetch、bottom、dust、duf、hyperfine、just、Lazygit、Delta、Lazydocker、actionlint、GitHub CLI、ShellCheck、Micro、Go 版 yq，以及 FRP 的 frps / frpc。这些独立程序默认直接下载上游稳定版，有发行版软件包的条目可显式选择备选来源。FRP 安装仅提供二进制，服务配置从隧道管理单独创建。Go 版 yq 不映射发行版中可能存在的同名 Python 工具。系统组件、共享库与未实现独立安装适配的服务继续使用系统或厂商签名渠道，不混用未经验证的源码安装。
 
 候选版本来自本机索引，不代表已经联网确认。尚未刷新且没有候选版本的条目显示“待刷新确认”，不会直接判定仓库故障；安装时自动刷新并校验 APT 事务，无需额外确认。`R` 可在软件中心、列表和详情刷新索引；来源诊断只读取本地版本优先级与地址。官方 Release 的显式更新检查会重新查询上游，浏览菜单不会联网探测。
 
@@ -238,6 +243,10 @@ Nginx 本身不包含 Certbot。安装 `certbot-nginx` 时，APT 会解析 `pyth
 每个官方二进制都会记录版本、仓库、资产名称、资产 digest、命令路径和二进制 SHA-256。更新或删除前会重新验证本机文件；检测到人为修改时自动操作会停止，可在详情页选择“修复官方安装”，核对变更记录后部署可信版本；如需保存当前版本，请先手动创建快照。
 
 ### 节点主机网络配置
+
+`keine forward` 提供独立的 TCP / UDP 端口转发管理：监听地址与端口、目标 IP 与端口、IPv4/IPv6 跨地址族转发、启停、可选开机启动、日志、目标检查和删除。每条规则使用独立的 socat / systemd 服务，默认仅监听本机，不自动修改 NAT、防火墙或系统 IP 转发参数。删除与恢复只处理本项目有归属记录且未被外部修改的规则。使用方法与限制见[端口转发](docs/FORWARDING.md)。
+
+`keine frp` 管理官方 FRP 服务端和客户端：交互配置控制端点、令牌、允许端口范围与 TCP / UDP 映射，提供启停、开机策略、日志、连接检查和成组撤销。软件中心、网络和应用菜单共用同一入口；可跳转防火墙和反代管理。配置先经过官方 `verify` 检查，客户端启动还需确认登录与映射注册，失败回退；外部实例只读识别。两端部署步骤、TLS 边界与验证限制见 [FRP 隧道](docs/FRP.md)。
 
 `keine dns-config` 识别 systemd-resolved、resolvconf 或普通 `resolv.conf`，提供公共 DNS 和最多三个自定义 IPv4/IPv6 地址。配置通过原生后端加载，并使用系统解析器验证；应用失败时回退，恢复时保留外部修改冲突。不会破坏生成文件的符号链接、锁定 `resolv.conf` 或停用网络管理器。NetworkManager、Netplan 等未适配后端只提供诊断，不强行覆盖。系统 DNS 不等于 Xray、sing-box 等节点软件内部 DNS。[systemd-resolved 配置文档](https://manpages.debian.org/bookworm/systemd-resolved/resolved.conf.5.en.html)
 
@@ -286,6 +295,8 @@ keine --help
 ### 安全策略管理
 
 SSH 提供认证与端口向导，以及认证尝试、认证宽限、复用会话、客户端存活探测、Agent/X11/TCP 转发和远程转发监听范围的逐项设置。写入前保存首次基线，检查 `sshd -t`、核对当前 root 连接上下文的有效值，再 reload；失败时补偿回退。存活探测不是交互空闲超时，SSH TCP 转发开关也不控制 Xray 等节点软件的监听。禁用密码或收紧 root 认证前，必须先在另一窗口验证公钥登录。
+
+root 公钥管理支持粘贴或导入 `.pub`、指纹去重、可选来源和转发限制、启停、删除与首次基线恢复；首次接管需确认，外部修改停止覆盖，最后一把可解析的启用公钥受保护。登录方式切换保留已有组合认证要求；登录诊断检查有效取钥路径、权限、账户及错误线索，登录分析可切换 1/24/168 小时。范围与验证限制见 [SSH 登录与公钥](docs/SSH.md)。
 
 Fail2ban 的 SSH 策略独立管理封禁时间、观察窗口、失败次数及 IP/CIDR 白名单；保留回环和当前 SSH 来源。运行时验证配置与实际参数，并核对当前来源白名单；停止时仅保存配置，不自动启动服务。撤销只恢复项目配置，不删除其他 Jail。使用 systemd 日志后端，需要对应的 Python 支持；工具不自动安装该依赖，配置语法检查也不替代真实服务启动验证。
 
@@ -422,10 +433,12 @@ keine self-update
 也可以重新运行安装命令完成原子升级：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Elainaicey/keine/refs/heads/main/install.sh)
+cd / && bash <(curl -fsSL https://raw.githubusercontent.com/Elainaicey/keine/refs/heads/main/install.sh)
 ```
 
 软件中心中的“更新”只更新当前选中的软件，不会升级整个系统。
+
+安装器在下载和暂存校验通过后才替换现有目录，并在失败或可捕获中断时尝试恢复原安装。并发安装被阻止；断电、SIGKILL 或文件系统故障无法保证自动回退，残留的 `.keine-rollback.*` 应保留用于人工恢复。自更新会提前离开待替换目录；直接运行安装命令时先 `cd /`，避免父终端仍停留在已删除的旧目录。
 
 ### 更新 VPS 系统
 
@@ -476,5 +489,5 @@ keine 依据 [MIT License](LICENSE) 开放源代码。你可以自由使用、�
 ---
 
 <div align="center">
-  <sub>keine 0.6.4 · Built for deliberate VPS operations</sub>
+  <sub>keine 0.6.6 · Built for deliberate VPS operations</sub>
 </div>
