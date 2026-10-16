@@ -72,7 +72,7 @@ security_ssh_key_sources_valid() {
 # 锁覆盖读、确认和写入；摘要在写入前复核，避免将等待输入期间的外部修改纳入项目。
 security_ssh_keys_locked() (
   local operation="$1" lock
-  case "$operation" in add|change|restore) ;; *) return 1 ;; esac
+  case "$operation" in add|change|enable|restore) ;; *) return 1 ;; esac
   require_root
   command_exists ssh-keygen || { warn "缺少 ssh-keygen，请先安装 openssh-client。"; return 1; }
   command_exists flock || { warn "缺少 flock，不能安全修改公钥。"; return 1; }
@@ -87,7 +87,7 @@ security_ssh_keys_locked() (
 )
 
 security_ssh_key_write() {
-  local payload="$1" expected="$2" path settings entry
+  local payload="$1" expected="$2" enable_auth="${3:-0}" approved="${4:-0}" path settings entry
   path="$(security_ssh_key_path)"
   security_ssh_key_safe || return 1
   if ! settings="$(security_ssh_context_values)" || ! security_ssh_key_path_active "$settings"; then
@@ -95,24 +95,62 @@ security_ssh_key_write() {
   fi
   [[ "$(changes_fingerprint "$path")" == "$expected" ]] || { warn "公钥文件已改变，停止覆盖。"; return 1; }
   entry="$(changes_file_entry "$path")"
-  if [[ -f "$path" && ! -d "$entry" ]]; then
-    confirm "明确接管此 root 公钥文件的后续修改？保留现有条目并记录首次基线，外部改动后停止覆盖。" || return 1
+  if [[ -f "$path" && ! -d "$entry" && "$approved" != 1 ]]; then
+    security_ssh_key_confirm "接管并保存公钥文件？" || return 1
     [[ "$(changes_fingerprint "$path")" == "$expected" ]] || return 1
   fi
-  if (( DRY_RUN == 1 )); then info "将原子更新 root 公钥文件，权限 0600；不重载 SSH。"; return 0; fi
+  if (( DRY_RUN == 1 )); then
+    info "将保存公钥文件（0600）。"
+    if [[ "$enable_auth" == 1 ]]; then security_ssh_key_enable_auth || return 1; fi
+    return 0
+  fi
   changes_ready || { warn "恢复记录未启用，拒绝写入公钥。"; return 1; }
   # 新建目录只作容器，不整体登记；撤销时保留目录中后来添加的其他文件。
   if [[ ! -d "$(dirname -- "$path")" ]]; then (umask 077; mkdir -- "$(dirname -- "$path")") || return 1; fi
-  security_ssh_key_install "$payload" "$expected"
+  security_ssh_key_install "$payload" "$expected" "$enable_auth"
+}
+
+security_ssh_key_confirm() {
+  local path
+  path="$(security_ssh_key_path)"
+  if [[ -f "$path" && ! -d "$(changes_file_entry "$path")" ]]; then
+    ui_note "本次将接管公钥文件并保存恢复基线，保留其他条目。"
+  fi
+  confirm "$1"
+}
+
+security_ssh_key_auth_plan() {
+  local settings value
+  settings="$(security_ssh_context_values)" || { warn "无法读取 SSH 认证设置。"; return 1; }
+  security_ssh_key_path_active "$settings" || { warn "SSH 未使用标准公钥路径，请先运行登录诊断。"; return 1; }
+  value="$(security_ssh_effective_values "$settings" pubkeyauthentication)"
+  case "$value" in
+    yes) ui_kv "公钥认证" "已开启" ;;
+    no) ui_kv "公钥认证" "保存后开启" ;;
+    *) warn "无法识别公钥认证设置，请先运行登录诊断。"; return 1 ;;
+  esac
+  if [[ "$(security_ssh_effective_values "$settings" permitrootlogin)" == no ]]; then
+    ui_hint "root 登录被禁止；添加公钥后仍需在登录方式中调整。"
+  fi
+}
+
+security_ssh_key_enable_auth() {
+  local settings value
+  settings="$(security_ssh_context_values)" || return 1
+  value="$(security_ssh_effective_values "$settings" pubkeyauthentication)"
+  [[ "$value" != yes ]] || return 0
+  [[ "$value" == no ]] || { warn "无法确认公钥认证状态。"; return 1; }
+  # 只开启公钥认证，密码、root 登录权限和 MFA 要求保持原样。
+  security_ssh_write_settings "$SECURITY_SSH_AUTH" 'PubkeyAuthentication yes'
 }
 
 security_ssh_key_verify() {
   security_ssh_key_safe && [[ "$(stat -c '%a' -- "$(security_ssh_key_path)")" == 600 ]]
 }
 
-# 公钥不需要 reload；事务只登记本次写入摘要，回退前再次检查外部修改。
+# 必要时在公钥写入验证后开启认证；认证失败也回退本次公钥修改。
 security_ssh_key_install() (
-  local payload="$1" expected="$2" path entry temporary previous installed="" checksum done=0 existed=0
+  local payload="$1" expected="$2" enable_auth="${3:-0}" path entry temporary previous installed="" checksum done=0 existed=0
   path="$(security_ssh_key_path)"; entry="$(changes_file_entry "$path")"
   changes_ready && security_ssh_key_safe || return 1
   [[ "$(changes_fingerprint "$path")" == "$expected" ]] || return 1
@@ -160,18 +198,21 @@ security_ssh_key_install() (
   printf '%s\n' "$installed" >"$entry/last" || return 1
   security_ssh_key_verify || return 1
   [[ "$(changes_fingerprint "$path")" == "$installed" ]] || return 1
+  unset 'CHANGES_PENDING_FILES[$path]'
+  if [[ "$enable_auth" == 1 ]]; then security_ssh_key_enable_auth || return 1; fi
+  [[ "$(changes_fingerprint "$path")" == "$installed" ]] || return 1
   done=1
 )
 
 security_ssh_keys_add() {
-  local path expected input method file source options="" fingerprint existing payload
+  local path expected input method file source="" options="" fingerprint existing payload forwarding=允许
   path="$(security_ssh_key_path)"; expected="$(changes_fingerprint "$path")"
-  ui_page "SSH / 添加 root 公钥" "只粘贴客户端 .pub 公钥；私钥留在客户端"
-  ui_action 1 "粘贴一行公钥" "action"
-  ui_action 2 "导入服务器上的 .pub 文件" "action"
+  ui_page "SSH / 添加公钥" "使用客户端 .pub 文件，私钥留在客户端"
+  ui_action 1 "粘贴公钥" "action"
+  ui_action 2 "从文件导入" "action"
   ui_menu_footer "取消"; ui_read_choice method
   case "$method" in
-    1) input="$(read_input "公钥（类型 Base64 可选备注）" "")" ;;
+    1) input="$(read_input "公钥（完整一行）" "")" ;;
     2)
       file="$(read_input "公钥文件绝对路径" "")"
       [[ "$file" == /*.pub && -f "$file" && ! -L "$file" && "$(stat -c '%s' -- "$file")" -le 16384 ]] || { warn "需要不超过 16 KiB 的普通 .pub 文件。"; return 1; }
@@ -183,25 +224,30 @@ security_ssh_keys_add() {
   fingerprint="$(security_ssh_key_fingerprint "$input")"
   existing="$(security_ssh_key_rows)"
   if awk -F'|' -v fp="$fingerprint" '$3==fp {found=1} END{exit !found}' <<<"$existing"; then warn "该指纹已存在（可能已停用），请管理已有条目。"; return 1; fi
-  ui_kv "指纹" "$fingerprint"
-  source="$(read_input "允许来源 IP 或 CIDR；留空不限" "")"
-  security_ssh_key_sources_valid "$source" || { warn "来源必须是单个 IPv4/IPv6 地址或 CIDR。"; return 1; }
-  [[ -z "$source" ]] || options="from=\"$source\""
-  if confirm "禁止这把公钥的 TCP、Agent 和 X11 转发？保留交互终端与 SFTP。"; then
-    options+="${options:+,}no-port-forwarding,no-agent-forwarding,no-X11-forwarding"
+  if confirm "设置来源或转发限制？"; then
+    source="$(read_input "允许来源（IP/CIDR，留空不限）" "")"
+    security_ssh_key_sources_valid "$source" || { warn "来源必须是单个 IP 或 CIDR。"; return 1; }
+    [[ -z "$source" ]] || options="from=\"$source\""
+    ui_hint "禁用转发会影响 SSH 隧道和 VS Code 远程连接。"
+    if confirm "禁用 TCP、Agent、X11 转发？"; then
+      options+="${options:+,}no-port-forwarding,no-agent-forwarding,no-X11-forwarding"; forwarding=禁止
+    fi
   fi
-  ui_kv "公钥限制" "${options:-无限制}"
-  ui_note "来源限制需覆盖客户端实际出口；有效认证还受 Match、Allow/Deny、PAM 和公钥算法策略影响。"
-  confirm "添加此 root 公钥？添加后请在新窗口验证登录。" || return 0
+  ui_section "确认添加" "primary"
+  ui_kv "指纹" "$fingerprint"
+  ui_kv "来源" "${source:-不限}"
+  ui_kv "转发" "$forwarding"
+  security_ssh_key_auth_plan || return 1
+  security_ssh_key_confirm "添加公钥并应用以上设置？" || return 0
   payload=""; [[ ! -f "$path" ]] || payload="$(cat -- "$path")"
   payload+="${payload:+$'\n'}${options:+$options }$input"
-  security_ssh_key_write "$payload" "$expected" || return 1
+  security_ssh_key_write "$payload" "$expected" 1 1 || return 1
   audit "action=ssh-key-add fingerprint=$fingerprint"
-  if (( DRY_RUN == 0 )); then ui_success "公钥已写入；无需重载 SSH。请从客户端验证新连接。"; fi
+  if (( DRY_RUN == 0 )); then ui_success "公钥已添加，公钥认证已开启。请在新窗口验证登录。"; fi
 }
 
 security_ssh_keys_change() {
-  local path expected rows number selected state fingerprint action payload active line
+  local path expected rows number selected state fingerprint action payload active enable_auth=0 label
   path="$(security_ssh_key_path)"; expected="$(changes_fingerprint "$path")"; rows="$(security_ssh_key_rows)"
   [[ -n "$rows" ]] || { ui_empty "没有可管理公钥"; return 0; }
   security_ssh_keys_list
@@ -209,62 +255,88 @@ security_ssh_keys_change() {
   [[ "$number" =~ ^[1-9][0-9]{0,6}$ ]] || return 1
   selected="$(awk -F'|' -v n="$number" '$1==n {print}' <<<"$rows")"; [[ -n "$selected" ]] || { warn "该行不是可解析的公钥。"; return 1; }
   IFS='|' read -r number state fingerprint <<<"$selected"
-  line="$(sed -n "${number}p" "$path")"
-  ui_kv "选中条目" "$(terminal_safe_text "$line")"
+  ui_kv "选中指纹" "$fingerprint"
   ui_action 1 "$([[ "$state" == enabled ]] && printf 停用 || printf 启用)此公钥" "warning"
   ui_action 2 "删除此公钥" "danger"
   ui_menu_footer "取消"; ui_read_choice action
   case "$action" in 0) return 0 ;; 1|2) ;; *) return 1 ;; esac
   active="$(awk -F'|' '$2=="enabled" {n++} END{print n+0}' <<<"$rows")"
   if [[ "$state" == enabled ]] && (( active <= 1 )); then warn "拒绝停用或删除本文件最后一把可解析的启用公钥。请先添加并验证替代公钥。"; return 1; fi
-  if [[ "$state" == enabled || "$action" == 2 ]]; then
-    confirm "已使用另一把保留的公钥在新窗口登录成功，并保留服务商控制台？" || return 0
+  if [[ "$action" == 2 ]]; then label=删除
+  elif [[ "$state" == enabled ]]; then label=停用
+  else label=启用; enable_auth=1; security_ssh_key_auth_plan || return 1; fi
+  if [[ "$label" == 启用 ]]; then security_ssh_key_confirm "启用此公钥？" || return 0
+  else
+    ui_hint "保留当前连接与服务商控制台。"
+    security_ssh_key_confirm "已验证另一把公钥，确认${label}？" || return 0
   fi
-  confirm "确认修改 $fingerprint？只修改选中行，已有连接不会断开。" || return 0
   payload="$(awk -v n="$number" -v action="$action" -v state="$state" '
     NR!=n {print;next} action==2 {next}
     state=="enabled" {print "# keine-disabled " $0;next}
     {sub(/^# keine-disabled /, "");print}' "$path")"
-  security_ssh_key_write "$payload" "$expected" || return 1
+  security_ssh_key_write "$payload" "$expected" "$enable_auth" 1 || return 1
   audit "action=ssh-key-change fingerprint=$fingerprint operation=$action previous=$state"
   if (( DRY_RUN == 0 )); then ui_success "公钥条目已更新；请验证新连接。"; fi
 }
 
 security_ssh_keys_restore() {
-  ui_hint "恢复首次基线会撤销本工具后来添加、停用或删除的公钥，可能移除当前使用的登录凭据。"
-  confirm "已验证基线中的公钥或服务商控制台可用，确认恢复？" || return 1
+  ui_hint "恢复会撤销后续公钥修改，可能移除当前登录凭据。"
+  confirm "已确认其他登录方式可用，恢复基线？" || return 1
   config_file_restore "$(security_ssh_key_path)" config_no_reload || return 1
   if (( DRY_RUN == 0 )); then audit 'action=ssh-keys-restore'; ui_success "公钥首次基线已恢复；请验证新的客户端连接。"; fi
 }
 
 security_ssh_keys_list() {
-  local number state fingerprint path rows
+  local number state fingerprint path rows settings value
   path="$(security_ssh_key_path)"
   ui_page "SSH / root 公钥管理" "$(terminal_safe_text "$path")"
   security_ssh_key_safe || { warn "路径或权限异常；请先运行登录诊断。"; return 1; }
+  settings="$(security_ssh_context_values || true)"
+  value="$(security_ssh_effective_values "$settings" pubkeyauthentication)"
+  case "$value" in yes) value=已开启 ;; no) value=未开启 ;; *) value=未知 ;; esac
+  ui_kv "公钥认证" "$value"
+  ui_section "公钥列表" "primary"
   rows="$(security_ssh_key_rows)"
   while IFS='|' read -r number state fingerprint; do
     [[ -n "$number" ]] || continue
-    ui_item "$number" "$fingerprint" "$([[ "$state" == enabled ]] && printf 启用 || printf 停用)"
+    ui_kv "第 $number 行 · $([[ "$state" == enabled ]] && printf 启用 || printf 停用)" "$fingerprint"
   done <<<"$rows"
   [[ -n "$rows" ]] || ui_empty "没有可解析的公钥"
-  ui_note "编号为文件行号；指纹解析不等于登录验证。外部选项和未识别行保留原样。"
+}
+
+security_ssh_keys_enable() {
+  local path expected settings
+  settings="$(security_ssh_context_values)" || return 1
+  if [[ "$(security_ssh_effective_values "$settings" pubkeyauthentication)" == yes ]]; then
+    ui_success "公钥认证已开启。"; return 0
+  fi
+  security_root_public_key_exists || { warn "请先添加或启用一把公钥。"; return 1; }
+  path="$(security_ssh_key_path)"; expected="$(changes_fingerprint "$path")"
+  security_ssh_key_auth_plan || return 1
+  ui_note "保留现有密码和登录限制。"
+  security_ssh_key_confirm "开启公钥认证？" || return 0
+  security_ssh_key_write "$(cat -- "$path")" "$expected" 1 1 || return 1
+  if (( DRY_RUN == 0 )); then audit 'action=ssh-pubkey-enable'; ui_success "公钥认证已开启，请在新窗口验证登录。"; fi
 }
 
 security_ssh_keys_menu() {
   local choice
   while true; do
     security_ssh_keys_list || true
+    ui_section "管理" "accent"
     ui_action 1 "添加 / 导入公钥" "action"
-    ui_action 2 "选择公钥：启停 / 删除" "warning"
+    ui_action 2 "管理已有公钥" "action"
     ui_action 3 "登录诊断" "action"
-    ui_action 4 "恢复首次公钥基线" "warning"
+    ui_action 4 "开启公钥认证" "action"
+    ui_section "恢复" "warning"
+    ui_action 5 "恢复公钥基线" "warning"
     ui_menu_footer "返回"; ui_read_choice choice
     case "$choice" in
       1) security_ssh_keys_locked add || true ;;
       2) security_ssh_keys_locked change || true ;;
       3) security_ssh_login_diagnose || true ;;
-      4) security_ssh_keys_locked restore || true ;;
+      4) security_ssh_keys_locked enable || true ;;
+      5) security_ssh_keys_locked restore || true ;;
       0) return 0 ;; *) warn "未知选项"; continue ;;
     esac
     pause

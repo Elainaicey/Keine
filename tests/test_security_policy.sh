@@ -22,12 +22,14 @@ service_exists() { [[ "$1" == ssh.service ]]; }
 systemctl() { [[ "$1" == reload || "$1" == is-active ]]; }
 run() { "$@"; }
 effective_mismatch=0
+pubkey_mismatch=0
 sshd() {
   case "$1" in
     -t) return 0 ;;
     -T)
       awk '!/^#/ && NF {print tolower($1),$2}' "$SECURITY_SSH_POLICY"
       (( effective_mismatch == 0 )) || printf 'maxauthtries 9\n'
+      (( pubkey_mismatch == 0 )) || printf 'pubkeyauthentication no\n'
       return 0 ;;
     *) return 1 ;;
   esac
@@ -48,6 +50,29 @@ if security_ssh_write_settings "$SECURITY_SSH_POLICY" 'MaxAuthTries 4' >/dev/nul
 sed -i '/^# external change$/d' "$SECURITY_SSH_POLICY"
 config_file_restore "$SECURITY_SSH_POLICY" security_ssh_reload_only >/dev/null
 [[ "$(cat "$SECURITY_SSH_POLICY")" == "$original" ]] || die '初始 SSH 配置未恢复'
+
+# 复用真实配置事务，只切换公钥认证；Match 冲突与 reload 失败必须恢复原文件。
+SECURITY_SSH_AUTH="$SECURITY_SSH_POLICY"
+auth_original=$'# Managed by keine\nPubkeyAuthentication no\nPasswordAuthentication yes\nPermitRootLogin prohibit-password\nAuthenticationMethods publickey,password\nPort 2222'
+printf '%s\n' "$auth_original" >"$SECURITY_SSH_AUTH"
+DRY_RUN=1
+security_ssh_key_enable_auth >/dev/null
+[[ "$(cat "$SECURITY_SSH_AUTH")" == "$auth_original" && ! -d "$(changes_file_entry "$SECURITY_SSH_AUTH")" ]] || die '预览改写认证或基线'
+DRY_RUN=0
+security_ssh_key_enable_auth >/dev/null
+grep -Fxq 'PubkeyAuthentication yes' "$SECURITY_SSH_AUTH" || die '公钥认证未开启'
+for preserved in 'PasswordAuthentication yes' 'PermitRootLogin prohibit-password' 'AuthenticationMethods publickey,password' 'Port 2222'; do
+  grep -Fxq "$preserved" "$SECURITY_SSH_AUTH" || die '开启公钥认证改变了其他设置'
+done
+config_file_restore "$SECURITY_SSH_AUTH" security_ssh_reload_only >/dev/null
+pubkey_mismatch=1
+if security_ssh_key_enable_auth >/dev/null 2>&1; then die '未识别公钥认证有效值冲突'; fi
+[[ "$(cat "$SECURITY_SSH_AUTH")" == "$auth_original" ]] || die '有效值冲突未恢复认证配置'
+pubkey_mismatch=0
+systemctl() { [[ "$1" == is-active ]]; }
+if security_ssh_key_enable_auth >/dev/null 2>&1; then die '忽略公钥认证 reload 失败'; fi
+[[ "$(cat "$SECURITY_SSH_AUTH")" == "$auth_original" ]] || die 'reload 失败未回退认证配置'
+systemctl() { [[ "$1" == reload || "$1" == is-active ]]; }
 
 SSH_CONNECTION='192.0.2.10 49152 198.51.100.10 22'
 SECURITY_F2B_BANTIME=3600

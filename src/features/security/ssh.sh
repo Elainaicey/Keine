@@ -212,9 +212,11 @@ security_ssh_manage() {
     ui_panel_kv "端口" "$port/tcp"
     ui_panel_kv "连接策略" "$([[ -f "$SECURITY_SSH_POLICY" ]] && printf '已创建' || printf '未创建')"
     ui_panel_end
-    ui_section "查看" "primary"
-    ui_action_pair 1 "有效配置" "action" 2 "当前会话" "action"
-    ui_action_pair 3 "root 公钥管理" "action" 4 "主机密钥" "action"
+    ui_section "查看与管理" "primary"
+    ui_action 1 "有效配置" "action"
+    ui_action 2 "当前会话" "action"
+    ui_action 3 "root 公钥管理" "action"
+    ui_action 4 "主机密钥" "action"
     ui_action 5 "登录活动与来源处置" "action"
     ui_section "配置" "accent"
     ui_action 6 "SSH 安全向导" "warning"
@@ -222,8 +224,9 @@ security_ssh_manage() {
     ui_action 8 "连接与转发策略" "action"
     ui_action 9 "恢复认证与端口" "warning"
     ui_action 10 "登录方式：公钥 / 密码" "warning"
+    ui_section "诊断与资产" "primary"
     ui_action 11 "登录诊断" "action"
-    ui_action 12 "全部用户公钥资产（只读）" "action"
+    ui_action 12 "公钥资产（只读）" "action"
     ui_menu_footer "返回"
     ui_read_choice action
     case "$action" in

@@ -126,6 +126,29 @@ grep -Fxq "from=\"192.0.2.0/24\",no-port-forwarding,no-agent-forwarding,no-X11-f
 test_choice=1
 if security_ssh_keys_add >/dev/null 2>&1; then die '接收了重复公钥'; fi
 config_file_restore "$path" config_no_reload >/dev/null
+(
+  # 新增公钥时同步开启认证；失败恢复本次公钥，预览不写，开启后不重复 reload。
+  ssh_test_settings=$'authorizedkeysfile .ssh/authorized_keys\npubkeyauthentication no\nauthenticationmethods publickey,password'
+  auth_calls="$key_test_root/auth-calls"
+  auth_fail=0
+  security_ssh_write_settings() {
+    [[ "$1" == "$SECURITY_SSH_AUTH" && "$2" == 'PubkeyAuthentication yes' ]] || die '公钥添加修改了其他认证策略'
+    printf 'enable\n' >>"$auth_calls"
+    (( auth_fail == 0 ))
+  }
+  before="$(changes_fingerprint "$path")"
+  auth_fail=1
+  if security_ssh_key_write "$key1" "$before" 1 >/dev/null 2>&1; then die '认证失败仍返回添加成功'; fi
+  [[ "$(changes_fingerprint "$path")" == "$before" ]] || die '认证失败未恢复公钥'
+  auth_fail=0
+  security_ssh_key_write "$key1" "$before" 1 >/dev/null
+  [[ "$(cat "$path")" == "$key1" && "$(wc -l <"$auth_calls")" -eq 2 ]] || die '未同步开启公钥认证'
+  config_file_restore "$path" config_no_reload >/dev/null
+  ssh_test_settings=$'authorizedkeysfile .ssh/authorized_keys\npubkeyauthentication yes'
+  security_ssh_key_write "$key1" "$(changes_fingerprint "$path")" 1 >/dev/null
+  [[ "$(wc -l <"$auth_calls")" -eq 2 ]] || die '已开启认证仍重复 reload'
+  config_file_restore "$path" config_no_reload >/dev/null
+)
 ssh_test_settings='authorizedkeysfile /custom/keys'
 if security_ssh_key_write "$key1" "$(changes_fingerprint "$path")" >/dev/null 2>&1; then die '写入未启用的标准路径'; fi
 test_uid=1001
