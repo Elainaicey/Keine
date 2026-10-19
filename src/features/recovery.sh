@@ -61,10 +61,11 @@ recovery_reconcile_file() {
 }
 
 recovery_restore_file() {
-  local entry="$1" path role
+  local entry="$1" path role account
   path="$(<"$entry/path")"
-  if declare -F security_ssh_key_path >/dev/null && [[ "$path" == "$(security_ssh_key_path)" ]]; then
-    security_ssh_keys_locked restore
+  if [[ "$path" == */.ssh/authorized_keys ]] && declare -F security_ssh_account_for_key_path >/dev/null; then
+    account="$(security_ssh_account_for_key_path "$path")" || { warn "无法唯一确认公钥所属账户，保留恢复记录：$path"; return 1; }
+    ( SECURITY_SSH_USER="$account"; security_ssh_keys_locked restore )
     return
   fi
   if declare -F frp_recovery_role >/dev/null; then

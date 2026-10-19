@@ -94,7 +94,7 @@ security_auth_center() {
     ui_action 1 "处置一个失败来源" "warning" "只允许选择当前清单中的明确 IP"
     ui_action 2 "切换时段：1 / 24 / 168 小时" "action"
     ui_action 3 "登录诊断" "action"
-    ui_action 4 "root 公钥管理" "action"
+    ui_action 4 "公钥管理" "action" "$(security_ssh_user)"
     ui_action 5 "原始登录事件（24 小时）" "action"
     ui_action R "刷新" "action"
     ui_menu_footer "返回"

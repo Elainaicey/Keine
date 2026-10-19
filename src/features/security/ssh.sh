@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 
 security_root_public_key_exists() {
+  # shellcheck disable=SC2034
+  local SECURITY_SSH_USER=root
+  security_ssh_public_key_exists
+}
+
+security_ssh_public_key_exists() {
   local settings
   security_ssh_key_safe && command_exists ssh-keygen || return 1
   settings="$(security_ssh_context_values)" && security_ssh_key_path_active "$settings" || return 1
@@ -50,6 +56,7 @@ security_ssh_dropin_has_precedence() {
 security_ssh_effective_view() {
   local settings password root_login public_key keyboard forwarding x11 allow_users allow_groups
   ui_page "SSH / 有效配置" "读取 sshd -T 的最终生效值，而不是只查看单个配置文件"
+  ui_kv "检查账户" "$(security_ssh_user)"
   command_exists sshd || { warn "未找到 sshd。"; return 1; }
   settings="$(security_ssh_context_values || true)"
   [[ -n "$settings" ]] || { warn "无法读取 sshd 有效配置，请先执行 sshd -t 检查语法。"; return 1; }
@@ -134,10 +141,13 @@ security_ssh_host_keys() {
 }
 
 security_configure_ssh() {
+  # shellcheck disable=SC2034
+  local SECURITY_SSH_USER=root
   local current_port new_port disable_password=0 root_key_only=0 config payload firewall_backend settings
   current_port="$(detect_ssh_port)"
   config="$SECURITY_SSH_AUTH"
   ui_page "SSH 安全向导" "端口、认证策略、有效值验证与安全 reload"
+  ui_note "服务器级：端口和密码策略影响所有适用账户；root 登录限制仅影响 root。"
   ui_kv "当前端口" "$current_port"
   ui_hint "修改前保留服务商控制台；SSH Socket 激活模式下不直接变更端口。"
   new_port="$(read_input "SSH 端口" "$current_port")"
@@ -210,12 +220,13 @@ security_ssh_manage() {
     ui_panel_kv "服务" "${service:-—}"
     ui_panel_kv "状态" "$state" "$([[ "$state" == "active" ]] && printf '%s' "$GREEN" || printf '%s' "$YELLOW")"
     ui_panel_kv "端口" "$port/tcp"
+    ui_panel_kv "管理账户" "$(security_ssh_user)"
     ui_panel_kv "连接策略" "$([[ -f "$SECURITY_SSH_POLICY" ]] && printf '已创建' || printf '未创建')"
     ui_panel_end
     ui_section "查看与管理" "primary"
     ui_action 1 "有效配置" "action"
     ui_action 2 "当前会话" "action"
-    ui_action 3 "root 公钥管理" "action"
+    ui_action 3 "公钥管理" "action" "$(security_ssh_user)"
     ui_action 4 "主机密钥" "action"
     ui_action 5 "登录活动与来源处置" "action"
     ui_section "配置" "accent"
@@ -223,10 +234,12 @@ security_ssh_manage() {
     if [[ -n "$service" ]]; then ui_action 7 "服务与日志" "action" "$service"; else ui_action 7 "服务与日志" "disabled" "未找到 SSH 服务"; fi
     ui_action 8 "连接与转发策略" "action"
     ui_action 9 "恢复认证与端口" "warning"
-    ui_action 10 "登录方式：公钥 / 密码" "warning"
+    ui_action 10 "登录方式（服务器级）" "warning"
     ui_section "诊断与资产" "primary"
     ui_action 11 "登录诊断" "action"
     ui_action 12 "公钥资产（只读）" "action"
+    ui_action 13 "切换管理账户" "action"
+    ui_action 14 "SSH 出站连接" "action"
     ui_menu_footer "返回"
     ui_read_choice action
     case "$action" in
@@ -248,6 +261,8 @@ security_ssh_manage() {
       10) security_ssh_auth_profile || true ;;
       11) security_ssh_login_diagnose || true ;;
       12) security_ssh_authorized_keys ;;
+      13) security_ssh_account_select || true; continue ;;
+      14) ssh_client_menu; continue ;;
       7) if [[ -n "$service" ]]; then services_select "$service"; else warn "未找到 SSH 服务。"; fi ;;
       0) return 0 ;;
       *) warn "未知选项：$action"; continue ;;

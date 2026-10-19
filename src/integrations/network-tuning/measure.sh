@@ -21,7 +21,8 @@ tuning_measure_resolve() {
 tuning_measure_route() {
   local iface="$1" address="$2" route device
   valid_ipv4_address "$address" || valid_ipv6_address "$address" || return 1
-  route="$(ip route get "$address")" || return 1
+  if valid_ipv6_address "$address"; then route="$(ip -6 route get "$address")" || return 1
+  else route="$(ip route get "$address")" || return 1; fi
   device="$(awk '{for(i=1;i<NF;i++) if($i=="dev"){print $(i+1); exit}}' <<<"$route")"
   [[ "$device" == "$iface" ]] || { warn "测速出口为 ${device:-未知}，与 $iface 不一致。"; return 1; }
 }
@@ -43,7 +44,9 @@ tuning_measure_parse() {
 }
 
 tuning_measure_sample() {
-  local iface="$1" address="$2" port="$3" seconds="$4" streams="$5" result
+  local iface="$1" address="$2" port="$3" seconds="$4" streams="$5" direction="${6:-forward}" result
+  local -a extra=()
+  case "$direction" in forward) ;; reverse) extra=(-R) ;; *) return 1 ;; esac
   tuning_strategy_integer "$port" 65535 &&
     tuning_strategy_integer "$seconds" 30 && (( seconds >= 3 )) &&
     tuning_strategy_integer "$streams" 8 || return 1
@@ -51,7 +54,7 @@ tuning_measure_sample() {
   (( DRY_RUN == 0 )) || { warn "预览模式不发起测速。"; return 1; }
   # Bound both connection setup and measurement; keep Ctrl-C in the foreground.
   result="$(timeout --foreground --signal=TERM --kill-after=3 "$((seconds+10))" \
-    iperf3 -c "$address" -p "$port" --bind-dev "$iface" -t "$seconds" -P "$streams" -J)" || {
+    iperf3 -c "$address" -p "$port" --bind-dev "$iface" -t "$seconds" -P "$streams" -J "${extra[@]}")" || {
     warn "iperf3 失败或超时；检查对端服务、端口与 --bind-dev 支持。"; return 1;
   }
   tuning_measure_parse <<<"$result" || { warn "未取得完整的发送、接收和重传样本。"; return 1; }

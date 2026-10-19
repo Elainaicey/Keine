@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
-# 只管理 root 的标准公钥文件；自定义路径、CA 和命令取钥保留原生管理。
+# 只管理明确选择账户的标准公钥文件；自定义路径、CA 和命令取钥保留原生管理。
 security_ssh_root_home() { getent passwd root | awk -F: '$1=="root" && $3==0 {print $6;exit}'; }
-security_ssh_key_path() { printf '%s/.ssh/authorized_keys' "$(security_ssh_root_home)"; }
+security_ssh_key_path() { printf '%s/.ssh/authorized_keys' "$(security_ssh_account_home)"; }
 
 security_ssh_key_path_active() {
   local settings="$1" home path
-  home="$(security_ssh_root_home)"; [[ "$home" == /* && "$home" != / ]] || return 1
+  home="$(security_ssh_account_home)"; [[ "$home" == /* && "$home" != / ]] || return 1
   while IFS= read -r path; do
     case "$path" in .ssh/authorized_keys|%h/.ssh/authorized_keys|"$home/.ssh/authorized_keys") return 0 ;; esac
   done < <(awk '$1=="authorizedkeysfile" {for(i=2;i<=NF;i++)print $i}' <<<"$settings")
@@ -14,15 +14,24 @@ security_ssh_key_path_active() {
 }
 
 security_ssh_key_safe() {
-  local path home mode
-  home="$(security_ssh_root_home)"; [[ "$home" == /* && "$home" != / && -d "$home" ]] || return 1
+  local path home mode uid owner record
+  record="$(security_ssh_account_record)" || return 1
+  [[ -z "${SECURITY_SSH_ACCOUNT_SNAPSHOT:-}" || "$record" == "$SECURITY_SSH_ACCOUNT_SNAPSHOT" ]] || return 1
+  uid="$(security_ssh_account_uid)"; [[ "$uid" =~ ^[0-9]+$ ]] || return 1
+  home="$(security_ssh_account_home)"; [[ "$home" == /* && "$home" != / && -d "$home" ]] || return 1
   config_file_safe "$(security_ssh_key_path)" || return 1
   for path in "$home" "$home/.ssh" "$(security_ssh_key_path)"; do
     [[ ! -L "$path" ]] || return 1
     [[ -e "$path" ]] || continue
-    [[ "$(stat -c '%u' -- "$path")" == 0 ]] || return 1
+    owner="$(stat -c '%u' -- "$path")"
+    [[ "$owner" == 0 || "$owner" == "$uid" ]] || return 1
     mode="$(stat -c '%a' -- "$path")"; [[ "$mode" =~ ^[0-7]{3,4}$ ]] || return 1
     (( (8#$mode & 0022) == 0 )) || return 1
+    # sshd 以目标账户读取公钥；root 私有目录不能仅因所有者安全就视为可用。
+    if [[ "$uid" != 0 && -d "$path" ]]; then
+      if [[ "$owner" == "$uid" ]]; then (( (8#$mode & 0100) != 0 )) || return 1
+      else (( (8#$mode & 0001) != 0 )) || return 1; fi
+    fi
   done
   [[ ! -e "$home/.ssh" || -d "$home/.ssh" ]] || return 1
   path="$(security_ssh_key_path)"
@@ -65,18 +74,26 @@ security_ssh_key_rows() {
 }
 
 security_ssh_key_sources_valid() {
-  local source="$1"
-  [[ -z "$source" ]] || { [[ "$source" != any ]] && valid_firewall_source "$source"; }
+  local source="$1" part
+  local parts=()
+  [[ -n "$source" ]] || return 0
+  [[ ${#source} -le 1024 && "$source" != ,* && "$source" != *, && "$source" != *,,* ]] || return 1
+  IFS=, read -r -a parts <<<"$source"
+  for part in "${parts[@]}"; do
+    [[ "$part" != any ]] && valid_firewall_source "$part" || return 1
+  done
 }
 
 # 锁覆盖读、确认和写入；摘要在写入前复核，避免将等待输入期间的外部修改纳入项目。
 security_ssh_keys_locked() (
   local operation="$1" lock
+  local SECURITY_SSH_ACCOUNT_SNAPSHOT
+  SECURITY_SSH_ACCOUNT_SNAPSHOT="$(security_ssh_account_record)" || return 1
   case "$operation" in add|change|enable|restore) ;; *) return 1 ;; esac
   require_root
   command_exists ssh-keygen || { warn "缺少 ssh-keygen，请先安装 openssh-client。"; return 1; }
   command_exists flock || { warn "缺少 flock，不能安全修改公钥。"; return 1; }
-  security_ssh_key_safe || { warn "root 公钥路径、所有者、权限或文件类型不安全；请先运行登录诊断。"; return 1; }
+  security_ssh_key_safe || { warn "所选账户的公钥路径、所有者、权限或文件类型不安全；请先运行登录诊断。"; return 1; }
   if (( DRY_RUN == 1 )); then "security_ssh_keys_$operation"; return; fi
   changes_storage_ready || return 1
   lock="$(changes_root)/ssh-keys.lock"
@@ -91,7 +108,7 @@ security_ssh_key_write() {
   path="$(security_ssh_key_path)"
   security_ssh_key_safe || return 1
   if ! settings="$(security_ssh_context_values)" || ! security_ssh_key_path_active "$settings"; then
-    warn "当前 root 上下文未使用标准 authorized_keys；请通过原生配置管理自定义取钥方式。"; return 1;
+    warn "所选账户未使用标准 authorized_keys；请通过原生配置管理自定义取钥方式。"; return 1;
   fi
   [[ "$(changes_fingerprint "$path")" == "$expected" ]] || { warn "公钥文件已改变，停止覆盖。"; return 1; }
   entry="$(changes_file_entry "$path")"
@@ -106,7 +123,10 @@ security_ssh_key_write() {
   fi
   changes_ready || { warn "恢复记录未启用，拒绝写入公钥。"; return 1; }
   # 新建目录只作容器，不整体登记；撤销时保留目录中后来添加的其他文件。
-  if [[ ! -d "$(dirname -- "$path")" ]]; then (umask 077; mkdir -- "$(dirname -- "$path")") || return 1; fi
+  if [[ ! -d "$(dirname -- "$path")" ]]; then
+    (umask 077; mkdir -- "$(dirname -- "$path")") || return 1
+    chown "$(security_ssh_account_uid):$(security_ssh_account_gid)" -- "$(dirname -- "$path")" || return 1
+  fi
   security_ssh_key_install "$payload" "$expected" "$enable_auth"
 }
 
@@ -115,6 +135,9 @@ security_ssh_key_confirm() {
   path="$(security_ssh_key_path)"
   if [[ -f "$path" && ! -d "$(changes_file_entry "$path")" ]]; then
     ui_note "本次将接管公钥文件并保存恢复基线，保留其他条目。"
+  fi
+  if [[ "$(security_ssh_user)" != root && -f "$path" && "$(stat -c '%u' -- "$path")" == 0 ]]; then
+    ui_note "保存后公钥文件归 $(security_ssh_user) 所有（0600），原所有权保留在基线中。"
   fi
   confirm "$1"
 }
@@ -126,10 +149,11 @@ security_ssh_key_auth_plan() {
   value="$(security_ssh_effective_values "$settings" pubkeyauthentication)"
   case "$value" in
     yes) ui_kv "公钥认证" "已开启" ;;
-    no) ui_kv "公钥认证" "保存后开启" ;;
+    no) ui_kv "公钥认证" "保存后开启（服务器级，可能影响其他账户）" ;;
     *) warn "无法识别公钥认证设置，请先运行登录诊断。"; return 1 ;;
   esac
-  if [[ "$(security_ssh_effective_values "$settings" permitrootlogin)" == no ]]; then
+  ui_kv "公钥文件范围" "$(security_ssh_user)"
+  if [[ "$(security_ssh_user)" == root && "$(security_ssh_effective_values "$settings" permitrootlogin)" == no ]]; then
     ui_hint "root 登录被禁止；添加公钥后仍需在登录方式中调整。"
   fi
 }
@@ -145,7 +169,8 @@ security_ssh_key_enable_auth() {
 }
 
 security_ssh_key_verify() {
-  security_ssh_key_safe && [[ "$(stat -c '%a' -- "$(security_ssh_key_path)")" == 600 ]]
+  security_ssh_key_safe && [[ "$(stat -c '%a' -- "$(security_ssh_key_path)")" == 600 ]] || return 1
+  [[ "$(security_ssh_user)" == root || "$(stat -c '%u' -- "$(security_ssh_key_path)")" == "$(security_ssh_account_uid)" ]]
 }
 
 # 必要时在公钥写入验证后开启认证；认证失败也回退本次公钥修改。
@@ -186,7 +211,8 @@ security_ssh_key_install() (
   # 子目录不应被其他整体目录记录接管。
   [[ -d "$entry" ]] || return 1
   printf '%s\n' "$payload" >"$temporary" && chmod 0600 "$temporary" || return 1
-  if (( existed == 1 )); then chown --reference="$path" "$temporary" || return 1; fi
+  if (( existed == 1 )) && [[ "$(security_ssh_user)" == root ]]; then chown --reference="$path" "$temporary" || return 1
+  else chown "$(security_ssh_account_uid):$(security_ssh_account_gid)" -- "$temporary" || return 1; fi
   # 预先计算目标路径的摘要，捕获紧邻 rename 的信号也能判断是否已经替换。
   # 安全路径不含反斜杠，保持与 sha256sum 的文件名序列化一致。
   [[ "$path" != *\\* ]] || return 1
@@ -225,8 +251,8 @@ security_ssh_keys_add() {
   existing="$(security_ssh_key_rows)"
   if awk -F'|' -v fp="$fingerprint" '$3==fp {found=1} END{exit !found}' <<<"$existing"; then warn "该指纹已存在（可能已停用），请管理已有条目。"; return 1; fi
   if confirm "设置来源或转发限制？"; then
-    source="$(read_input "允许来源（IP/CIDR，留空不限）" "")"
-    security_ssh_key_sources_valid "$source" || { warn "来源必须是单个 IP 或 CIDR。"; return 1; }
+    source="$(read_input "允许来源（IP/CIDR，逗号分隔；留空不限）" "")"
+    security_ssh_key_sources_valid "$source" || { warn "来源必须是 IP/CIDR，多个来源用逗号分隔。"; return 1; }
     [[ -z "$source" ]] || options="from=\"$source\""
     ui_hint "禁用转发会影响 SSH 隧道和 VS Code 远程连接。"
     if confirm "禁用 TCP、Agent、X11 转发？"; then
@@ -242,7 +268,7 @@ security_ssh_keys_add() {
   payload=""; [[ ! -f "$path" ]] || payload="$(cat -- "$path")"
   payload+="${payload:+$'\n'}${options:+$options }$input"
   security_ssh_key_write "$payload" "$expected" 1 1 || return 1
-  audit "action=ssh-key-add fingerprint=$fingerprint"
+  audit "action=ssh-key-add user=$(security_ssh_user) fingerprint=$fingerprint"
   if (( DRY_RUN == 0 )); then ui_success "公钥已添加，公钥认证已开启。请在新窗口验证登录。"; fi
 }
 
@@ -258,8 +284,13 @@ security_ssh_keys_change() {
   ui_kv "选中指纹" "$fingerprint"
   ui_action 1 "$([[ "$state" == enabled ]] && printf 停用 || printf 启用)此公钥" "warning"
   ui_action 2 "删除此公钥" "danger"
+  ui_action 3 "详情 / 修改限制与备注" "action"
   ui_menu_footer "取消"; ui_read_choice action
-  case "$action" in 0) return 0 ;; 1|2) ;; *) return 1 ;; esac
+  case "$action" in
+    0) return 0 ;;
+    3) security_ssh_keys_edit "$number" "$expected"; return ;;
+    1|2) ;; *) return 1 ;;
+  esac
   active="$(awk -F'|' '$2=="enabled" {n++} END{print n+0}' <<<"$rows")"
   if [[ "$state" == enabled ]] && (( active <= 1 )); then warn "拒绝停用或删除本文件最后一把可解析的启用公钥。请先添加并验证替代公钥。"; return 1; fi
   if [[ "$action" == 2 ]]; then label=删除
@@ -275,11 +306,12 @@ security_ssh_keys_change() {
     state=="enabled" {print "# keine-disabled " $0;next}
     {sub(/^# keine-disabled /, "");print}' "$path")"
   security_ssh_key_write "$payload" "$expected" "$enable_auth" 1 || return 1
-  audit "action=ssh-key-change fingerprint=$fingerprint operation=$action previous=$state"
+  audit "action=ssh-key-change user=$(security_ssh_user) fingerprint=$fingerprint operation=$action previous=$state"
   if (( DRY_RUN == 0 )); then ui_success "公钥条目已更新；请验证新连接。"; fi
 }
 
 security_ssh_keys_restore() {
+  ui_kv "恢复账户" "$(security_ssh_user)"
   ui_hint "恢复会撤销后续公钥修改，可能移除当前登录凭据。"
   confirm "已确认其他登录方式可用，恢复基线？" || return 1
   config_file_restore "$(security_ssh_key_path)" config_no_reload || return 1
@@ -287,9 +319,9 @@ security_ssh_keys_restore() {
 }
 
 security_ssh_keys_list() {
-  local number state fingerprint path rows settings value
+  local number state fingerprint path rows settings value line
   path="$(security_ssh_key_path)"
-  ui_page "SSH / root 公钥管理" "$(terminal_safe_text "$path")"
+  ui_page "SSH / $(security_ssh_user) 公钥管理" "$(terminal_safe_text "$path")"
   security_ssh_key_safe || { warn "路径或权限异常；请先运行登录诊断。"; return 1; }
   settings="$(security_ssh_context_values || true)"
   value="$(security_ssh_effective_values "$settings" pubkeyauthentication)"
@@ -300,6 +332,13 @@ security_ssh_keys_list() {
   while IFS='|' read -r number state fingerprint; do
     [[ -n "$number" ]] || continue
     ui_kv "第 $number 行 · $([[ "$state" == enabled ]] && printf 启用 || printf 停用)" "$fingerprint"
+    line="$(sed -n "${number}p" "$path")"
+    if security_ssh_key_details "$line"; then
+      ui_kv "备注 / 算法" "$(terminal_safe_text "${SSH_KEY_COMMENT:-未备注}") / $SSH_KEY_TYPE"
+      ui_kv "来源" "$(terminal_safe_text "$SSH_KEY_SOURCE")"
+      ui_kv "转发" "TCP $SSH_KEY_TCP / Agent $SSH_KEY_AGENT / X11 $SSH_KEY_X11"
+      [[ -z "$SSH_KEY_EXTRA" ]] || ui_kv "其他约束*" "$(terminal_safe_text "$SSH_KEY_EXTRA")"
+    fi
   done <<<"$rows"
   [[ -n "$rows" ]] || ui_empty "没有可解析的公钥"
 }
@@ -310,7 +349,7 @@ security_ssh_keys_enable() {
   if [[ "$(security_ssh_effective_values "$settings" pubkeyauthentication)" == yes ]]; then
     ui_success "公钥认证已开启。"; return 0
   fi
-  security_root_public_key_exists || { warn "请先添加或启用一把公钥。"; return 1; }
+  security_ssh_public_key_exists || { warn "请先为所选账户添加或启用一把公钥。"; return 1; }
   path="$(security_ssh_key_path)"; expected="$(changes_fingerprint "$path")"
   security_ssh_key_auth_plan || return 1
   ui_note "保留现有密码和登录限制。"
@@ -328,6 +367,7 @@ security_ssh_keys_menu() {
     ui_action 2 "管理已有公钥" "action"
     ui_action 3 "登录诊断" "action"
     ui_action 4 "开启公钥认证" "action"
+    ui_action U "切换账户" "action" "当前：$(security_ssh_user)"
     ui_section "恢复" "warning"
     ui_action 5 "恢复公钥基线" "warning"
     ui_menu_footer "返回"; ui_read_choice choice
@@ -337,6 +377,7 @@ security_ssh_keys_menu() {
       3) security_ssh_login_diagnose || true ;;
       4) security_ssh_keys_locked enable || true ;;
       5) security_ssh_keys_locked restore || true ;;
+      U|u) security_ssh_account_select || true; continue ;;
       0) return 0 ;; *) warn "未知选项"; continue ;;
     esac
     pause

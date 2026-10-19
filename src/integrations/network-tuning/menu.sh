@@ -118,12 +118,14 @@ network_tuning_menu() {
     ui_action 2 "手动连接参数" "action"
     ui_action 3 "BBR 拥塞控制" "action"
     ui_action 4 "IP 地址优先级" "action"
+    ui_action 5 "调优前后对比" "action"
     ui_menu_footer "返回"; ui_read_choice choice
     case "$choice" in
       1) network_tuning_adapter_menu ;;
       2) network_parameters_menu ;;
       3) network_bbr_manage || true; pause ;;
       4) network_set_address_preference || true; pause ;;
+      5) tuning_comparison_menu ;;
       0) return 0 ;; *) warn "未知选项" ;;
     esac
   done

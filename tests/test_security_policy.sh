@@ -18,6 +18,7 @@ KEINE_SSH_POLICY="$policy_test_root/00-keine-policy.conf"
 . "$ROOT_DIR/src/features/security.sh"
 CHANGES_ENABLED=1
 require_root() { :; }
+getent() { [[ "$1" == passwd && "${2:-root}" == root ]] && printf 'root:x:0:0:root:/root:/bin/bash\n'; }
 service_exists() { [[ "$1" == ssh.service ]]; }
 systemctl() { [[ "$1" == reload || "$1" == is-active ]]; }
 run() { "$@"; }
@@ -50,6 +51,26 @@ if security_ssh_write_settings "$SECURITY_SSH_POLICY" 'MaxAuthTries 4' >/dev/nul
 sed -i '/^# external change$/d' "$SECURITY_SSH_POLICY"
 config_file_restore "$SECURITY_SSH_POLICY" security_ssh_reload_only >/dev/null
 [[ "$(cat "$SECURITY_SSH_POLICY")" == "$original" ]] || die '初始 SSH 配置未恢复'
+
+# Reject scoped directives even with a project marker and no previous ownership record.
+for scoped in 'Match User guest' 'Include /etc/ssh/custom.conf'; do
+  printf '# Managed by keine\n%s\nPasswordAuthentication yes\n' "$scoped" >"$SECURITY_SSH_POLICY"
+  before_scoped="$(cat "$SECURITY_SSH_POLICY")"
+  if security_ssh_write_settings "$SECURITY_SSH_POLICY" 'MaxAuthTries 4' >/dev/null 2>&1; then die '合并了含作用域指令的文件'; fi
+  [[ "$(cat "$SECURITY_SSH_POLICY")" == "$before_scoped" ]] || die '作用域拒绝仍改写文件'
+done
+printf '%s\n' "$original" >"$SECURITY_SSH_POLICY"
+# A main-file rollback must restore this operation, not the first historical baseline.
+printf 'Port 2200\n' >"$SECURITY_SSH_MAIN"
+config_file_write "$SECURITY_SSH_MAIN" 0644 'Port 2222' config_no_reload >/dev/null
+main_before="$(cat "$SECURITY_SSH_MAIN")"
+effective_mismatch=1
+if security_ssh_write_settings "$SECURITY_SSH_POLICY" 'MaxAuthTries 5' >/dev/null 2>&1; then die '未识别失败应用'; fi
+[[ "$(cat "$SECURITY_SSH_MAIN")" == "$main_before" ]] || die '回退到了历史基线而非本次修改前'
+effective_mismatch=0
+config_file_restore "$SECURITY_SSH_POLICY" config_no_reload >/dev/null
+config_file_restore "$SECURITY_SSH_MAIN" config_no_reload >/dev/null
+printf 'Include /etc/ssh/sshd_config.d/*.conf\n' >"$SECURITY_SSH_MAIN"
 
 # 复用真实配置事务，只切换公钥认证；Match 冲突与 reload 失败必须恢复原文件。
 SECURITY_SSH_AUTH="$SECURITY_SSH_POLICY"

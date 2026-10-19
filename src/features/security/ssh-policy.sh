@@ -28,15 +28,17 @@ security_ssh_policy_valid() {
 }
 
 security_ssh_context_values() {
-  local address client_port local_address local_port context
+  local address client_port local_address local_port context user
+  user="$(security_ssh_user)"
+  security_ssh_account_record "$user" >/dev/null || return 1
   IFS=' ' read -r address client_port local_address local_port <<<"${SSH_CONNECTION:-}"
   if [[ -n "$address" ]] && security_exact_ip_valid "$address"; then
-    context="user=root,host=$address,addr=$address"
+    context="user=$user,host=$address,addr=$address"
     if [[ -n "$client_port" && -n "$local_address" && -n "$local_port" ]] && security_exact_ip_valid "$local_address" && valid_port "$local_port"; then
       context+=",laddr=$local_address,lport=$local_port"
     fi
     sshd -T -f "$SECURITY_SSH_MAIN" -C "$context" 2>/dev/null
-  else sshd -T -f "$SECURITY_SSH_MAIN" -C 'user=root,host=localhost,addr=127.0.0.1' 2>/dev/null; fi
+  else sshd -T -f "$SECURITY_SSH_MAIN" -C "user=$user,host=localhost,addr=127.0.0.1" 2>/dev/null; fi
 }
 
 security_ssh_reload_only() {
@@ -63,7 +65,7 @@ security_ssh_apply_validate() {
 }
 
 security_ssh_write_settings() {
-  local path="$1" updates="$2" existing="" payload main_payload main_changed=0
+  local path="$1" updates="$2" existing="" payload main_payload main_previous main_changed=0
   local SECURITY_SSH_EXPECTED="$updates"
   config_file_safe "$path" && config_file_safe "$SECURITY_SSH_MAIN" || return 1
   command_exists sshd || { warn "未找到 sshd。"; return 1; }
@@ -71,19 +73,23 @@ security_ssh_write_settings() {
     if ! grep -Fqx '# Managed by keine' "$path"; then
       warn "该 SSH 文件不是项目配置，拒绝覆盖。"; return 1
     fi
+    if grep -Eiq '^[[:space:]]*(Match|Include)([[:space:]=]|$)' "$path"; then
+      warn "项目文件含 Match / Include；请先用原生配置管理，避免改变认证作用范围。"; return 1
+    fi
     existing="$(cat -- "$path")"
   fi
   payload="$(awk 'FNR==NR {if(NF && $1 !~ /^#/) updated[tolower($1)]=1; next}
     NF && $1 !~ /^#/ && !updated[tolower($1)] {print}' <(printf '%s\n' "$updates") <(printf '%s\n' "$existing"))"
   payload="$(printf '# Managed by keine\n%s\n%s\n' "$payload" "$updates")"
   if ! security_ssh_dropin_has_precedence "$SECURITY_SSH_MAIN"; then
-    main_payload="$(printf 'Include /etc/ssh/sshd_config.d/*.conf\n'; cat -- "$SECURITY_SSH_MAIN")"
+    main_previous="$(cat -- "$SECURITY_SSH_MAIN")"
+    main_payload="$(printf 'Include /etc/ssh/sshd_config.d/*.conf\n%s\n' "$main_previous")"
     config_file_write "$SECURITY_SSH_MAIN" 0644 "$main_payload" security_ssh_main_validate || return 1
     main_changed=1
   fi
   if ! config_file_write "$path" 0644 "$payload" security_ssh_apply_validate security_ssh_reload_only; then
     if (( main_changed == 1 && DRY_RUN == 0 )); then
-      config_file_restore "$SECURITY_SSH_MAIN" security_ssh_reload_only || warn "SSH 主配置恢复失败，记录已保留。"
+      config_file_write "$SECURITY_SSH_MAIN" 0644 "$main_previous" security_ssh_reload_only || warn "SSH 主配置恢复失败，记录已保留。"
     fi
     return 1
   fi
@@ -97,6 +103,7 @@ security_ssh_policy_menu() {
     mapfile -t rows < <(security_ssh_policy_rows)
     settings="$(security_ssh_context_values || true)"
     ui_page "SSH / 连接与转发策略"
+    ui_note "写入服务器级策略，影响所有适用账户；当前显示 $(security_ssh_user) 的有效值，Match 可能覆盖。"
     for index in "${!rows[@]}"; do
       IFS='|' read -r key label minimum maximum reference description <<<"${rows[$index]}"
       current="$(security_ssh_effective_values "$settings" "${key,,}")"

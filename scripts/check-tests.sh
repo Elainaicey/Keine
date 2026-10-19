@@ -17,11 +17,13 @@ if [[ "${1:-}" == --changed ]]; then
         name="${path#tests/test_}"; name="${name%.sh}"
         [[ ! -f "$path" ]] || selected+=("$name") ;;
       src/integrations/network-tuning.sh|src/integrations/network-tuning/*)
-        selected+=(tuning_strategies tuning_runtime native_recovery cli on_demand) ;;
+        selected+=(tuning_strategies tuning_runtime tuning_comparison native_recovery cli on_demand) ;;
+      src/core/firewall.sh|src/features/security/firewall.sh|src/features/security/firewall/*)
+        selected+=(firewall_detection native_firewall security security_policy cli) ;;
       src/features/recovery.sh)
         selected+=(native_recovery tuning_strategies tuning_runtime node_network web forwarding frp ssh_keys) ;;
       src/features/security/ssh*.sh|src/features/security/activity.sh|src/features/security/menu.sh|src/features/security.sh)
-        selected+=(security security_policy ssh_keys cli native_recovery uninstall on_demand) ;;
+        selected+=(security security_policy ssh_keys ssh_accounts ssh_key_options ssh_client cli native_recovery uninstall on_demand) ;;
       src/features/network/frp.sh|src/features/network/frp/*)
         selected+=(frp cli on_demand) ;;
       src/features/software/releases.sh|config/official-releases.tsv)

@@ -84,9 +84,11 @@ usage() {
   keine system                打开系统管理中心
   keine network               打开网络与端口中心
   keine security              打开安全中心
-  keine ssh                   打开 SSH 登录与公钥中心
-  keine ssh-keys              管理 root 公钥
-  keine ssh-check             按需诊断 SSH 登录
+  keine ssh [账户]            打开 SSH 登录与公钥中心
+  keine ssh-keys [账户]       管理指定账户公钥，默认 root
+  keine ssh-check [账户]      按需诊断指定账户 SSH 登录
+  keine ssh-client            管理本机 root 的 SSH 出站连接
+  keine ssh-connect 名称      前台连接已保存的 SSH 目标
   keine firewall              管理 UFW 或原生防火墙
   keine certificates          签发、部署、检查与手动续期证书
   keine tls HOST [PORT]       检查在线证书、身份与信任链
@@ -296,8 +298,17 @@ main() {
       platform_detect_identity
       security_menu
       ;;
+    ssh-client)
+      ((${#arguments[@]} == 0)) || die "ssh-client 不接受参数"
+      ssh_client_menu ;;
+    ssh-connect)
+      ((${#arguments[@]} == 1)) || die "ssh-connect 需要一个连接名称"
+      ssh_client_connect "${arguments[0]}" ;;
     ssh|ssh-keys|ssh-check)
-      ((${#arguments[@]} == 0)) || die "$command 不接受参数"
+      ((${#arguments[@]} <= 1)) || die "$command 只接受一个可选账户名"
+      # shellcheck disable=SC2034
+      SECURITY_SSH_USER="${arguments[0]:-root}"
+      security_ssh_account_record >/dev/null || die "账户不存在、名称不支持或已禁止交互登录"
       case "$command" in
         ssh) security_ssh_manage ;;
         ssh-keys) security_ssh_keys_menu ;;

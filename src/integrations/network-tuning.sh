@@ -5,5 +5,6 @@
 . "$ROOT_DIR/src/integrations/network-tuning/device.sh"
 . "$ROOT_DIR/src/integrations/network-tuning/runtime.sh"
 . "$ROOT_DIR/src/integrations/network-tuning/measure.sh"
+. "$ROOT_DIR/src/integrations/network-tuning/comparison.sh"
 . "$ROOT_DIR/src/integrations/network-tuning/advanced-menu.sh"
 . "$ROOT_DIR/src/integrations/network-tuning/menu.sh"

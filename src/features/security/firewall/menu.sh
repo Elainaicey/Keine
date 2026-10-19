@@ -24,6 +24,7 @@ security_firewall_manage() {
     ui_panel_kv "后端" "$(platform_firewall_label "$backend")" "$CYAN"
     [[ "$cloud" == unknown ]] || ui_panel_kv "云平台" "$cloud"
     ui_panel_kv "SSH 端口" "$(platform_ssh_ports | paste -sd ',')"
+    if platform_firewall_service_active fail2ban.service; then ui_panel_kv "封禁服务" "Fail2ban · 运行中"; fi
     ui_panel_end
     if [[ "$cloud" == oracle ]]; then ui_note "保留 Oracle Cloud 预置规则；云安全列表 / NSG 需另行放行。"; fi
     ui_section "规则管理" primary

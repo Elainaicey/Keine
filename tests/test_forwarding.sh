@@ -109,3 +109,6 @@ if forward_save >/dev/null 2>&1; then die 'Failed first start accepted'; fi
 forward_remove "$path" >/dev/null
 [[ ! -d "$(changes_file_entry "$path")" ]]
 printf 'PASS: forwarding validation, render, lifecycle, rollback and ownership\n'
+
+[[ "$(forward_endpoint_label '2001:db8::1' 443)" == '[2001:db8::1]:443' ]] || die 'IPv6 端点显示歧义'
+[[ "$(forward_endpoint_label '192.0.2.1' 80)" == '192.0.2.1:80' ]] || die 'IPv4 端点显示错误'

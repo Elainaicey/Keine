@@ -62,6 +62,7 @@ security_auth_activity() { captured="auth-activity:$1"; }
 security_ssh_manage() { captured=ssh; }
 security_ssh_keys_menu() { captured=ssh-keys; }
 security_ssh_login_diagnose() { captured=ssh-check; }
+security_ssh_account_record() { [[ "${SECURITY_SSH_USER:-root}" == root || "${SECURITY_SSH_USER:-root}" == azureuser ]]; }
 security_firewall_manage() { captured=firewall; }
 security_certificates_menu() { captured=certificates; }
 security_tls_inspect() { captured="tls:$1:$2"; }
@@ -73,6 +74,9 @@ main web
 for ssh_command in ssh ssh-keys ssh-check; do
   main "$ssh_command"
   [[ "$captured" == "$ssh_command" ]] || die "SSH 命令分发错误"
+  main "$ssh_command" azureuser
+  [[ "$captured" == "$ssh_command" && "$SECURITY_SSH_USER" == azureuser ]] || die "SSH 账户参数未传递"
+  if (main "$ssh_command" root extra >/dev/null 2>&1); then die "SSH 命令接受多余参数"; fi
   if (main "$ssh_command" unexpected >/dev/null 2>&1); then die "SSH 命令接受多余参数"; fi
 done
 main forward
@@ -254,3 +258,12 @@ navigation_home
 }
 
 printf 'PASS: cli\n'
+
+ssh_client_menu() { captured='ssh-client'; }
+ssh_client_connect() { captured="ssh-connect:$1"; }
+main ssh-client
+[[ "$captured" == ssh-client ]] || die 'SSH 出站菜单分发失败'
+main ssh-connect work-vps
+[[ "$captured" == ssh-connect:work-vps ]] || die 'SSH 出站连接分发失败'
+if (main ssh-connect >/dev/null 2>&1); then die '出站连接缺少名称未拒绝'; fi
+if (main ssh-client extra >/dev/null 2>&1); then die '出站菜单接受多余参数'; fi

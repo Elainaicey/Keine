@@ -19,6 +19,8 @@ require_root() { :; }
 audit() { :; }
 confirm() { return 0; }
 security_ssh_root_home() { printf '%s' "$key_test_root/root"; }
+getent() { [[ "$1" == passwd && "${2:-root}" == root ]] && printf 'root:x:0:0:root:%s/root:/bin/bash\n' "$key_test_root"; }
+chown() { if [[ "$1" == --reference=* ]]; then command chown "$@"; else :; fi; }
 umask 077
 mkdir "$key_test_root/root"
 ssh_test_settings=$'authorizedkeysfile .ssh/authorized_keys .ssh/authorized_keys2\npubkeyauthentication yes\nauthenticationmethods any'

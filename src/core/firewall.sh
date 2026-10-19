@@ -37,16 +37,70 @@ platform_ufw_preflight() {
   esac
 }
 
+# Recognize only nft's standard pretty-printed Fail2ban input chain. Unknown
+# chains, policies or rule shapes remain native; a table name alone proves nothing.
+platform_nft_input_kind() {
+  awk '
+    BEGIN { depth=0; native=0; auxiliary=0; in_chain=0 }
+    {
+      line=$0; sub(/^[[:space:]]+/,"",line); sub(/[[:space:]]+$/,"",line)
+      if (depth==0 && line ~ /^table /) {
+        f2b_table=(line ~ /^table (inet|ip|ip6) f2b-table \{$/)
+      }
+      if (depth==1 && line ~ /^chain /) {
+        in_chain=1; input=0; safe=1; header=0
+        candidate=(f2b_table && line=="chain f2b-chain {")
+      } else if (in_chain && depth==2 && line!="}") {
+        if (line ~ /hook[[:space:]]+input([[:space:];]|$)/) {
+          input=1; header++
+          if (line !~ /^type filter hook input priority (filter - 1|-1); policy accept;$/) safe=0
+        } else if (line!="") {
+          # Only terminal source-set bans; no jumps, accept, NAT or broad deny.
+          rule=line
+          sub(/^(tcp|udp|sctp) dport ([0-9]+(-[0-9]+)?|\{[0-9,[:space:]-]+\}) /,"",rule)
+          sub(/^meta l4proto (tcp|udp|sctp|\{[a-z,[:space:]]+\}) /,"",rule)
+          if (rule !~ /^(ip|ip6) saddr @(addr-set-|addr6-set-)[a-zA-Z0-9_-]+ (drop|reject( with (icmp|icmpv6|icmpx) (type )?[a-z-]+)?)$/) safe=0
+        }
+      }
+      # Strings/comments do not contribute structural braces.
+      braces=line; gsub(/"([^"\\]|\\.)*"/,"",braces); sub(/#.*/,"",braces)
+      opens=gsub(/\{/,"{",braces); closes=gsub(/\}/,"}",braces)
+      next_depth=depth+opens-closes
+      if (in_chain && next_depth==1) {
+        if (input) {
+          if (candidate && safe && header==1) auxiliary=1; else native=1
+        }
+        in_chain=0
+      }
+      if (!in_chain && line ~ /hook[[:space:]]+input/ && !(depth==2 && next_depth==1)) native=1
+      depth=next_depth
+    }
+    END {
+      if (depth!=0 || in_chain || native) print "native"
+      else if (auxiliary) print "fail2ban"
+      else print "none"
+    }'
+}
+
 platform_firewall_backend() {
-  if platform_firewall_active; then printf 'ufw'
-  elif platform_firewall_service_active firewalld.service; then printf 'firewalld'
-  elif platform_firewall_service_active nftables.service; then printf 'nftables'
-  elif package_installed netfilter-persistent; then printf 'iptables'
+  local rules kind
+  if platform_firewall_active; then printf 'ufw'; return
+  elif platform_firewall_service_active firewalld.service; then printf 'firewalld'; return
+  elif platform_firewall_service_active nftables.service; then printf 'nftables'; return
+  elif package_installed netfilter-persistent; then printf 'iptables'; return
   elif command_exists iptables && runtime_with_timeout 3 iptables -w 2 -S INPUT 2>/dev/null |
-    grep -E '^(-A INPUT |-P INPUT (DROP|REJECT))' >/dev/null; then printf 'iptables'
-  elif command_exists nft && runtime_with_timeout 3 nft list ruleset 2>/dev/null | grep 'hook input' >/dev/null; then printf 'nftables'
-  elif command_exists ufw; then printf 'ufw-inactive'
-  else printf 'unknown'; fi
+    grep -E '^(-A INPUT |-P INPUT (DROP|REJECT))' >/dev/null; then printf 'iptables'; return; fi
+  if command_exists nft; then
+    if ! rules="$(runtime_with_timeout 3 nft list ruleset 2>/dev/null)"; then
+      # A failed read must not become permission to enable a competing manager.
+      printf 'nftables'; return
+    fi
+    kind="$(platform_nft_input_kind <<<"$rules")"
+    if [[ "$kind" == native ]] || { [[ "$kind" == fail2ban ]] && ! platform_firewall_service_active fail2ban.service; }; then
+      printf 'nftables'; return
+    fi
+  fi
+  if command_exists ufw; then printf 'ufw-inactive'; else printf 'unknown'; fi
 }
 
 platform_firewall_label() {

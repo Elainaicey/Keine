@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+forward_endpoint_label() {
+  if [[ "$1" == *:* ]]; then printf '[%s]:%s' "$1" "$2"; else printf '%s:%s' "$1" "$2"; fi
+}
+
 declare -Ag FORWARD_RULE
 
 forward_edit() {
@@ -31,7 +35,7 @@ forward_edit() {
   FORWARD_RULE=([id]="$id" [protocol]="$protocol" [listen]="$listen" [port]="$((10#$port))"
     [target]="$target" [target_port]="$((10#$target_port))" [idle]="$idle" [active]="$active" [boot]="$boot")
   forward_values_valid || { warn "规则参数无效，请检查协议、IP 与端口。"; return 1; }
-  ui_kv "规则" "$protocol · $listen:$port → $target:$target_port"
+  ui_kv "规则" "$protocol · $(forward_endpoint_label "$listen" "$port") → $(forward_endpoint_label "$target" "$target_port")"
   ui_note "目标看到的是 VPS 出站地址；不自动放行防火墙。每条规则最多 128 个并发会话。"
   if [[ "$listen" == 0.0.0.0 || "$listen" == :: ]]; then ui_callout warn "监听全部地址" "公网放行后可被外部访问；请限制来源，不要暴露无认证服务。"; fi
   confirm "保存并应用转发规则？" || return 0
@@ -47,8 +51,8 @@ forward_detail() {
     systemctl is-enabled --quiet "${path##*/}" && boot=开启
     ui_panel_begin "规则"
     ui_panel_kv "协议" "${FORWARD_RULE[protocol]}"
-    ui_panel_kv "监听" "${FORWARD_RULE[listen]}:${FORWARD_RULE[port]}"
-    ui_panel_kv "目标" "${FORWARD_RULE[target]}:${FORWARD_RULE[target_port]}"
+    ui_panel_kv "监听" "$(forward_endpoint_label "${FORWARD_RULE[listen]}" "${FORWARD_RULE[port]}")"
+    ui_panel_kv "目标" "$(forward_endpoint_label "${FORWARD_RULE[target]}" "${FORWARD_RULE[target_port]}")"
     ui_panel_kv "运行" "$state"
     ui_panel_kv "开机启动" "$boot"
     [[ "${FORWARD_RULE[protocol]}" != udp ]] || ui_panel_kv "空闲回收" "${FORWARD_RULE[idle]} 秒"
@@ -99,7 +103,7 @@ forward_menu() {
     ui_section "转发规则" primary
     for ((index=start; index<start+6 && index<${#paths[@]}; index++)); do
       if forward_load "${paths[$index]}"; then
-        ui_action "$((index-start+1))" "${FORWARD_RULE[id]}" action "${FORWARD_RULE[protocol]} · ${FORWARD_RULE[port]} → ${FORWARD_RULE[target]}:${FORWARD_RULE[target_port]}"
+        ui_action "$((index-start+1))" "${FORWARD_RULE[id]}" action "${FORWARD_RULE[protocol]} · ${FORWARD_RULE[port]} → $(forward_endpoint_label "${FORWARD_RULE[target]}" "${FORWARD_RULE[target_port]}")"
       else ui_action "$((index-start+1))" "${paths[$index]##*/}" warning "配置需人工检查"; fi
     done
     (( ${#paths[@]} > 0 )) || ui_empty "尚无转发规则"
